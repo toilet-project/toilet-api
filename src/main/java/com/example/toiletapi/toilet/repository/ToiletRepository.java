@@ -3,6 +3,7 @@ package com.example.toiletapi.toilet.repository;
 import com.example.toiletapi.toilet.model.Toilet;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -25,4 +26,11 @@ public interface ToiletRepository extends JpaRepository<Toilet, Long> {
             BigDecimal westLng,
             BigDecimal eastLng
     );
+
+    /**
+     * 좌표가 등록된 화장실 한 건을 조회합니다.
+     *
+     * @return 좌표가 있는 화장실
+     */
+    Optional<Toilet> findFirstByLatitudeIsNotNullAndLongitudeIsNotNull();
 }
