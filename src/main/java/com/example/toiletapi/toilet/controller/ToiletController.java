@@ -1,5 +1,6 @@
 package com.example.toiletapi.toilet.controller;
 
+import com.example.toiletapi.global.response.ApiResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.service.ToiletService;
 import java.math.BigDecimal;
@@ -30,13 +31,13 @@ public class ToiletController {
      * @return 지도 마커용 화장실 목록
      */
     @GetMapping
-    public ToiletMapSearchResponse getToiletsInBounds(
+    public ApiResponse<ToiletMapSearchResponse> getToiletsInBounds(
             @RequestParam BigDecimal southLat,
             @RequestParam BigDecimal northLat,
             @RequestParam BigDecimal westLng,
             @RequestParam BigDecimal eastLng,
             @RequestParam(required = false) Integer zoom
     ) {
-        return toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom);
+        return ApiResponse.of(toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom));
     }
 }

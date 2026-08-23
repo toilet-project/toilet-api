@@ -41,12 +41,28 @@ class ToiletControllerTest {
                         .param("eastLng", "127.0300")
                         .param("zoom", "3"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.displayType").value("MARKER"))
-                .andExpect(jsonPath("$.markers[0].id").value(101))
-                .andExpect(jsonPath("$.markers[0].name").value("강남역 공중화장실"))
-                .andExpect(jsonPath("$.markers[0].latitude").value(37.4979))
-                .andExpect(jsonPath("$.markers[0].longitude").value(127.0276));
+                .andExpect(jsonPath("$.data.displayType").value("MARKER"))
+                .andExpect(jsonPath("$.data.markers[0].id").value(101))
+                .andExpect(jsonPath("$.data.markers[0].name").value("강남역 공중화장실"))
+                .andExpect(jsonPath("$.data.markers[0].latitude").value(37.4979))
+                .andExpect(jsonPath("$.data.markers[0].longitude").value(127.0276));
 
         verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldReturnStandardErrorResponseForInvalidRequest() throws Exception {
+        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any()))
+                .thenThrow(new IllegalArgumentException("카카오맵 레벨은 1부터 14 사이여야 합니다."));
+
+        mockMvc.perform(get("/api/v1/toilets")
+                        .param("southLat", "37.4900")
+                        .param("northLat", "37.5100")
+                        .param("westLng", "127.0100")
+                        .param("eastLng", "127.0300")
+                        .param("zoom", "15"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.error.message").value("카카오맵 레벨은 1부터 14 사이여야 합니다."));
     }
 }
