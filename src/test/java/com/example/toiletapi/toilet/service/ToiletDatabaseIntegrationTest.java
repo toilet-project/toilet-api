@@ -3,11 +3,10 @@ package com.example.toiletapi.toilet.service;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.example.toiletapi.toilet.dto.ToiletMapResponse;
+import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal;
-import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,14 +35,34 @@ class ToiletDatabaseIntegrationTest {
         Toilet existingToilet = toiletRepository.findFirstByLatitudeIsNotNullAndLongitudeIsNotNull()
                 .orElseThrow(() -> new IllegalStateException("좌표가 등록된 화장실 데이터가 없습니다."));
 
-        List<ToiletMapResponse> responses = toiletService.getToiletsInBounds(
+        ToiletMapSearchResponse response = toiletService.getToiletsInBounds(
                 existingToilet.getLatitude().subtract(BOUNDARY_OFFSET),
                 existingToilet.getLatitude().add(BOUNDARY_OFFSET),
                 existingToilet.getLongitude().subtract(BOUNDARY_OFFSET),
-                existingToilet.getLongitude().add(BOUNDARY_OFFSET)
+                existingToilet.getLongitude().add(BOUNDARY_OFFSET),
+                1
         );
 
-        assertFalse(responses.isEmpty());
-        assertTrue(responses.stream().anyMatch(response -> response.id().equals(existingToilet.getId())));
+        assertFalse(response.markers().isEmpty());
+        assertTrue(response.markers().stream()
+                .anyMatch(marker -> marker.id().equals(existingToilet.getId())));
+    }
+
+    @Test
+    void shouldReturnClustersForWideMapLevel() {
+        Toilet existingToilet = toiletRepository.findFirstByLatitudeIsNotNullAndLongitudeIsNotNull()
+                .orElseThrow(() -> new IllegalStateException("좌표가 등록된 화장실 데이터가 없습니다."));
+
+        ToiletMapSearchResponse response = toiletService.getToiletsInBounds(
+                existingToilet.getLatitude().subtract(BOUNDARY_OFFSET),
+                existingToilet.getLatitude().add(BOUNDARY_OFFSET),
+                existingToilet.getLongitude().subtract(BOUNDARY_OFFSET),
+                existingToilet.getLongitude().add(BOUNDARY_OFFSET),
+                10
+        );
+
+        assertTrue(response.markers().isEmpty());
+        assertFalse(response.clusters().isEmpty());
+        assertTrue(response.clusters().stream().allMatch(cluster -> cluster.count() > 0));
     }
 }

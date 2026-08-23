@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
+import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.service.ToiletService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -27,8 +28,11 @@ class ToiletControllerTest {
 
     @Test
     void shouldReturnToiletsWithinMapBounds() throws Exception {
-        when(toiletService.getToiletsInBounds(any(), any(), any(), any()))
-                .thenReturn(List.of(new ToiletMapResponse(101L, "강남역 공중화장실", 37.4979, 127.0276)));
+        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any()))
+                .thenReturn(ToiletMapSearchResponse.markers(
+                        3,
+                        List.of(new ToiletMapResponse(101L, "강남역 공중화장실", 37.4979, 127.0276))
+                ));
 
         mockMvc.perform(get("/api/v1/toilets")
                         .param("southLat", "37.4900")
@@ -37,11 +41,12 @@ class ToiletControllerTest {
                         .param("eastLng", "127.0300")
                         .param("zoom", "3"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(101))
-                .andExpect(jsonPath("$[0].name").value("강남역 공중화장실"))
-                .andExpect(jsonPath("$[0].latitude").value(37.4979))
-                .andExpect(jsonPath("$[0].longitude").value(127.0276));
+                .andExpect(jsonPath("$.displayType").value("MARKER"))
+                .andExpect(jsonPath("$.markers[0].id").value(101))
+                .andExpect(jsonPath("$.markers[0].name").value("강남역 공중화장실"))
+                .andExpect(jsonPath("$.markers[0].latitude").value(37.4979))
+                .andExpect(jsonPath("$.markers[0].longitude").value(127.0276));
 
-        verify(toiletService).getToiletsInBounds(any(), any(), any(), any());
+        verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any());
     }
 }
