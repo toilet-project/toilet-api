@@ -1,6 +1,7 @@
 package com.example.toiletapi.toilet.service;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
@@ -43,8 +44,8 @@ class ToiletDatabaseIntegrationTest {
                 1
         );
 
-        assertFalse(response.markers().isEmpty());
-        assertTrue(response.markers().stream()
+        assertFalse(response.toilets().isEmpty());
+        assertTrue(response.toilets().stream()
                 .anyMatch(marker -> marker.id().equals(existingToilet.getId())));
     }
 
@@ -61,7 +62,7 @@ class ToiletDatabaseIntegrationTest {
                 10
         );
 
-        assertTrue(response.markers().isEmpty());
+        assertNull(response.toilets());
         assertFalse(response.clusters().isEmpty());
         assertTrue(response.clusters().stream().allMatch(cluster -> cluster.count() > 0));
     }

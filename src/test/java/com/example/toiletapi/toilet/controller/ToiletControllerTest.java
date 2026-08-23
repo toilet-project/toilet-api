@@ -41,11 +41,15 @@ class ToiletControllerTest {
                         .param("eastLng", "127.0300")
                         .param("zoom", "3"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.displayType").value("MARKER"))
-                .andExpect(jsonPath("$.data.markers[0].id").value(101))
-                .andExpect(jsonPath("$.data.markers[0].name").value("강남역 공중화장실"))
-                .andExpect(jsonPath("$.data.markers[0].latitude").value(37.4979))
-                .andExpect(jsonPath("$.data.markers[0].longitude").value(127.0276));
+                .andExpect(jsonPath("$.meta.map_level").value(3))
+                .andExpect(jsonPath("$.meta.display_type").value("MARKER"))
+                .andExpect(jsonPath("$.meta.total_count").value(1))
+                .andExpect(jsonPath("$.meta.result_count").value(1))
+                .andExpect(jsonPath("$.toilets[0].id").value(101))
+                .andExpect(jsonPath("$.toilets[0].name").value("강남역 공중화장실"))
+                .andExpect(jsonPath("$.toilets[0].latitude").value(37.4979))
+                .andExpect(jsonPath("$.toilets[0].longitude").value(127.0276))
+                .andExpect(jsonPath("$.clusters").doesNotExist());
 
         verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any());
     }

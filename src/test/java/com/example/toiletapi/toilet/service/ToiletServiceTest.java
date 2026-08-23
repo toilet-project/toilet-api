@@ -34,7 +34,7 @@ class ToiletServiceTest {
                 southLat, northLat, westLng, eastLng
         )).thenReturn(List.of());
 
-        assertTrue(toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, 3).markers().isEmpty());
+        assertTrue(toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, 3).toilets().isEmpty());
 
         verify(toiletRepository).findByLatitudeBetweenAndLongitudeBetween(
                 southLat, northLat, westLng, eastLng
