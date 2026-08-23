@@ -71,9 +71,9 @@ jobs:
                 env_file:
                   - .env
                 ports:
-                  - "${{ secrets.API_PORT }}:${{ secrets.API_PORT }}"
+                  - "127.0.0.1:${{ secrets.API_PORT }}:${{ secrets.API_PORT }}"
             EOF
 
             docker compose pull
             docker compose up -d --remove-orphans
-            docker image prune -af --filter "until=24h"
+            docker image prune -f --filter "until=24h"
