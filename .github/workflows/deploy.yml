@@ -72,6 +72,12 @@ jobs:
                   - .env
                 ports:
                   - "127.0.0.1:${{ secrets.API_PORT }}:${{ secrets.API_PORT }}"
+                networks:
+                  - toilet-network
+
+            networks:
+              toilet-network:
+                external: true
             EOF
 
             docker compose pull
