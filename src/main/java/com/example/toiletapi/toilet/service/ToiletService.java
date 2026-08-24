@@ -1,8 +1,10 @@
 package com.example.toiletapi.toilet.service;
 
 import com.example.toiletapi.toilet.dto.ToiletClusterResponse;
+import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
+import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -66,6 +68,18 @@ public class ToiletService {
                 .toList();
 
         return ToiletMapSearchResponse.markers(mapLevel, markers);
+    }
+
+    /**
+     * 화장실 식별자로 상세 정보를 조회합니다.
+     *
+     * @param toiletId 화장실 식별자
+     * @return 화장실 상세 정보
+     */
+    public ToiletDetailResponse getToiletDetail(Long toiletId) {
+        return toiletRepository.findById(toiletId)
+                .map(ToiletDetailResponse::from)
+                .orElseThrow(() -> new ToiletNotFoundException(toiletId));
     }
 
     private void validateBounds(

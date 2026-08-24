@@ -1,8 +1,10 @@
 package com.example.toiletapi.toilet.controller;
 
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
+import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.service.ToiletService;
 import java.math.BigDecimal;
+import org.springframework.web.bind.annotation.PathVariable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,5 +40,16 @@ public class ToiletController {
             @RequestParam(required = false) Integer zoom
     ) {
         return toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom);
+    }
+
+    /**
+     * 특정 화장실의 상세 정보를 반환합니다.
+     *
+     * @param toiletId 화장실 식별자
+     * @return 화장실 상세 정보
+     */
+    @GetMapping("/{toiletId}")
+    public ToiletDetailResponse getToiletDetail(@PathVariable Long toiletId) {
+        return toiletService.getToiletDetail(toiletId);
     }
 }
