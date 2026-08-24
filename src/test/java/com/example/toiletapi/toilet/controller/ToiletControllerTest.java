@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.toiletapi.global.config.CorsConfig;
+import com.example.toiletapi.global.exception.ToiletNotFoundException;
+import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.service.ToiletService;
@@ -82,5 +84,38 @@ class ToiletControllerTest {
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", "https://geupddong.com"));
+    }
+
+    @Test
+    void shouldReturnToiletDetail() throws Exception {
+        when(toiletService.getToiletDetail(101L)).thenReturn(detailResponse());
+
+        mockMvc.perform(get("/api/v1/toilets/101"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(101))
+                .andExpect(jsonPath("$.name").value("강남역 공중화장실"))
+                .andExpect(jsonPath("$.maleToiletCount").value(3))
+                .andExpect(jsonPath("$.femaleToiletCount").value(6))
+                .andExpect(jsonPath("$.hasEmergencyBell").value("Y"));
+
+        verify(toiletService).getToiletDetail(101L);
+    }
+
+    @Test
+    void shouldReturnNotFoundForMissingToilet() throws Exception {
+        when(toiletService.getToiletDetail(999L)).thenThrow(new ToiletNotFoundException(999L));
+
+        mockMvc.perform(get("/api/v1/toilets/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("TOILET_NOT_FOUND"));
+    }
+
+    private ToiletDetailResponse detailResponse() {
+        return new ToiletDetailResponse(
+                101L, "강남역 공중화장실", "공중화장실", "서울특별시 강남구 강남대로 396", "서울특별시 강남구 역삼동 858",
+                3, 4, 1, 1, 0, 1, 6, 1, 1,
+                "강남구청", "02-3423-5900", "24시간", "연중무휴", "2018-05",
+                "Y", "화장실 내부", "Y", "Y", "여자화장실 입구", "2024-01-01", "PUBLIC_DATA"
+        );
     }
 }

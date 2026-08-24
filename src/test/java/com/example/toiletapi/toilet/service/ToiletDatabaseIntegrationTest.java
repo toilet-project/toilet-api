@@ -1,10 +1,12 @@
 package com.example.toiletapi.toilet.service;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
+import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal;
@@ -65,5 +67,18 @@ class ToiletDatabaseIntegrationTest {
         assertNull(response.toilets());
         assertFalse(response.clusters().isEmpty());
         assertTrue(response.clusters().stream().allMatch(cluster -> cluster.count() > 0));
+    }
+
+    @Test
+    void shouldReturnDetailFromActualDatabase() {
+        Toilet existingToilet = toiletRepository.findFirstByLatitudeIsNotNullAndLongitudeIsNotNull()
+                .orElseThrow(() -> new IllegalStateException("좌표가 등록된 화장실 데이터가 없습니다."));
+
+        ToiletDetailResponse response = toiletService.getToiletDetail(existingToilet.getId());
+
+        assertEquals(existingToilet.getId(), response.id());
+        assertEquals(existingToilet.getName(), response.name());
+        assertEquals(existingToilet.getToiletType(), response.toiletType());
+        assertEquals(existingToilet.getDataSource(), response.dataSource());
     }
 }
