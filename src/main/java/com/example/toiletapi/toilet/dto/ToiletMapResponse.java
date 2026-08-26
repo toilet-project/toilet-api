@@ -7,12 +7,14 @@ import com.example.toiletapi.toilet.model.Toilet;
  *
  * @param id 화장실 식별자
  * @param name 화장실 이름
+ * @param toiletType 화장실 구분
  * @param latitude 위도
  * @param longitude 경도
  */
 public record ToiletMapResponse(
         Long id,
         String name,
+        String toiletType,
         double latitude,
         double longitude
 ) {
@@ -27,6 +29,7 @@ public record ToiletMapResponse(
         return new ToiletMapResponse(
                 toilet.getId(),
                 toilet.getName(),
+                toilet.getToiletType(),
                 toilet.getLatitude().doubleValue(),
                 toilet.getLongitude().doubleValue()
         );
