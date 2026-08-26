@@ -40,12 +40,13 @@ public class ToiletService {
             BigDecimal northLat,
             BigDecimal westLng,
             BigDecimal eastLng,
-            Integer zoom
+            Integer zoom,
+            boolean includeList
     ) {
         int mapLevel = normalizeMapLevel(zoom);
         validateBounds(southLat, northLat, westLng, eastLng, mapLevel);
 
-        if (mapLevel >= CLUSTER_MIN_ZOOM_LEVEL) {
+        if (mapLevel >= CLUSTER_MIN_ZOOM_LEVEL && !includeList) {
             List<ToiletClusterResponse> clusters = toiletRepository.findClustersByBounds(
                             southLat,
                             northLat,

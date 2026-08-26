@@ -1,6 +1,7 @@
 package com.example.toiletapi.toilet.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -35,10 +36,10 @@ class ToiletControllerTest {
 
     @Test
     void shouldReturnToiletsWithinMapBounds() throws Exception {
-        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any()))
+        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean()))
                 .thenReturn(ToiletMapSearchResponse.markers(
                         3,
-                        List.of(new ToiletMapResponse(101L, "강남역 공중화장실", 37.4979, 127.0276))
+                        List.of(new ToiletMapResponse(101L, "강남역 공중화장실", "공중화장실", 37.4979, 127.0276))
                 ));
 
         mockMvc.perform(get("/api/v1/toilets")
@@ -54,16 +55,17 @@ class ToiletControllerTest {
                 .andExpect(jsonPath("$.meta.result_count").value(1))
                 .andExpect(jsonPath("$.toilets[0].id").value(101))
                 .andExpect(jsonPath("$.toilets[0].name").value("강남역 공중화장실"))
+                .andExpect(jsonPath("$.toilets[0].toiletType").value("공중화장실"))
                 .andExpect(jsonPath("$.toilets[0].latitude").value(37.4979))
                 .andExpect(jsonPath("$.toilets[0].longitude").value(127.0276))
                 .andExpect(jsonPath("$.clusters").doesNotExist());
 
-        verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any());
+        verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean());
     }
 
     @Test
     void shouldReturnStandardErrorResponseForInvalidRequest() throws Exception {
-        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any()))
+        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean()))
                 .thenThrow(new IllegalArgumentException("카카오맵 레벨은 1부터 14 사이여야 합니다."));
 
         mockMvc.perform(get("/api/v1/toilets")

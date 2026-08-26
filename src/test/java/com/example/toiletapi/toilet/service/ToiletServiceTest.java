@@ -39,7 +39,7 @@ class ToiletServiceTest {
                 southLat, northLat, westLng, eastLng
         )).thenReturn(List.of());
 
-        assertTrue(toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, 3).toilets().isEmpty());
+        assertTrue(toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, 3, false).toilets().isEmpty());
 
         verify(toiletRepository).findByLatitudeBetweenAndLongitudeBetween(
                 southLat, northLat, westLng, eastLng
@@ -55,7 +55,8 @@ class ToiletServiceTest {
                         new BigDecimal("37.4900"),
                         new BigDecimal("127.0100"),
                         new BigDecimal("127.0300"),
-                        3
+                        3,
+                        false
                 )
         );
 
