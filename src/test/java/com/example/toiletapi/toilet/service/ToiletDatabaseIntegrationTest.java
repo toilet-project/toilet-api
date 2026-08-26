@@ -43,7 +43,8 @@ class ToiletDatabaseIntegrationTest {
                 existingToilet.getLatitude().add(BOUNDARY_OFFSET),
                 existingToilet.getLongitude().subtract(BOUNDARY_OFFSET),
                 existingToilet.getLongitude().add(BOUNDARY_OFFSET),
-                1
+                1,
+                false
         );
 
         assertFalse(response.toilets().isEmpty());
@@ -61,7 +62,8 @@ class ToiletDatabaseIntegrationTest {
                 existingToilet.getLatitude().add(BOUNDARY_OFFSET),
                 existingToilet.getLongitude().subtract(BOUNDARY_OFFSET),
                 existingToilet.getLongitude().add(BOUNDARY_OFFSET),
-                10
+                10,
+                false
         );
 
         assertNull(response.toilets());
