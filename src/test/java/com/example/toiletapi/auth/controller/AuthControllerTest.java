@@ -6,9 +6,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 
 import com.example.toiletapi.auth.config.OAuthLoginSuccessHandler;
 import com.example.toiletapi.auth.config.SecurityConfig;
@@ -31,7 +33,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(value = AuthController.class, properties = {
+@WebMvcTest(value = {AuthController.class, OAuthLoginRedirectController.class}, properties = {
         "spring.security.oauth2.client.registration.google.client-id=test-google-client",
         "spring.security.oauth2.client.registration.google.client-secret=test-google-secret",
         "spring.security.oauth2.client.registration.kakao.client-id=test-kakao-client",
@@ -95,6 +97,13 @@ class AuthControllerTest {
                 .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.containsString("Max-Age=0")));
 
         verify(tokenService).revoke("active-refresh-token");
+    }
+
+    @Test
+    void shouldStartOAuthLoginWithAdminReturnTarget() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/login/google").param("returnTo", "admin"))
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl("/oauth2/authorization/google"));
     }
 
     private AuthTokenService.IssuedTokens tokens() {
