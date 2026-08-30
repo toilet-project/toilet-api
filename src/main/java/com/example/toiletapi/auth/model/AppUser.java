@@ -20,4 +20,12 @@ public class AppUser {
     @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;
     @PrePersist void onCreate() { var now = LocalDateTime.now(); createdAt = now; updatedAt = now; }
     @PreUpdate void onUpdate() { updatedAt = LocalDateTime.now(); }
+
+    public static AppUser create(String displayName, String email, boolean emailVerified) {
+        AppUser user = new AppUser();
+        user.displayName = displayName;
+        user.email = email;
+        user.emailVerified = emailVerified;
+        return user;
+    }
 }

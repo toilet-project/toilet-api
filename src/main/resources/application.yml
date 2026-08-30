@@ -1,5 +1,6 @@
 server:
   port: ${API_PORT}
+  forward-headers-strategy: framework
 
 spring:
   datasource:
@@ -9,7 +10,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -25,7 +26,41 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       timeout: 2s
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope: openid, profile, email
+            redirect-uri: https://api.geupddong.com/login/oauth2/code/google
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID:}
+            client-secret: ${KAKAO_CLIENT_SECRET:}
+            client-authentication-method: client_secret_post
+            authorization-grant-type: authorization_code
+            redirect-uri: https://api.geupddong.com/login/oauth2/code/kakao
+            scope: profile_nickname, account_email
+            client-name: Kakao
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
 
 kakao:
   api:
     key: ${KAKAO_REST_API_KEY}
+
+auth:
+  frontend-base-url: ${AUTH_FRONTEND_BASE_URL:https://geupddong.com}
+  jwt:
+    secret: ${JWT_SECRET:}
+    access-token-ttl: 15m
+    refresh-token-ttl: 14d
+  admin-bootstrap:
+    # OAuth 로그인 구현 시, 여기 등록된 "이메일 인증 완료" 계정에만 최초 ADMIN 역할을 부여한다.
+    # 값은 서버 환경변수 AUTH_ADMIN_BOOTSTRAP_EMAILS로만 주입한다.
+    emails: ${AUTH_ADMIN_BOOTSTRAP_EMAILS:}
