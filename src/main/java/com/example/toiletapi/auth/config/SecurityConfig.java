@@ -38,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/health", "/error").permitAll()
                         .requestMatchers("/api/v1/toilets/**").permitAll()
                         .requestMatchers("/api/v1/data-status").permitAll()
+                        .requestMatchers("/api/v1/auth/login/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
                         // access token이 만료된 뒤에도 HttpOnly refresh cookie로 재발급할 수 있어야 한다.
                         // 실제 인증은 AuthController가 refresh token 저장소 조회로 수행한다.
