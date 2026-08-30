@@ -34,6 +34,9 @@ public class Toilet {
     @Column(precision = 10, scale = 7)
     private BigDecimal longitude;
 
+    @Column(name = "coordinate_source", length = 30)
+    private String coordinateSource;
+
     @Column(name = "toilet_type", length = 20)
     private String toiletType;
 
@@ -105,4 +108,15 @@ public class Toilet {
 
     @Column(name = "data_source", length = 20)
     private String dataSource;
+
+    public void applyAdminConfirmedCoordinates(BigDecimal latitude, BigDecimal longitude, String roadAddress) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.roadAddress = roadAddress;
+        this.coordinateSource = "ADMIN_CONFIRMED";
+    }
+
+    public void applyReportedOpenTime(String openTime) {
+        this.openTime = openTime;
+    }
 }
