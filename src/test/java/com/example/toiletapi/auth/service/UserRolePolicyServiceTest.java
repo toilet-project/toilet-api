@@ -20,11 +20,12 @@ import org.mockito.Mockito;
 class UserRolePolicyServiceTest {
 
     private final UserRoleAssignmentRepository roleRepository = Mockito.mock(UserRoleAssignmentRepository.class);
+    private final AuditLogService auditLogService = Mockito.mock(AuditLogService.class);
 
     @Test
     void grantsUserAndAdminOnlyForVerifiedAllowListedEmail() throws Exception {
         UserRolePolicyService service = new UserRolePolicyService(
-                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"));
+                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"), auditLogService);
         AppUser user = persistedUser("admin@geupddong.com", true);
         when(roleRepository.findAllByUserId(1L)).thenReturn(List.of(
                 UserRoleAssignment.grant(1L, Role.USER, null),
@@ -36,12 +37,14 @@ class UserRolePolicyServiceTest {
         verify(roleRepository, org.mockito.Mockito.times(2)).save(captor.capture());
         assertThat(captor.getAllValues()).extracting(UserRoleAssignment::getRole)
                 .containsExactlyInAnyOrder(Role.USER, Role.ADMIN);
+        verify(auditLogService).recordRoleGranted(null, 1L, Role.USER);
+        verify(auditLogService).recordRoleGranted(null, 1L, Role.ADMIN);
     }
 
     @Test
     void grantsOnlyUserForUnverifiedEmail() throws Exception {
         UserRolePolicyService service = new UserRolePolicyService(
-                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"));
+                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"), auditLogService);
         AppUser user = persistedUser("admin@geupddong.com", false);
         when(roleRepository.findAllByUserId(1L)).thenReturn(List.of(UserRoleAssignment.grant(1L, Role.USER, null)));
 
@@ -54,7 +57,7 @@ class UserRolePolicyServiceTest {
     @Test
     void rejectsUserBeforePersistence() {
         UserRolePolicyService service = new UserRolePolicyService(
-                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"));
+                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"), auditLogService);
 
         assertThatThrownBy(() -> service.ensureInitialRoles(AppUser.create("운영자", "admin@geupddong.com", true)))
                 .isInstanceOf(IllegalArgumentException.class);
