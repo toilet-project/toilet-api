@@ -19,6 +19,12 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
     clean-disabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
 
 kakao:
   api:

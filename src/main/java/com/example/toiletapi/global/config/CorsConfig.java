@@ -18,7 +18,7 @@ public class CorsConfig implements WebMvcConfigurer {
                         "https://www.geupddong.com",
                         "http://localhost:5173"
                 )
-                .allowedMethods("GET")
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .maxAge(3600);
     }
