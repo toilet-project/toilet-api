@@ -17,13 +17,16 @@ public class UserRolePolicyService {
 
     private final UserRoleAssignmentRepository roleRepository;
     private final AdminBootstrapProperties adminBootstrapProperties;
+    private final AuditLogService auditLogService;
 
     public UserRolePolicyService(
             UserRoleAssignmentRepository roleRepository,
-            AdminBootstrapProperties adminBootstrapProperties
+            AdminBootstrapProperties adminBootstrapProperties,
+            AuditLogService auditLogService
     ) {
         this.roleRepository = roleRepository;
         this.adminBootstrapProperties = adminBootstrapProperties;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -54,6 +57,7 @@ public class UserRolePolicyService {
         UserRoleId id = new UserRoleId(userId, role);
         if (!roleRepository.existsById(id)) {
             roleRepository.save(UserRoleAssignment.grant(userId, role, null));
+            auditLogService.recordRoleGranted(null, userId, role);
         }
     }
 }
