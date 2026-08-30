@@ -1,6 +1,7 @@
 package com.example.toiletapi.auth.config;
 
 import com.example.toiletapi.auth.controller.AuthController;
+import com.example.toiletapi.auth.controller.OAuthLoginRedirectController;
 import com.example.toiletapi.auth.service.AuthTokenService;
 import com.example.toiletapi.auth.service.OAuthLoginService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,6 +27,10 @@ public class OAuthLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHand
         OAuth2AuthenticationToken oauth = (OAuth2AuthenticationToken) authentication;
         OAuthLoginService.LoginUser user = loginService.login(oauth.getAuthorizedClientRegistrationId(), oauth.getPrincipal());
         AuthController.writeCookies(response, tokenService.issue(user.userId(), user.roles()));
-        getRedirectStrategy().sendRedirect(request, response, frontendBaseUrl + "/?login=success");
+        Object returnUrl = request.getSession(false) == null ? null
+                : request.getSession(false).getAttribute(OAuthLoginRedirectController.RETURN_URL_SESSION_ATTRIBUTE);
+        if (request.getSession(false) != null) request.getSession(false).removeAttribute(OAuthLoginRedirectController.RETURN_URL_SESSION_ATTRIBUTE);
+        String targetUrl = returnUrl instanceof String value ? value : frontendBaseUrl + "/?login=success";
+        getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 }
