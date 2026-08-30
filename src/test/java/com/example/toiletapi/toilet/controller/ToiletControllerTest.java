@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.toiletapi.global.config.CorsConfig;
+import com.example.toiletapi.auth.config.SecurityConfig;
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
@@ -25,7 +26,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(ToiletController.class)
-@Import(CorsConfig.class)
+@Import({CorsConfig.class, SecurityConfig.class})
 class ToiletControllerTest {
 
     @Autowired
@@ -110,6 +111,13 @@ class ToiletControllerTest {
         mockMvc.perform(get("/api/v1/toilets/999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("TOILET_NOT_FOUND"));
+    }
+
+    @Test
+    void shouldRejectUnauthenticatedAdminRequest() throws Exception {
+        mockMvc.perform(get("/api/admin/monitoring"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("AUTHENTICATION_REQUIRED"));
     }
 
     private ToiletDetailResponse detailResponse() {
