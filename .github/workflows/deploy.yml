@@ -68,6 +68,7 @@ jobs:
             REDIS_PORT=6379
             REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
+            AUTH_ADMIN_BOOTSTRAP_EMAILS=${{ secrets.AUTH_ADMIN_BOOTSTRAP_EMAILS }}
             EOF
 
             cat <<EOF > compose.yaml
