@@ -19,11 +19,14 @@ import com.example.toiletapi.toilet.dto.ToiletMapResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.service.ToiletService;
 import java.util.List;
+import java.time.Instant;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -131,6 +134,17 @@ class ToiletControllerTest {
         mockMvc.perform(get("/api/admin/monitoring"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("AUTHENTICATION_REQUIRED"));
+    }
+
+    @Test
+    void shouldRejectUserRoleFromAdminRequest() throws Exception {
+        when(jwtDecoder.decode("user-access-token")).thenReturn(new Jwt(
+                "user-access-token", Instant.now(), Instant.now().plusSeconds(60),
+                Map.of("alg", "HS256"), Map.of("sub", "7", "roles", List.of("USER"))));
+
+        mockMvc.perform(get("/api/admin/monitoring").header("Authorization", "Bearer user-access-token"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
     }
 
     private ToiletDetailResponse detailResponse() {

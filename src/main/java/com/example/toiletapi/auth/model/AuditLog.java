@@ -18,4 +18,14 @@ public class AuditLog {
     @Column(name = "detail_json", columnDefinition = "json") private String detailJson;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @PrePersist void onCreate() { createdAt = LocalDateTime.now(); }
+
+    public static AuditLog record(Long actorUserId, AuditAction action, String targetType, Long targetId, String detailJson) {
+        AuditLog log = new AuditLog();
+        log.actorUserId = actorUserId;
+        log.action = action.name();
+        log.targetType = targetType;
+        log.targetId = targetId;
+        log.detailJson = detailJson;
+        return log;
+    }
 }
