@@ -11,6 +11,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 
 /**
  * 공개 지도 조회 API와 앞으로 추가될 인증·관리자 API의 접근 경계를 정의한다.
@@ -23,14 +25,14 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, OAuthLoginSuccessHandler oauthLoginSuccessHandler) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/health", "/error").permitAll()
                         .requestMatchers("/api/v1/toilets/**").permitAll()
@@ -38,6 +40,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**", "/api/reports/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
+                .oauth2Login(login -> login.successHandler(oauthLoginSuccessHandler))
+                .oauth2ResourceServer(resourceServer -> resourceServer
+                        .bearerTokenResolver(new CookieBearerTokenResolver())
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) ->
                                 writeError(response, HttpServletResponse.SC_UNAUTHORIZED,
@@ -47,6 +53,15 @@ public class SecurityConfig {
                                         "ACCESS_DENIED", "접근 권한이 없습니다."))
                 )
                 .build();
+    }
+
+    private JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
+        authorities.setAuthoritiesClaimName("roles");
+        authorities.setAuthorityPrefix("ROLE_");
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        return converter;
     }
 
     private void writeError(HttpServletResponse response, int status, String code, String message) throws IOException {

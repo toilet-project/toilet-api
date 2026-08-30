@@ -60,16 +60,45 @@ jobs:
             SPRING_DB_USERNAME=${{ secrets.SPRING_DB_USERNAME }}
             SPRING_DB_PASSWORD=${{ secrets.SPRING_DB_PASSWORD }}
             KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+            KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
+            KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
+            REDIS_HOST=redis
+            REDIS_PORT=6379
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
             EOF
 
             cat <<EOF > compose.yaml
             services:
+              redis:
+                image: redis:7.4-alpine
+                container_name: toilet-redis
+                restart: unless-stopped
+                command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
+                env_file:
+                  - .env
+                volumes:
+                  - redis-data:/data
+                networks:
+                  - toilet-network
+                healthcheck:
+                  test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+                  interval: 10s
+                  timeout: 3s
+                  retries: 5
+                  start_period: 10s
+
               api:
                 image: ${{ secrets.DOCKERHUB_USERNAME }}/toilet-api:latest
                 container_name: toilet-api
                 restart: unless-stopped
                 env_file:
                   - .env
+                depends_on:
+                  redis:
+                    condition: service_healthy
                 ports:
                   - "127.0.0.1:${{ secrets.API_PORT }}:${{ secrets.API_PORT }}"
                 networks:
@@ -78,6 +107,9 @@ jobs:
             networks:
               toilet-network:
                 external: true
+
+            volumes:
+              redis-data:
             EOF
 
             docker compose pull
