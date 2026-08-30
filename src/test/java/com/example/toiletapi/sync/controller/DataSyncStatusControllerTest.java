@@ -8,14 +8,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.toiletapi.sync.dto.DataSyncStatusResponse;
 import com.example.toiletapi.sync.service.DataSyncStatusService;
+import com.example.toiletapi.auth.config.OAuthLoginSuccessHandler;
+import com.example.toiletapi.auth.config.SecurityConfig;
+import com.example.toiletapi.global.config.CorsConfig;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(DataSyncStatusController.class)
+@WebMvcTest(value = DataSyncStatusController.class, properties = {
+        "spring.security.oauth2.client.registration.google.client-id=test-google-client",
+        "spring.security.oauth2.client.registration.google.client-secret=test-google-secret",
+        "spring.security.oauth2.client.registration.kakao.client-id=test-kakao-client",
+        "spring.security.oauth2.client.registration.kakao.client-secret=test-kakao-secret"
+})
+@Import({CorsConfig.class, SecurityConfig.class})
 class DataSyncStatusControllerTest {
 
     @Autowired
@@ -23,6 +34,12 @@ class DataSyncStatusControllerTest {
 
     @MockitoBean
     private DataSyncStatusService dataSyncStatusService;
+
+    @MockitoBean
+    private OAuthLoginSuccessHandler oauthLoginSuccessHandler;
+
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     @Test
     void returnsOnlyTheLatestPublicSyncStatus() throws Exception {
