@@ -20,4 +20,18 @@ public class UserSocialAccount {
     @Column(name = "linked_at", nullable = false, updatable = false) private LocalDateTime linkedAt;
     @Column(name = "last_login_at") private LocalDateTime lastLoginAt;
     @PrePersist void onCreate() { linkedAt = LocalDateTime.now(); }
+
+    public static UserSocialAccount link(
+            AppUser user,
+            SocialProvider provider,
+            String providerSubjectHash,
+            String providerEmail
+    ) {
+        UserSocialAccount account = new UserSocialAccount();
+        account.user = user;
+        account.provider = provider;
+        account.providerSubjectHash = providerSubjectHash;
+        account.providerEmail = providerEmail;
+        return account;
+    }
 }

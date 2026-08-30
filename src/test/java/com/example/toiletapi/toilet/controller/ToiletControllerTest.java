@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.toiletapi.global.config.CorsConfig;
 import com.example.toiletapi.auth.config.SecurityConfig;
+import com.example.toiletapi.auth.config.OAuthLoginSuccessHandler;
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
@@ -22,10 +23,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(ToiletController.class)
+@WebMvcTest(value = ToiletController.class, properties = {
+        "spring.security.oauth2.client.registration.google.client-id=test-google-client",
+        "spring.security.oauth2.client.registration.google.client-secret=test-google-secret",
+        "spring.security.oauth2.client.registration.kakao.client-id=test-kakao-client",
+        "spring.security.oauth2.client.registration.kakao.client-secret=test-kakao-secret"
+})
 @Import({CorsConfig.class, SecurityConfig.class})
 class ToiletControllerTest {
 
@@ -34,6 +41,12 @@ class ToiletControllerTest {
 
     @MockitoBean
     private ToiletService toiletService;
+
+    @MockitoBean
+    private OAuthLoginSuccessHandler oauthLoginSuccessHandler;
+
+    @MockitoBean
+    private JwtDecoder jwtDecoder;
 
     @Test
     void shouldReturnToiletsWithinMapBounds() throws Exception {
