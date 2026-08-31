@@ -30,4 +30,18 @@ class AuditLogServiceTest {
         assertThat(log.getDetailJson()).contains("위치 확인", "[REDACTED]")
                 .doesNotContain("raw-token", "user@example.com");
     }
+
+    @Test
+    void recordsRoleRevocationWithoutPersonalInformation() {
+        AuditLogRepository repository = Mockito.mock(AuditLogRepository.class);
+        AuditLogService service = new AuditLogService(repository, new ObjectMapper());
+
+        service.recordRoleRevoked(1L, 2L, com.example.toiletapi.auth.model.Role.ADMIN);
+
+        ArgumentCaptor<AuditLog> captor = ArgumentCaptor.forClass(AuditLog.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getAction()).isEqualTo("ROLE_REVOKED");
+        assertThat(captor.getValue().getTargetId()).isEqualTo(2L);
+        assertThat(captor.getValue().getDetailJson()).contains("ADMIN");
+    }
 }
