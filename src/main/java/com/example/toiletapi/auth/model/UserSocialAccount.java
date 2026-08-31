@@ -1,5 +1,6 @@
 package com.example.toiletapi.auth.model;
 
+import com.example.toiletapi.global.time.KoreanTime;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -19,7 +20,7 @@ public class UserSocialAccount {
     @Column(name = "provider_email", length = 255) private String providerEmail;
     @Column(name = "linked_at", nullable = false, updatable = false) private LocalDateTime linkedAt;
     @Column(name = "last_login_at") private LocalDateTime lastLoginAt;
-    @PrePersist void onCreate() { linkedAt = LocalDateTime.now(); }
+    @PrePersist void onCreate() { linkedAt = KoreanTime.now(); }
 
     public static UserSocialAccount link(
             AppUser user,
@@ -39,6 +40,6 @@ public class UserSocialAccount {
         if (providerEmail != null && !providerEmail.isBlank()) {
             this.providerEmail = providerEmail;
         }
-        this.lastLoginAt = LocalDateTime.now();
+        this.lastLoginAt = KoreanTime.now();
     }
 }

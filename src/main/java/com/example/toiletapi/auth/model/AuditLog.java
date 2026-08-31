@@ -1,5 +1,6 @@
 package com.example.toiletapi.auth.model;
 
+import com.example.toiletapi.global.time.KoreanTime;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -17,7 +18,7 @@ public class AuditLog {
     @Column(name = "target_id") private Long targetId;
     @Column(name = "detail_json", columnDefinition = "json") private String detailJson;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
-    @PrePersist void onCreate() { createdAt = LocalDateTime.now(); }
+    @PrePersist void onCreate() { createdAt = KoreanTime.now(); }
 
     public static AuditLog record(Long actorUserId, AuditAction action, String targetType, Long targetId, String detailJson) {
         AuditLog log = new AuditLog();

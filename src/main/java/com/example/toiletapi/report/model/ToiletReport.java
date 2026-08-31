@@ -1,5 +1,6 @@
 package com.example.toiletapi.report.model;
 
+import com.example.toiletapi.global.time.KoreanTime;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,8 +25,8 @@ public class ToiletReport {
     @Column(name = "review_note", length = 500) private String reviewNote;
     @Column(name = "created_at", updatable = false) private LocalDateTime createdAt;
     @Column(name = "updated_at") private LocalDateTime updatedAt;
-    @PrePersist void created() { var now = LocalDateTime.now(); createdAt = now; updatedAt = now; }
-    @PreUpdate void updated() { updatedAt = LocalDateTime.now(); }
+    @PrePersist void created() { var now = KoreanTime.now(); createdAt = now; updatedAt = now; }
+    @PreUpdate void updated() { updatedAt = KoreanTime.now(); }
     public static ToiletReport createCoordinateCorrection(Long toiletId, Long reporterUserId, BigDecimal latitude, BigDecimal longitude, String roadAddress, String reason, String activeKey) {
         ToiletReport report = new ToiletReport(); report.toiletId = toiletId; report.reporterUserId = reporterUserId;
         report.reportType = "COORDINATE_CORRECTION"; report.proposedLatitude = latitude; report.proposedLongitude = longitude;
@@ -40,6 +41,6 @@ public class ToiletReport {
     public void reject(Long adminId, String note) { review(adminId, note, ReportStatus.REJECTED); }
     private void review(Long adminId, String note, ReportStatus next) {
         if (status != ReportStatus.PENDING) throw new IllegalArgumentException("대기 중인 제보만 처리할 수 있습니다.");
-        status = next; reviewedByUserId = adminId; reviewedAt = LocalDateTime.now(); reviewNote = note; activeRequestKey = null;
+        status = next; reviewedByUserId = adminId; reviewedAt = KoreanTime.now(); reviewNote = note; activeRequestKey = null;
     }
 }

@@ -1,12 +1,12 @@
 package com.example.toiletapi.notification.service;
 
+import com.example.toiletapi.global.time.KoreanTime;
 import com.example.toiletapi.notification.dto.*;
 import com.example.toiletapi.notification.model.NotificationType;
 import com.example.toiletapi.notification.model.UserNotification;
 import com.example.toiletapi.notification.repository.UserNotificationRepository;
 import com.example.toiletapi.report.model.ReportStatus;
 import com.example.toiletapi.report.model.ToiletReport;
-import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -54,6 +54,6 @@ public class UserNotificationService {
 
     @Transactional
     public void markAllRead(Long userId) {
-        repository.markAllRead(userId, LocalDateTime.now());
+        repository.markAllRead(userId, KoreanTime.now());
     }
 }
