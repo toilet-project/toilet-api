@@ -12,6 +12,7 @@ import com.example.toiletapi.auth.model.AppUser;
 import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuditLogService;
 import com.example.toiletapi.report.dto.CreateToiletReportRequest;
+import com.example.toiletapi.report.dto.ToiletReportResponse;
 import com.example.toiletapi.report.model.ToiletReport;
 import com.example.toiletapi.report.repository.CoordinateRevisionRepository;
 import com.example.toiletapi.report.repository.ToiletReportRepository;
@@ -38,17 +39,19 @@ class ToiletReportServiceTest {
 
     @Test
     void shouldStoreCoordinateReportWithRoadAddress() {
-        when(toiletRepository.findById(10L)).thenReturn(Optional.of(mock(Toilet.class)));
+        Toilet toilet = mock(Toilet.class); when(toilet.getName()).thenReturn("시청 공중화장실");
+        when(toiletRepository.findById(10L)).thenReturn(Optional.of(toilet));
         when(userRepository.findById(3L)).thenReturn(Optional.of(mock(AppUser.class)));
         when(reportRepository.existsByActiveRequestKey(any())).thenReturn(false);
         when(reportRepository.save(any(ToiletReport.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.submit(3L, new CreateToiletReportRequest(10L, "COORDINATE_CORRECTION", new BigDecimal("36.3500000"), new BigDecimal("127.3800000"), "대전광역시 서구 둔산대로 100", null, "출입구 위치가 다릅니다."));
+        ToiletReportResponse response = service.submit(3L, new CreateToiletReportRequest(10L, "COORDINATE_CORRECTION", new BigDecimal("36.3500000"), new BigDecimal("127.3800000"), "대전광역시 서구 둔산대로 100", null, "출입구 위치가 다릅니다."));
 
         ArgumentCaptor<ToiletReport> captor = ArgumentCaptor.forClass(ToiletReport.class);
         verify(reportRepository).save(captor.capture());
         assertEquals("COORDINATE_CORRECTION", captor.getValue().getReportType());
         assertEquals("대전광역시 서구 둔산대로 100", captor.getValue().getProposedRoadAddress());
+        assertEquals("시청 공중화장실", response.toiletName());
     }
 
     @Test

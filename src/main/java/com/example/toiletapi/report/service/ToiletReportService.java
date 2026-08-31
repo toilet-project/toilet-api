@@ -16,17 +16,17 @@ public class ToiletReportService {
     private final ToiletReportRepository reportRepository; private final CoordinateRevisionRepository revisionRepository;
     private final ToiletRepository toiletRepository; private final AppUserRepository userRepository; private final AuditLogService auditLogService;
     public ToiletReportResponse submit(Long userId, CreateToiletReportRequest request) {
-        validateRequest(request); toiletRepository.findById(request.toiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
+        validateRequest(request); Toilet toilet = toiletRepository.findById(request.toiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
         userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
         String activeKey = hash(request.toiletId() + ":" + userId + ":" + request.reportType());
         if (reportRepository.existsByActiveRequestKey(activeKey)) throw new IllegalArgumentException("이미 처리 대기 중인 같은 유형의 제보가 있습니다.");
         ToiletReport report = "COORDINATE_CORRECTION".equals(request.reportType())
                 ? ToiletReport.createCoordinateCorrection(request.toiletId(), userId, request.latitude(), request.longitude(), request.roadAddress().trim(), request.reason().trim(), activeKey)
                 : ToiletReport.createOpenTimeCorrection(request.toiletId(), userId, request.openTime().trim(), request.reason().trim(), activeKey);
-        return ToiletReportResponse.from(reportRepository.save(report));
+        return response(reportRepository.save(report), toilet.getName());
     }
-    @Transactional(readOnly = true) public List<ToiletReportResponse> mine(Long userId) { return reportRepository.findByReporterUserIdOrderByCreatedAtDesc(userId).stream().map(ToiletReportResponse::from).toList(); }
-    @Transactional(readOnly = true) public List<ToiletReportResponse> pending() { return reportRepository.findByStatusOrderByCreatedAtAsc(ReportStatus.PENDING).stream().map(ToiletReportResponse::from).toList(); }
+    @Transactional(readOnly = true) public List<ToiletReportResponse> mine(Long userId) { return responses(reportRepository.findByReporterUserIdOrderByCreatedAtDesc(userId)); }
+    @Transactional(readOnly = true) public List<ToiletReportResponse> pending() { return responses(reportRepository.findByStatusOrderByCreatedAtAsc(ReportStatus.PENDING)); }
     public ToiletReportResponse approve(Long adminId, Long reportId, ReviewToiletReportRequest request) {
         ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
         Toilet toilet = toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
@@ -38,11 +38,13 @@ public class ToiletReportService {
             toilet.applyReportedOpenTime(report.getProposedOpenTime());
         } else throw new IllegalArgumentException("처리할 수 없는 제보 유형입니다.");
         report.approve(adminId, note(request));
-        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_APPROVED, Map.of("toiletId", report.getToiletId())); return ToiletReportResponse.from(report);
+        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_APPROVED, Map.of("toiletId", report.getToiletId())); return response(report, toilet.getName());
     }
     public ToiletReportResponse reject(Long adminId, Long reportId, ReviewToiletReportRequest request) {
-        ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다.")); report.reject(adminId, note(request));
-        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_REJECTED, Map.of("toiletId", report.getToiletId())); return ToiletReportResponse.from(report);
+        ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
+        Toilet toilet = toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
+        report.reject(adminId, note(request));
+        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_REJECTED, Map.of("toiletId", report.getToiletId())); return response(report, toilet.getName());
     }
     private void validateRequest(CreateToiletReportRequest request) {
         if (request == null || request.toiletId() == null || request.reportType() == null || request.reason() == null || request.reason().isBlank()) throw new IllegalArgumentException("화장실, 제보 유형, 제보 사유는 필수입니다.");
@@ -55,5 +57,11 @@ public class ToiletReportService {
         } else throw new IllegalArgumentException("지원하지 않는 제보 유형입니다.");
     }
     private String note(ReviewToiletReportRequest request) { return request == null || request.note() == null ? null : request.note().trim(); }
+    private List<ToiletReportResponse> responses(List<ToiletReport> reports) {
+        Map<Long, String> toiletNames = toiletRepository.findAllById(reports.stream().map(ToiletReport::getToiletId).toList()).stream()
+                .collect(java.util.stream.Collectors.toMap(Toilet::getId, Toilet::getName));
+        return reports.stream().map(report -> response(report, toiletNames.get(report.getToiletId()))).toList();
+    }
+    private ToiletReportResponse response(ToiletReport report, String toiletName) { return ToiletReportResponse.from(report, toiletName); }
     private String hash(String value) { try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); } catch (Exception exception) { throw new IllegalStateException(exception); } }
 }
