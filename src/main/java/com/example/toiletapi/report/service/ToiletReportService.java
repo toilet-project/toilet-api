@@ -3,6 +3,7 @@ package com.example.toiletapi.report.service;
 import com.example.toiletapi.auth.model.AuditAction;
 import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuditLogService;
+import com.example.toiletapi.notification.service.UserNotificationService;
 import com.example.toiletapi.report.dto.*;
 import com.example.toiletapi.report.model.*;
 import com.example.toiletapi.report.repository.*;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.Page; import org.springframework.data.dom
 public class ToiletReportService {
     private final ToiletReportRepository reportRepository; private final CoordinateRevisionRepository revisionRepository;
     private final ToiletRepository toiletRepository; private final AppUserRepository userRepository; private final AuditLogService auditLogService;
+    private final UserNotificationService notificationService;
     public ToiletReportResponse submit(Long userId, CreateToiletReportRequest request) {
         validateRequest(request); Toilet toilet = toiletRepository.findById(request.toiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
         userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
@@ -73,13 +75,17 @@ public class ToiletReportService {
         report.approve(adminId, note(request));
         Map<String, Object> auditDetails = new HashMap<>(); auditDetails.put("toiletId", report.getToiletId());
         if ("COORDINATE_CORRECTION".equals(report.getReportType())) auditDetails.put("coordinateAdjustedByAdmin", hasCoordinateOverride(request));
-        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_APPROVED, auditDetails); return response(report, toilet.getName());
+        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_APPROVED, auditDetails);
+        notificationService.createReportDecision(report, toilet.getName());
+        return response(report, toilet.getName());
     }
     public ToiletReportResponse reject(Long adminId, Long reportId, ReviewToiletReportRequest request) {
         ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
         Toilet toilet = toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
         report.reject(adminId, note(request));
-        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_REJECTED, Map.of("toiletId", report.getToiletId())); return response(report, toilet.getName());
+        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_REJECTED, Map.of("toiletId", report.getToiletId()));
+        notificationService.createReportDecision(report, toilet.getName());
+        return response(report, toilet.getName());
     }
     private void validateRequest(CreateToiletReportRequest request) {
         if (request == null || request.toiletId() == null || request.reportType() == null || request.reason() == null || request.reason().isBlank()) throw new IllegalArgumentException("화장실, 제보 유형, 제보 사유는 필수입니다.");
