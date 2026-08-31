@@ -32,13 +32,20 @@ public class ToiletReportService {
         Toilet toilet = toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
         if ("COORDINATE_CORRECTION".equals(report.getReportType())) {
             BigDecimal previousLatitude = toilet.getLatitude(), previousLongitude = toilet.getLongitude(); String previousRoadAddress = toilet.getRoadAddress();
-            toilet.applyAdminConfirmedCoordinates(report.getProposedLatitude(), report.getProposedLongitude(), report.getProposedRoadAddress());
-            revisionRepository.save(CoordinateRevision.create(report, previousLatitude, previousLongitude, previousRoadAddress, adminId));
+            BigDecimal appliedLatitude = confirmedLatitude(request, report);
+            BigDecimal appliedLongitude = confirmedLongitude(request, report);
+            String appliedRoadAddress = confirmedRoadAddress(request, report);
+            validateConfirmedCoordinates(appliedLatitude, appliedLongitude, appliedRoadAddress);
+            toilet.applyAdminConfirmedCoordinates(appliedLatitude, appliedLongitude, appliedRoadAddress);
+            revisionRepository.save(CoordinateRevision.create(report, previousLatitude, previousLongitude, previousRoadAddress,
+                    appliedLatitude, appliedLongitude, appliedRoadAddress, adminId));
         } else if ("OPEN_TIME_CORRECTION".equals(report.getReportType())) {
             toilet.applyReportedOpenTime(report.getProposedOpenTime());
         } else throw new IllegalArgumentException("처리할 수 없는 제보 유형입니다.");
         report.approve(adminId, note(request));
-        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_APPROVED, Map.of("toiletId", report.getToiletId())); return response(report, toilet.getName());
+        Map<String, Object> auditDetails = new HashMap<>(); auditDetails.put("toiletId", report.getToiletId());
+        if ("COORDINATE_CORRECTION".equals(report.getReportType())) auditDetails.put("coordinateAdjustedByAdmin", hasCoordinateOverride(request));
+        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_APPROVED, auditDetails); return response(report, toilet.getName());
     }
     public ToiletReportResponse reject(Long adminId, Long reportId, ReviewToiletReportRequest request) {
         ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
@@ -57,6 +64,17 @@ public class ToiletReportService {
         } else throw new IllegalArgumentException("지원하지 않는 제보 유형입니다.");
     }
     private String note(ReviewToiletReportRequest request) { return request == null || request.note() == null ? null : request.note().trim(); }
+    private BigDecimal confirmedLatitude(ReviewToiletReportRequest request, ToiletReport report) { return request != null && request.confirmedLatitude() != null ? request.confirmedLatitude() : report.getProposedLatitude(); }
+    private BigDecimal confirmedLongitude(ReviewToiletReportRequest request, ToiletReport report) { return request != null && request.confirmedLongitude() != null ? request.confirmedLongitude() : report.getProposedLongitude(); }
+    private String confirmedRoadAddress(ReviewToiletReportRequest request, ToiletReport report) { return request != null && request.confirmedRoadAddress() != null && !request.confirmedRoadAddress().isBlank() ? request.confirmedRoadAddress().trim() : report.getProposedRoadAddress(); }
+    private boolean hasCoordinateOverride(ReviewToiletReportRequest request) { return request != null && (request.confirmedLatitude() != null || request.confirmedLongitude() != null || (request.confirmedRoadAddress() != null && !request.confirmedRoadAddress().isBlank())); }
+    private void validateConfirmedCoordinates(BigDecimal latitude, BigDecimal longitude, String roadAddress) {
+        if (latitude == null || longitude == null || roadAddress == null || roadAddress.isBlank() || roadAddress.length() > 255
+                || latitude.compareTo(BigDecimal.valueOf(-90)) < 0 || latitude.compareTo(BigDecimal.valueOf(90)) > 0
+                || longitude.compareTo(BigDecimal.valueOf(-180)) < 0 || longitude.compareTo(BigDecimal.valueOf(180)) > 0) {
+            throw new IllegalArgumentException("관리자 확정 위치 정보가 올바르지 않습니다.");
+        }
+    }
     private List<ToiletReportResponse> responses(List<ToiletReport> reports) {
         Map<Long, String> toiletNames = toiletRepository.findAllById(reports.stream().map(ToiletReport::getToiletId).toList()).stream()
                 .collect(java.util.stream.Collectors.toMap(Toilet::getId, Toilet::getName));

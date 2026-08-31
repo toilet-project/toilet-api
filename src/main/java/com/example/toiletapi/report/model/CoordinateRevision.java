@@ -20,11 +20,12 @@ public class CoordinateRevision {
     @Column(name = "applied_by_user_id", nullable = false) private Long appliedByUserId;
     @Column(name = "applied_at", nullable = false) private LocalDateTime appliedAt;
     @Column(nullable = false, length = 30) private String source;
-    public static CoordinateRevision create(ToiletReport report, BigDecimal previousLatitude, BigDecimal previousLongitude, String previousRoadAddress, Long adminId) {
+    public static CoordinateRevision create(ToiletReport report, BigDecimal previousLatitude, BigDecimal previousLongitude, String previousRoadAddress,
+                                            BigDecimal appliedLatitude, BigDecimal appliedLongitude, String appliedRoadAddress, Long adminId) {
         CoordinateRevision revision = new CoordinateRevision(); revision.toiletId = report.getToiletId(); revision.reportId = report.getId();
         revision.previousLatitude = previousLatitude; revision.previousLongitude = previousLongitude;
-        revision.appliedLatitude = report.getProposedLatitude(); revision.appliedLongitude = report.getProposedLongitude();
-        revision.previousRoadAddress = previousRoadAddress; revision.appliedRoadAddress = report.getProposedRoadAddress();
+        revision.appliedLatitude = appliedLatitude; revision.appliedLongitude = appliedLongitude;
+        revision.previousRoadAddress = previousRoadAddress; revision.appliedRoadAddress = appliedRoadAddress;
         revision.appliedByUserId = adminId; revision.appliedAt = LocalDateTime.now(); revision.source = "USER_REPORT_APPROVED"; return revision;
     }
 }
