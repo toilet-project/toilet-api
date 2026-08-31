@@ -81,6 +81,8 @@ class ToiletDatabaseIntegrationTest {
         assertEquals(existingToilet.getId(), response.id());
         assertEquals(existingToilet.getName(), response.name());
         assertEquals(existingToilet.getToiletType(), response.toiletType());
+        assertEquals(existingToilet.getLatitude(), response.latitude());
+        assertEquals(existingToilet.getLongitude(), response.longitude());
         assertEquals(existingToilet.getDataSource(), response.dataSource());
     }
 }

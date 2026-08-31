@@ -1,6 +1,7 @@
 package com.example.toiletapi.toilet.dto;
 
 import com.example.toiletapi.toilet.model.Toilet;
+import java.math.BigDecimal;
 
 /**
  * 화장실 상세 정보를 표현합니다.
@@ -11,6 +12,8 @@ public record ToiletDetailResponse(
         String toiletType,
         String roadAddress,
         String jibunAddress,
+        BigDecimal latitude,
+        BigDecimal longitude,
         Integer maleToiletCount,
         Integer maleUrinalCount,
         Integer maleDisabledToiletCount,
@@ -47,6 +50,8 @@ public record ToiletDetailResponse(
                 toilet.getToiletType(),
                 toilet.getRoadAddress(),
                 toilet.getJibunAddress(),
+                toilet.getLatitude(),
+                toilet.getLongitude(),
                 toilet.getMaleToiletCount(),
                 toilet.getMaleUrinalCount(),
                 toilet.getMaleDisabledToiletCount(),
