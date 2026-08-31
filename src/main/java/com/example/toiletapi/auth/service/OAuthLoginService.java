@@ -34,6 +34,9 @@ public class OAuthLoginService {
         UserSocialAccount socialAccount = socialAccountRepository
                 .findByProviderAndProviderSubjectHash(profile.provider(), sha256(profile.subject()))
                 .orElseGet(() -> link(profile));
+        socialAccount.getUser().refreshOAuthProfile(
+                profile.displayName(), profile.email(), profile.emailVerified());
+        socialAccount.recordLogin(profile.email());
         List<Role> roles = List.copyOf(rolePolicyService.ensureInitialRoles(socialAccount.getUser()));
         return new LoginUser(socialAccount.getUser().getId(), roles);
     }
