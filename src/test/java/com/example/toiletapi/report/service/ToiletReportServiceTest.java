@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.example.toiletapi.auth.model.AppUser;
 import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuditLogService;
+import com.example.toiletapi.notification.service.UserNotificationService;
 import com.example.toiletapi.report.dto.CreateToiletReportRequest;
 import com.example.toiletapi.report.dto.ReviewToiletReportRequest;
 import com.example.toiletapi.report.dto.ToiletReportDashboardResponse;
@@ -44,6 +45,7 @@ class ToiletReportServiceTest {
     @Mock private ToiletRepository toiletRepository;
     @Mock private AppUserRepository userRepository;
     @Mock private AuditLogService auditLogService;
+    @Mock private UserNotificationService notificationService;
     @InjectMocks private ToiletReportService service;
 
     @Test
@@ -98,6 +100,7 @@ class ToiletReportServiceTest {
         verify(toilet).applyAdminConfirmedCoordinates(new BigDecimal("36.3510000"), new BigDecimal("127.3810000"), "관리자 보정 주소");
         assertEquals(new BigDecimal("36.3500000"), report.getProposedLatitude());
         verify(revisionRepository).save(any());
+        verify(notificationService).createReportDecision(report, "시청 공중화장실");
     }
 
     @Test
