@@ -90,6 +90,11 @@ jobs:
                   timeout: 3s
                   retries: 5
                   start_period: 10s
+                logging:
+                  driver: json-file
+                  options:
+                    max-size: "10m"
+                    max-file: "5"
 
               api:
                 image: ${{ secrets.DOCKERHUB_USERNAME }}/toilet-api:latest
@@ -104,6 +109,11 @@ jobs:
                   - "127.0.0.1:${{ secrets.API_PORT }}:${{ secrets.API_PORT }}"
                 networks:
                   - toilet-network
+                logging:
+                  driver: json-file
+                  options:
+                    max-size: "10m"
+                    max-file: "5"
 
             networks:
               toilet-network:

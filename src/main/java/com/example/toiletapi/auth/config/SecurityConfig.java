@@ -35,7 +35,7 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/health", "/error").permitAll()
+                        .requestMatchers("/api/health", "/actuator/health", "/error").permitAll()
                         .requestMatchers("/api/v1/toilets/**").permitAll()
                         .requestMatchers("/api/v1/data-status").permitAll()
                         .requestMatchers("/api/v1/auth/login/**").permitAll()

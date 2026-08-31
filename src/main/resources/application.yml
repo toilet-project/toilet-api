@@ -11,7 +11,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -64,3 +64,20 @@ auth:
     # OAuth 로그인 구현 시, 여기 등록된 "이메일 인증 완료" 계정에만 최초 ADMIN 역할을 부여한다.
     # 값은 서버 환경변수 AUTH_ADMIN_BOOTSTRAP_EMAILS로만 주입한다.
     emails: ${AUTH_ADMIN_BOOTSTRAP_EMAILS:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    tags:
+      application: toilet-api
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s
