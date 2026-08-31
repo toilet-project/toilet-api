@@ -25,6 +25,9 @@ public class Toilet {
     @Column(name = "toilet_id")
     private Long id;
 
+    @Column(name = "mng_no", length = 50)
+    private String managementNumber;
+
     @Column(length = 100)
     private String name;
 

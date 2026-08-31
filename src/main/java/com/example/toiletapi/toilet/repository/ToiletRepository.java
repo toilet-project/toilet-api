@@ -7,11 +7,17 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 
 /**
  * 화장실 데이터 조회를 담당합니다.
  */
 public interface ToiletRepository extends JpaRepository<Toilet, Long> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select toilet from Toilet toilet where toilet.id = :id")
+    Optional<Toilet> findByIdForUpdate(@Param("id") Long id);
 
     /**
      * 지정한 위도·경도 사각형 안에 있는 화장실을 조회합니다.
