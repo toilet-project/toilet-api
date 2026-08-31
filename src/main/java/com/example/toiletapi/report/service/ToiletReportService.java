@@ -10,6 +10,7 @@ import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal; import java.nio.charset.StandardCharsets; import java.security.MessageDigest; import java.util.*;
 import lombok.RequiredArgsConstructor; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page; import org.springframework.data.domain.PageRequest; import org.springframework.data.domain.Pageable;
 
 @Service @RequiredArgsConstructor @Transactional
 public class ToiletReportService {
@@ -27,6 +28,22 @@ public class ToiletReportService {
     }
     @Transactional(readOnly = true) public List<ToiletReportResponse> mine(Long userId) { return responses(reportRepository.findByReporterUserIdOrderByCreatedAtDesc(userId)); }
     @Transactional(readOnly = true) public List<ToiletReportResponse> pending() { return responses(reportRepository.findByStatusOrderByCreatedAtAsc(ReportStatus.PENDING)); }
+    @Transactional(readOnly = true) public ToiletReportDashboardResponse pendingDashboard() {
+        List<ToiletReport> recentReports = reportRepository.findTop5ByStatusOrderByCreatedAtAsc(ReportStatus.PENDING);
+        return new ToiletReportDashboardResponse(reportRepository.countByStatus(ReportStatus.PENDING), listItems(recentReports));
+    }
+    @Transactional(readOnly = true) public ToiletReportPageResponse pendingPage(String keyword, int page, int size) {
+        int safePage = Math.max(page, 0); int safeSize = Math.min(Math.max(size, 1), 100);
+        Pageable pageable = PageRequest.of(safePage, safeSize);
+        Page<ToiletReport> reports = reportRepository.findPendingByToiletName(ReportStatus.PENDING, keyword == null ? "" : keyword.trim(), pageable);
+        Map<Long, String> toiletNames = toiletNames(reports.getContent());
+        return ToiletReportPageResponse.from(reports.map(report -> ToiletReportListItem.from(report, toiletNames.get(report.getToiletId()))));
+    }
+    @Transactional(readOnly = true) public ToiletReportDetailResponse pendingDetail(Long reportId) {
+        ToiletReport report = reportRepository.findById(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
+        Toilet toilet = toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
+        return ToiletReportDetailResponse.from(response(report, toilet.getName()), toilet);
+    }
     public ToiletReportResponse approve(Long adminId, Long reportId, ReviewToiletReportRequest request) {
         ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
         Toilet toilet = toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
@@ -76,9 +93,16 @@ public class ToiletReportService {
         }
     }
     private List<ToiletReportResponse> responses(List<ToiletReport> reports) {
-        Map<Long, String> toiletNames = toiletRepository.findAllById(reports.stream().map(ToiletReport::getToiletId).toList()).stream()
-                .collect(java.util.stream.Collectors.toMap(Toilet::getId, Toilet::getName));
+        Map<Long, String> toiletNames = toiletNames(reports);
         return reports.stream().map(report -> response(report, toiletNames.get(report.getToiletId()))).toList();
+    }
+    private List<ToiletReportListItem> listItems(List<ToiletReport> reports) {
+        Map<Long, String> toiletNames = toiletNames(reports);
+        return reports.stream().map(report -> ToiletReportListItem.from(report, toiletNames.get(report.getToiletId()))).toList();
+    }
+    private Map<Long, String> toiletNames(List<ToiletReport> reports) {
+        return toiletRepository.findAllById(reports.stream().map(ToiletReport::getToiletId).distinct().toList()).stream()
+                .collect(java.util.stream.Collectors.toMap(Toilet::getId, Toilet::getName));
     }
     private ToiletReportResponse response(ToiletReport report, String toiletName) { return ToiletReportResponse.from(report, toiletName); }
     private String hash(String value) { try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); } catch (Exception exception) { throw new IllegalStateException(exception); } }
