@@ -28,6 +28,11 @@ public class AuditLogService {
     }
 
     @Transactional
+    public void recordRoleRevoked(Long actorUserId, Long targetUserId, Role role) {
+        record(actorUserId, AuditAction.ROLE_REVOKED, "USER", targetUserId, Map.of("role", role.name()));
+    }
+
+    @Transactional
     public void recordReportDecision(Long actorUserId, Long reportId, AuditAction action, Map<String, ?> details) {
         if (action != AuditAction.REPORT_APPROVED && action != AuditAction.REPORT_REJECTED) {
             throw new IllegalArgumentException("제보 감사 로그에는 승인 또는 반려 이벤트만 기록할 수 있습니다.");
