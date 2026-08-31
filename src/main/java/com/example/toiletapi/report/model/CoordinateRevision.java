@@ -10,7 +10,7 @@ import lombok.*;
 public class CoordinateRevision {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "coordinate_revision_id") private Long id;
     @Column(name = "toilet_id", nullable = false) private Long toiletId;
-    @Column(name = "report_id", nullable = false) private Long reportId;
+    @Column(name = "report_id") private Long reportId;
     @Column(name = "previous_latitude", precision = 10, scale = 7) private BigDecimal previousLatitude;
     @Column(name = "previous_longitude", precision = 10, scale = 7) private BigDecimal previousLongitude;
     @Column(name = "applied_latitude", nullable = false, precision = 10, scale = 7) private BigDecimal appliedLatitude;
@@ -27,5 +27,22 @@ public class CoordinateRevision {
         revision.appliedLatitude = appliedLatitude; revision.appliedLongitude = appliedLongitude;
         revision.previousRoadAddress = previousRoadAddress; revision.appliedRoadAddress = appliedRoadAddress;
         revision.appliedByUserId = adminId; revision.appliedAt = LocalDateTime.now(); revision.source = "USER_REPORT_APPROVED"; return revision;
+    }
+
+    public static CoordinateRevision createAdminDirect(Long toiletId, BigDecimal previousLatitude, BigDecimal previousLongitude,
+                                                       String previousRoadAddress, BigDecimal appliedLatitude,
+                                                       BigDecimal appliedLongitude, String appliedRoadAddress, Long adminId) {
+        CoordinateRevision revision = new CoordinateRevision();
+        revision.toiletId = toiletId;
+        revision.previousLatitude = previousLatitude;
+        revision.previousLongitude = previousLongitude;
+        revision.previousRoadAddress = previousRoadAddress;
+        revision.appliedLatitude = appliedLatitude;
+        revision.appliedLongitude = appliedLongitude;
+        revision.appliedRoadAddress = appliedRoadAddress;
+        revision.appliedByUserId = adminId;
+        revision.appliedAt = LocalDateTime.now();
+        revision.source = "ADMIN_DIRECT";
+        return revision;
     }
 }
