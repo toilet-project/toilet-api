@@ -34,4 +34,11 @@ public class UserSocialAccount {
         account.providerEmail = providerEmail;
         return account;
     }
+
+    public void recordLogin(String providerEmail) {
+        if (providerEmail != null && !providerEmail.isBlank()) {
+            this.providerEmail = providerEmail;
+        }
+        this.lastLoginAt = LocalDateTime.now();
+    }
 }

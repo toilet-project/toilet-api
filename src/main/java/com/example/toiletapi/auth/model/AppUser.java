@@ -28,4 +28,16 @@ public class AppUser {
         user.emailVerified = emailVerified;
         return user;
     }
+
+    /** Refreshes provider-owned profile fields before authorization policies are evaluated. */
+    public void refreshOAuthProfile(String displayName, String email, boolean emailVerified) {
+        if (displayName != null && !displayName.isBlank()) {
+            this.displayName = displayName;
+        }
+        if (email != null && !email.isBlank()) {
+            this.email = email;
+            this.emailVerified = emailVerified;
+        }
+        this.lastLoginAt = LocalDateTime.now();
+    }
 }
