@@ -70,6 +70,8 @@ class ToiletServiceTest {
         when(toilet.getName()).thenReturn("강남역 공중화장실");
         when(toilet.getToiletType()).thenReturn("공중화장실");
         when(toilet.getRoadAddress()).thenReturn("서울특별시 강남구 강남대로 396");
+        when(toilet.getLatitude()).thenReturn(new java.math.BigDecimal("37.4979"));
+        when(toilet.getLongitude()).thenReturn(new java.math.BigDecimal("127.0276"));
         when(toilet.getMaleToiletCount()).thenReturn(3);
         when(toilet.getFemaleToiletCount()).thenReturn(6);
         when(toilet.getOpenTime()).thenReturn("24시간");
@@ -83,6 +85,8 @@ class ToiletServiceTest {
         assertEquals("강남역 공중화장실", response.name());
         assertEquals("공중화장실", response.toiletType());
         assertEquals("서울특별시 강남구 강남대로 396", response.roadAddress());
+        assertEquals(new java.math.BigDecimal("37.4979"), response.latitude());
+        assertEquals(new java.math.BigDecimal("127.0276"), response.longitude());
         assertEquals(3, response.maleToiletCount());
         assertEquals(6, response.femaleToiletCount());
         assertEquals("24시간", response.openTime());
