@@ -11,4 +11,5 @@ public interface UserRoleAssignmentRepository extends JpaRepository<UserRoleAssi
     List<UserRoleAssignment> findAllByUserId(Long userId);
     List<UserRoleAssignment> findAllByUserIdIn(Collection<Long> userIds);
     long countByRole(Role role);
+    void deleteAllByUserId(Long userId);
 }

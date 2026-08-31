@@ -3,6 +3,7 @@ package com.example.toiletapi.global.exception;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.example.toiletapi.policy.service.PolicyConsentRequiredException;
 
 /**
  * 공통 API 예외 응답을 처리합니다.
@@ -34,5 +35,17 @@ public class GlobalExceptionHandler {
         ApiErrorResponse response = ApiErrorResponse.of("TOILET_NOT_FOUND", exception.getMessage());
 
         return ResponseEntity.status(404).body(response);
+    }
+
+    @ExceptionHandler(PolicyConsentRequiredException.class)
+    public ResponseEntity<ApiErrorResponse> handlePolicyConsentRequired(PolicyConsentRequiredException exception) {
+        return ResponseEntity.status(403)
+                .body(ApiErrorResponse.of("POLICY_CONSENT_REQUIRED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalState(IllegalStateException exception) {
+        return ResponseEntity.status(403)
+                .body(ApiErrorResponse.of("ACCOUNT_NOT_AVAILABLE", exception.getMessage()));
     }
 }
