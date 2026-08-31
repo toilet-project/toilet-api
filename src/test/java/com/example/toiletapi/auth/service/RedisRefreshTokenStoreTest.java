@@ -12,6 +12,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.SetOperations;
 
 class RedisRefreshTokenStoreTest {
 
@@ -20,7 +21,10 @@ class RedisRefreshTokenStoreTest {
         StringRedisTemplate redisTemplate = mock(StringRedisTemplate.class);
         @SuppressWarnings("unchecked")
         ValueOperations<String, String> operations = mock(ValueOperations.class);
+        @SuppressWarnings("unchecked")
+        SetOperations<String, String> setOperations = mock(SetOperations.class);
         when(redisTemplate.opsForValue()).thenReturn(operations);
+        when(redisTemplate.opsForSet()).thenReturn(setOperations);
         RedisRefreshTokenStore store = new RedisRefreshTokenStore(redisTemplate);
 
         store.save(42L, "raw-refresh-token", Duration.ofDays(14));
@@ -29,6 +33,9 @@ class RedisRefreshTokenStoreTest {
                 org.mockito.ArgumentMatchers.argThat(key -> key.startsWith("auth:refresh-token:")
                         && !key.contains("raw-refresh-token")),
                 eq("42"), eq(Duration.ofDays(14)));
+        verify(setOperations).add(
+                eq("auth:refresh-user:42"),
+                any(String[].class));
     }
 
     @Test

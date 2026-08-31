@@ -14,18 +14,21 @@ import java.util.Map;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.toiletapi.policy.service.PolicyConsentService;
 
 @Service
 public class OAuthLoginService {
     private final AppUserRepository userRepository;
     private final UserSocialAccountRepository socialAccountRepository;
     private final UserRolePolicyService rolePolicyService;
+    private final PolicyConsentService policyConsentService;
 
     public OAuthLoginService(AppUserRepository userRepository, UserSocialAccountRepository socialAccountRepository,
-                             UserRolePolicyService rolePolicyService) {
+                             UserRolePolicyService rolePolicyService, PolicyConsentService policyConsentService) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
         this.rolePolicyService = rolePolicyService;
+        this.policyConsentService = policyConsentService;
     }
 
     @Transactional
@@ -38,7 +41,8 @@ public class OAuthLoginService {
                 profile.displayName(), profile.email(), profile.emailVerified());
         socialAccount.recordLogin(profile.email());
         List<Role> roles = List.copyOf(rolePolicyService.ensureInitialRoles(socialAccount.getUser()));
-        return new LoginUser(socialAccount.getUser().getId(), roles);
+        return new LoginUser(socialAccount.getUser().getId(), roles,
+                policyConsentService.status(socialAccount.getUser().getId()).consentRequired());
     }
 
     private UserSocialAccount link(Profile profile) {
@@ -74,5 +78,5 @@ public class OAuthLoginService {
         }
     }
 
-    public record LoginUser(Long userId, List<Role> roles) { }
+    public record LoginUser(Long userId, List<Role> roles, boolean consentRequired) { }
 }

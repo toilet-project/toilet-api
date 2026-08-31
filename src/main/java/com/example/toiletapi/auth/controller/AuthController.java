@@ -6,6 +6,9 @@ import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuthTokenService;
 import com.example.toiletapi.auth.service.RefreshTokenStore;
 import com.example.toiletapi.auth.service.UserRolePolicyService;
+import com.example.toiletapi.auth.service.AccountService;
+import com.example.toiletapi.auth.model.UserStatus;
+import com.example.toiletapi.policy.service.PolicyConsentService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
@@ -14,6 +17,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,13 +31,18 @@ public class AuthController {
     private final AuthTokenService tokenService;
     private final AppUserRepository userRepository;
     private final UserRolePolicyService rolePolicyService;
+    private final PolicyConsentService policyConsentService;
+    private final AccountService accountService;
 
     public AuthController(RefreshTokenStore refreshTokenStore, AuthTokenService tokenService,
-                          AppUserRepository userRepository, UserRolePolicyService rolePolicyService) {
+                          AppUserRepository userRepository, UserRolePolicyService rolePolicyService,
+                          PolicyConsentService policyConsentService, AccountService accountService) {
         this.refreshTokenStore = refreshTokenStore;
         this.tokenService = tokenService;
         this.userRepository = userRepository;
         this.rolePolicyService = rolePolicyService;
+        this.policyConsentService = policyConsentService;
+        this.accountService = accountService;
     }
 
     @PostMapping("/refresh")
@@ -42,7 +51,9 @@ public class AuthController {
         Long userId = refreshToken == null ? null : refreshTokenStore.findUserId(refreshToken).orElse(null);
         if (userId == null) return ResponseEntity.status(401).build();
         AppUser user = userRepository.findById(userId).orElse(null);
-        if (user == null) return ResponseEntity.status(401).build();
+        if (user == null || user.getStatus() == UserStatus.SUSPENDED || user.getStatus() == UserStatus.WITHDRAWN) {
+            return ResponseEntity.status(401).build();
+        }
         tokenService.revoke(refreshToken);
         writeCookies(response, tokenService.issue(userId, List.copyOf(rolePolicyService.rolesOf(userId))));
         return ResponseEntity.noContent().build();
@@ -50,7 +61,19 @@ public class AuthController {
 
     @GetMapping("/me")
     public AuthProfileResponse me(@AuthenticationPrincipal Jwt jwt) {
-        return new AuthProfileResponse(jwt.getSubject(), jwt.getClaimAsStringList("roles"));
+        Long userId = Long.valueOf(jwt.getSubject());
+        AppUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        return new AuthProfileResponse(jwt.getSubject(), user.getDisplayName(), user.getEmail(), user.getStatus(),
+                jwt.getClaimAsStringList("roles"), policyConsentService.status(userId).consentRequired());
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Jwt jwt, HttpServletResponse response) {
+        accountService.withdraw(Long.valueOf(jwt.getSubject()));
+        expire(response, "geupddong_access", "/");
+        expire(response, REFRESH_COOKIE, "/api/v1/auth");
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/logout")
@@ -77,5 +100,6 @@ public class AuthController {
         return null;
     }
 
-    public record AuthProfileResponse(String userId, List<String> roles) { }
+    public record AuthProfileResponse(String userId, String displayName, String email, UserStatus status,
+                                      List<String> roles, boolean consentRequired) { }
 }
