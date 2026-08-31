@@ -1,5 +1,6 @@
 package com.example.toiletapi.report.model;
 
+import com.example.toiletapi.global.time.KoreanTime;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -26,7 +27,7 @@ public class CoordinateRevision {
         revision.previousLatitude = previousLatitude; revision.previousLongitude = previousLongitude;
         revision.appliedLatitude = appliedLatitude; revision.appliedLongitude = appliedLongitude;
         revision.previousRoadAddress = previousRoadAddress; revision.appliedRoadAddress = appliedRoadAddress;
-        revision.appliedByUserId = adminId; revision.appliedAt = LocalDateTime.now(); revision.source = "USER_REPORT_APPROVED"; return revision;
+        revision.appliedByUserId = adminId; revision.appliedAt = KoreanTime.now(); revision.source = "USER_REPORT_APPROVED"; return revision;
     }
 
     public static CoordinateRevision createAdminDirect(Long toiletId, BigDecimal previousLatitude, BigDecimal previousLongitude,
@@ -41,7 +42,7 @@ public class CoordinateRevision {
         revision.appliedLongitude = appliedLongitude;
         revision.appliedRoadAddress = appliedRoadAddress;
         revision.appliedByUserId = adminId;
-        revision.appliedAt = LocalDateTime.now();
+        revision.appliedAt = KoreanTime.now();
         revision.source = "ADMIN_DIRECT";
         return revision;
     }

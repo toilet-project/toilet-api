@@ -1,5 +1,6 @@
 package com.example.toiletapi.notification.model;
 
+import com.example.toiletapi.global.time.KoreanTime;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -43,7 +44,7 @@ public class UserNotification {
 
     @PrePersist
     void created() {
-        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (createdAt == null) createdAt = KoreanTime.now();
     }
 
     public static UserNotification reportDecision(Long userId, Long reportId, NotificationType type, String toiletName) {
@@ -63,6 +64,6 @@ public class UserNotification {
     }
 
     public void markRead() {
-        if (readAt == null) readAt = LocalDateTime.now();
+        if (readAt == null) readAt = KoreanTime.now();
     }
 }
