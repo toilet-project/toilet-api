@@ -28,5 +28,25 @@ public interface ToiletReportRepository extends JpaRepository<ToiletReport, Long
             )
             """)
     Page<ToiletReport> findPendingByToiletName(@Param("status") ReportStatus status, @Param("keyword") String keyword, Pageable pageable);
+    @Query(value = """
+            select r from ToiletReport r where (:status is null or r.status = :status)
+              and (:from is null or r.createdAt >= :from)
+              and (:to is null or r.createdAt < :to)
+              and (:keyword = '' or exists (
+                select t.id from Toilet t where t.id = r.toiletId
+                and lower(t.name) like lower(concat('%', :keyword, '%'))
+              ))
+            """, countQuery = """
+            select count(r) from ToiletReport r where (:status is null or r.status = :status)
+              and (:from is null or r.createdAt >= :from)
+              and (:to is null or r.createdAt < :to)
+              and (:keyword = '' or exists (
+                select t.id from Toilet t where t.id = r.toiletId
+                and lower(t.name) like lower(concat('%', :keyword, '%'))
+              ))
+            """)
+    Page<ToiletReport> findByFilters(@Param("status") ReportStatus status, @Param("keyword") String keyword,
+                                     @Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to,
+                                     Pageable pageable);
     @Lock(LockModeType.PESSIMISTIC_WRITE) @Query("select r from ToiletReport r where r.id = :id") Optional<ToiletReport> findByIdForUpdate(Long id);
 }

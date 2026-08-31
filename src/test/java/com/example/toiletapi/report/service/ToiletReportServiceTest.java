@@ -24,6 +24,7 @@ import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -129,9 +130,24 @@ class ToiletReportServiceTest {
         assertEquals(1, response.items().size());
     }
 
+    @Test
+    void shouldFilterReportPageByStatusAndReceivedDate() {
+        ToiletReport report = report(12L, 10L, "OPEN_TIME_CORRECTION");
+        Toilet toilet = mock(Toilet.class); when(toilet.getId()).thenReturn(10L); when(toilet.getName()).thenReturn("시청 공중화장실");
+        when(reportRepository.findByFilters(org.mockito.ArgumentMatchers.eq(ReportStatus.REJECTED), org.mockito.ArgumentMatchers.eq("시청"),
+                org.mockito.ArgumentMatchers.eq(LocalDateTime.of(2026, 8, 1, 0, 0)), org.mockito.ArgumentMatchers.eq(LocalDateTime.of(2026, 9, 1, 0, 0)), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(report), org.springframework.data.domain.PageRequest.of(0, 20), 1));
+        when(toiletRepository.findAllById(any())).thenReturn(List.of(toilet));
+
+        ToiletReportPageResponse response = service.searchPage(ReportStatus.REJECTED, "시청", LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), "NEWEST", 0, 20);
+
+        assertEquals(1L, response.totalElements());
+        assertEquals("REJECTED", response.items().getFirst().status());
+    }
+
     private ToiletReport report(Long id, Long toiletId, String type) {
         ToiletReport report = mock(ToiletReport.class);
-        when(report.getId()).thenReturn(id); when(report.getToiletId()).thenReturn(toiletId); when(report.getReportType()).thenReturn(type);
+        when(report.getId()).thenReturn(id); when(report.getToiletId()).thenReturn(toiletId); when(report.getReportType()).thenReturn(type); when(report.getStatus()).thenReturn(ReportStatus.REJECTED);
         when(report.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 8, 31, 2, 0));
         return report;
     }
