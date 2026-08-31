@@ -1,5 +1,6 @@
 package com.example.toiletapi.quality.model;
 
+import com.example.toiletapi.global.time.KoreanTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -53,6 +54,6 @@ public class CoordinateQualityReview {
         this.status = status;
         this.reviewNote = reviewNote;
         this.reviewedByUserId = adminId;
-        this.reviewedAt = LocalDateTime.now();
+        this.reviewedAt = KoreanTime.now();
     }
 }

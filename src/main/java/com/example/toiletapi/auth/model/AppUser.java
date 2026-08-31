@@ -1,5 +1,6 @@
 package com.example.toiletapi.auth.model;
 
+import com.example.toiletapi.global.time.KoreanTime;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -18,8 +19,8 @@ public class AppUser {
     @Column(name = "last_login_at") private LocalDateTime lastLoginAt;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;
-    @PrePersist void onCreate() { var now = LocalDateTime.now(); createdAt = now; updatedAt = now; }
-    @PreUpdate void onUpdate() { updatedAt = LocalDateTime.now(); }
+    @PrePersist void onCreate() { var now = KoreanTime.now(); createdAt = now; updatedAt = now; }
+    @PreUpdate void onUpdate() { updatedAt = KoreanTime.now(); }
 
     public static AppUser create(String displayName, String email, boolean emailVerified) {
         AppUser user = new AppUser();
@@ -38,6 +39,6 @@ public class AppUser {
             this.email = email;
             this.emailVerified = emailVerified;
         }
-        this.lastLoginAt = LocalDateTime.now();
+        this.lastLoginAt = KoreanTime.now();
     }
 }
