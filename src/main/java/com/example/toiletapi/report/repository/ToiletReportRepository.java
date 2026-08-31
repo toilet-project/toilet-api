@@ -7,6 +7,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.*;
 import jakarta.persistence.LockModeType;
 public interface ToiletReportRepository extends JpaRepository<ToiletReport, Long> {
+    List<ToiletReport> findByToiletIdInAndStatusAndReportTypeOrderByCreatedAtAsc(
+            Collection<Long> toiletIds, ReportStatus status, String reportType);
     boolean existsByActiveRequestKey(String activeRequestKey);
     List<ToiletReport> findByReporterUserIdOrderByCreatedAtDesc(Long reporterUserId);
     List<ToiletReport> findByStatusOrderByCreatedAtAsc(ReportStatus status);
