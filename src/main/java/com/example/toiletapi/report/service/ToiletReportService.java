@@ -8,9 +8,9 @@ import com.example.toiletapi.report.model.*;
 import com.example.toiletapi.report.repository.*;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
-import java.math.BigDecimal; import java.nio.charset.StandardCharsets; import java.security.MessageDigest; import java.util.*;
+import java.math.BigDecimal; import java.nio.charset.StandardCharsets; import java.security.MessageDigest; import java.time.LocalDate; import java.time.LocalDateTime; import java.util.*;
 import lombok.RequiredArgsConstructor; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Page; import org.springframework.data.domain.PageRequest; import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page; import org.springframework.data.domain.PageRequest; import org.springframework.data.domain.Pageable; import org.springframework.data.domain.Sort;
 
 @Service @RequiredArgsConstructor @Transactional
 public class ToiletReportService {
@@ -36,6 +36,17 @@ public class ToiletReportService {
         int safePage = Math.max(page, 0); int safeSize = Math.min(Math.max(size, 1), 100);
         Pageable pageable = PageRequest.of(safePage, safeSize);
         Page<ToiletReport> reports = reportRepository.findPendingByToiletName(ReportStatus.PENDING, keyword == null ? "" : keyword.trim(), pageable);
+        Map<Long, String> toiletNames = toiletNames(reports.getContent());
+        return ToiletReportPageResponse.from(reports.map(report -> ToiletReportListItem.from(report, toiletNames.get(report.getToiletId()))));
+    }
+    @Transactional(readOnly = true) public ToiletReportPageResponse searchPage(ReportStatus status, String keyword, LocalDate from, LocalDate to, String sort, int page, int size) {
+        if (from != null && to != null && from.isAfter(to)) throw new IllegalArgumentException("조회 시작일은 종료일보다 늦을 수 없습니다.");
+        int safePage = Math.max(page, 0); int safeSize = Math.min(Math.max(size, 1), 100);
+        Sort.Direction direction = "NEWEST".equalsIgnoreCase(sort) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(direction, "createdAt"));
+        LocalDateTime fromAt = from == null ? null : from.atStartOfDay();
+        LocalDateTime toAt = to == null ? null : to.plusDays(1).atStartOfDay();
+        Page<ToiletReport> reports = reportRepository.findByFilters(status, keyword == null ? "" : keyword.trim(), fromAt, toAt, pageable);
         Map<Long, String> toiletNames = toiletNames(reports.getContent());
         return ToiletReportPageResponse.from(reports.map(report -> ToiletReportListItem.from(report, toiletNames.get(report.getToiletId()))));
     }
