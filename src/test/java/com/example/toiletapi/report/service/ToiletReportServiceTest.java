@@ -12,6 +12,7 @@ import com.example.toiletapi.auth.model.AppUser;
 import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuditLogService;
 import com.example.toiletapi.report.dto.CreateToiletReportRequest;
+import com.example.toiletapi.report.dto.ReviewToiletReportRequest;
 import com.example.toiletapi.report.dto.ToiletReportResponse;
 import com.example.toiletapi.report.model.ToiletReport;
 import com.example.toiletapi.report.repository.CoordinateRevisionRepository;
@@ -75,5 +76,19 @@ class ToiletReportServiceTest {
                 new CreateToiletReportRequest(10L, "COORDINATE_CORRECTION", new BigDecimal("36.3500000"), new BigDecimal("127.3800000"), "", null, "주소가 없습니다.")));
 
         verifyNoInteractions(toiletRepository, userRepository, reportRepository);
+    }
+
+    @Test
+    void shouldApplyAdministratorAdjustedCoordinateWithoutChangingOriginalReport() {
+        ToiletReport report = ToiletReport.createCoordinateCorrection(10L, 3L, new BigDecimal("36.3500000"), new BigDecimal("127.3800000"), "제보 주소", "사유", "key");
+        Toilet toilet = mock(Toilet.class); when(toilet.getLatitude()).thenReturn(new BigDecimal("36.3400000")); when(toilet.getLongitude()).thenReturn(new BigDecimal("127.3700000"));
+        when(toilet.getRoadAddress()).thenReturn("기존 주소"); when(toilet.getName()).thenReturn("시청 공중화장실");
+        when(reportRepository.findByIdForUpdate(12L)).thenReturn(Optional.of(report)); when(toiletRepository.findById(10L)).thenReturn(Optional.of(toilet));
+
+        service.approve(9L, 12L, new ReviewToiletReportRequest("현장 확인", new BigDecimal("36.3510000"), new BigDecimal("127.3810000"), "관리자 보정 주소"));
+
+        verify(toilet).applyAdminConfirmedCoordinates(new BigDecimal("36.3510000"), new BigDecimal("127.3810000"), "관리자 보정 주소");
+        assertEquals(new BigDecimal("36.3500000"), report.getProposedLatitude());
+        verify(revisionRepository).save(any());
     }
 }
