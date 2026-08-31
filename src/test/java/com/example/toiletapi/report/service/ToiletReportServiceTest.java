@@ -13,13 +13,18 @@ import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuditLogService;
 import com.example.toiletapi.report.dto.CreateToiletReportRequest;
 import com.example.toiletapi.report.dto.ReviewToiletReportRequest;
+import com.example.toiletapi.report.dto.ToiletReportDashboardResponse;
+import com.example.toiletapi.report.dto.ToiletReportPageResponse;
 import com.example.toiletapi.report.dto.ToiletReportResponse;
 import com.example.toiletapi.report.model.ToiletReport;
+import com.example.toiletapi.report.model.ReportStatus;
 import com.example.toiletapi.report.repository.CoordinateRevisionRepository;
 import com.example.toiletapi.report.repository.ToiletReportRepository;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +32,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class ToiletReportServiceTest {
@@ -90,5 +97,42 @@ class ToiletReportServiceTest {
         verify(toilet).applyAdminConfirmedCoordinates(new BigDecimal("36.3510000"), new BigDecimal("127.3810000"), "관리자 보정 주소");
         assertEquals(new BigDecimal("36.3500000"), report.getProposedLatitude());
         verify(revisionRepository).save(any());
+    }
+
+    @Test
+    void shouldReturnOnlyRecentPendingReportsForDashboard() {
+        ToiletReport report = report(12L, 10L, "COORDINATE_CORRECTION");
+        Toilet toilet = mock(Toilet.class); when(toilet.getId()).thenReturn(10L); when(toilet.getName()).thenReturn("시청 공중화장실");
+        when(reportRepository.findTop5ByStatusOrderByCreatedAtAsc(ReportStatus.PENDING)).thenReturn(List.of(report));
+        when(reportRepository.countByStatus(ReportStatus.PENDING)).thenReturn(8L);
+        when(toiletRepository.findAllById(any())).thenReturn(List.of(toilet));
+
+        ToiletReportDashboardResponse response = service.pendingDashboard();
+
+        assertEquals(8L, response.pendingCount());
+        assertEquals(1, response.recentReports().size());
+        assertEquals("시청 공중화장실", response.recentReports().getFirst().toiletName());
+    }
+
+    @Test
+    void shouldReturnPendingReportsAsPageInsteadOfFullList() {
+        ToiletReport report = report(12L, 10L, "OPEN_TIME_CORRECTION");
+        Toilet toilet = mock(Toilet.class); when(toilet.getId()).thenReturn(10L); when(toilet.getName()).thenReturn("시청 공중화장실");
+        when(reportRepository.findPendingByToiletName(org.mockito.ArgumentMatchers.eq(ReportStatus.PENDING), org.mockito.ArgumentMatchers.eq("시청"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(report), org.springframework.data.domain.PageRequest.of(0, 20), 41));
+        when(toiletRepository.findAllById(any())).thenReturn(List.of(toilet));
+
+        ToiletReportPageResponse response = service.pendingPage("시청", 0, 20);
+
+        assertEquals(41L, response.totalElements());
+        assertEquals(3, response.totalPages());
+        assertEquals(1, response.items().size());
+    }
+
+    private ToiletReport report(Long id, Long toiletId, String type) {
+        ToiletReport report = mock(ToiletReport.class);
+        when(report.getId()).thenReturn(id); when(report.getToiletId()).thenReturn(toiletId); when(report.getReportType()).thenReturn(type);
+        when(report.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 8, 31, 2, 0));
+        return report;
     }
 }
