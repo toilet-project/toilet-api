@@ -12,7 +12,7 @@ import lombok.*;
 public class AppUser {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id") private Long id;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private UserStatus status = UserStatus.ACTIVE;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private UserStatus status = UserStatus.PENDING_CONSENT;
     @Column(name = "display_name", length = 100) private String displayName;
     @Column(length = 255) private String email;
     @Column(name = "email_verified", nullable = false) private boolean emailVerified;
@@ -40,5 +40,16 @@ public class AppUser {
             this.emailVerified = emailVerified;
         }
         this.lastLoginAt = KoreanTime.now();
+    }
+
+    public void activateAfterConsent() {
+        if (status == UserStatus.PENDING_CONSENT) status = UserStatus.ACTIVE;
+    }
+
+    public void withdraw() {
+        status = UserStatus.WITHDRAWN;
+        displayName = "탈퇴한 사용자";
+        email = null;
+        emailVerified = false;
     }
 }

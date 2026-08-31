@@ -20,6 +20,8 @@ import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuthTokenService;
 import com.example.toiletapi.auth.service.RefreshTokenStore;
 import com.example.toiletapi.auth.service.UserRolePolicyService;
+import com.example.toiletapi.auth.service.AccountService;
+import com.example.toiletapi.policy.service.PolicyConsentService;
 import com.example.toiletapi.global.config.CorsConfig;
 import java.time.Duration;
 import java.time.Instant;
@@ -53,6 +55,10 @@ class AuthControllerTest {
     private AppUserRepository userRepository;
     @MockitoBean
     private UserRolePolicyService rolePolicyService;
+    @MockitoBean
+    private PolicyConsentService policyConsentService;
+    @MockitoBean
+    private AccountService accountService;
     @MockitoBean
     private OAuthLoginSuccessHandler oauthLoginSuccessHandler;
     @MockitoBean

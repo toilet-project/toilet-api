@@ -1,11 +1,13 @@
 package com.example.toiletapi.report.controller;
 import com.example.toiletapi.report.dto.*; import com.example.toiletapi.report.service.ToiletReportService;
 import com.example.toiletapi.report.model.ReportStatus; import java.time.LocalDate; import java.util.List; import lombok.RequiredArgsConstructor; import org.springframework.format.annotation.DateTimeFormat; import org.springframework.http.HttpStatus; import org.springframework.security.core.annotation.AuthenticationPrincipal; import org.springframework.security.oauth2.jwt.Jwt; import org.springframework.web.bind.annotation.*;
+import com.example.toiletapi.policy.service.PolicyConsentService;
 @RestController @RequiredArgsConstructor
 public class ToiletReportController {
     private final ToiletReportService service;
-    @PostMapping("/api/v1/reports") @ResponseStatus(HttpStatus.CREATED) public ToiletReportResponse submit(@RequestBody CreateToiletReportRequest request, @AuthenticationPrincipal Jwt jwt) { return service.submit(userId(jwt), request); }
-    @GetMapping("/api/v1/reports/me") public List<ToiletReportResponse> mine(@AuthenticationPrincipal Jwt jwt) { return service.mine(userId(jwt)); }
+    private final PolicyConsentService policyConsentService;
+    @PostMapping("/api/v1/reports") @ResponseStatus(HttpStatus.CREATED) public ToiletReportResponse submit(@RequestBody CreateToiletReportRequest request, @AuthenticationPrincipal Jwt jwt) { Long userId = userId(jwt); policyConsentService.requireEligibleUser(userId); return service.submit(userId, request); }
+    @GetMapping("/api/v1/reports/me") public List<ToiletReportResponse> mine(@AuthenticationPrincipal Jwt jwt) { Long userId = userId(jwt); policyConsentService.requireEligibleUser(userId); return service.mine(userId); }
     @GetMapping("/api/admin/v1/reports/summary") public ToiletReportDashboardResponse pendingSummary() { return service.pendingDashboard(); }
     @GetMapping("/api/admin/v1/reports/search") public ToiletReportPageResponse searchPage(@RequestParam(required = false) ReportStatus status,
                                                                                               @RequestParam(defaultValue = "") String keyword,

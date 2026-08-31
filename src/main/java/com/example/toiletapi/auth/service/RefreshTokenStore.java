@@ -15,4 +15,6 @@ public interface RefreshTokenStore {
     Optional<Long> findUserId(String rawToken);
 
     void delete(String rawToken);
+
+    void deleteAllForUser(Long userId);
 }

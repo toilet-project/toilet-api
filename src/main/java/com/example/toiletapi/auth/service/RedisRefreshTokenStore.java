@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 public class RedisRefreshTokenStore implements RefreshTokenStore {
 
     private static final String KEY_PREFIX = "auth:refresh-token:";
+    private static final String USER_KEY_PREFIX = "auth:refresh-user:";
 
     private final StringRedisTemplate redisTemplate;
 
@@ -30,7 +31,10 @@ public class RedisRefreshTokenStore implements RefreshTokenStore {
             throw new IllegalArgumentException("리프레시 토큰 만료 시간은 양수여야 합니다.");
         }
 
-        redisTemplate.opsForValue().set(key(rawToken), userId.toString(), ttl);
+        String tokenHash = sha256(rawToken);
+        redisTemplate.opsForValue().set(KEY_PREFIX + tokenHash, userId.toString(), ttl);
+        redisTemplate.opsForSet().add(USER_KEY_PREFIX + userId, tokenHash);
+        redisTemplate.expire(USER_KEY_PREFIX + userId, ttl);
     }
 
     @Override
@@ -49,7 +53,20 @@ public class RedisRefreshTokenStore implements RefreshTokenStore {
 
     @Override
     public void delete(String rawToken) {
-        redisTemplate.delete(key(rawToken));
+        String tokenKey = key(rawToken);
+        String userId = redisTemplate.opsForValue().get(tokenKey);
+        redisTemplate.delete(tokenKey);
+        if (userId != null) redisTemplate.opsForSet().remove(USER_KEY_PREFIX + userId, sha256(rawToken));
+    }
+
+    @Override
+    public void deleteAllForUser(Long userId) {
+        String userKey = USER_KEY_PREFIX + userId;
+        var hashes = redisTemplate.opsForSet().members(userKey);
+        if (hashes != null && !hashes.isEmpty()) {
+            redisTemplate.delete(hashes.stream().map(hash -> KEY_PREFIX + hash).toList());
+        }
+        redisTemplate.delete(userKey);
     }
 
     private String key(String rawToken) {
