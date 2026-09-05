@@ -11,6 +11,11 @@ import com.example.toiletapi.policy.service.PolicyConsentRequiredException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(com.example.toiletapi.geocoding.AddressLookupException.class)
+    public ResponseEntity<ApiErrorResponse> handleAddressLookup(com.example.toiletapi.geocoding.AddressLookupException exception) {
+        return ResponseEntity.status(503).body(ApiErrorResponse.of("ADDRESS_LOOKUP_UNAVAILABLE", exception.getMessage()));
+    }
+
     /**
      * 잘못된 요청 파라미터를 HTTP 400 응답으로 변환합니다.
      *

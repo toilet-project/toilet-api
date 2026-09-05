@@ -17,30 +17,35 @@ public class CoordinateRevision {
     @Column(name = "applied_latitude", nullable = false, precision = 10, scale = 7) private BigDecimal appliedLatitude;
     @Column(name = "applied_longitude", nullable = false, precision = 10, scale = 7) private BigDecimal appliedLongitude;
     @Column(name = "previous_road_address", length = 255) private String previousRoadAddress;
-    @Column(name = "applied_road_address", nullable = false, length = 255) private String appliedRoadAddress;
+    @Column(name = "previous_jibun_address", length = 255) private String previousJibunAddress;
+    @Column(name = "applied_road_address", length = 255) private String appliedRoadAddress;
+    @Column(name = "applied_jibun_address", length = 255) private String appliedJibunAddress;
     @Column(name = "applied_by_user_id", nullable = false) private Long appliedByUserId;
     @Column(name = "applied_at", nullable = false) private LocalDateTime appliedAt;
     @Column(nullable = false, length = 30) private String source;
-    public static CoordinateRevision create(ToiletReport report, BigDecimal previousLatitude, BigDecimal previousLongitude, String previousRoadAddress,
-                                            BigDecimal appliedLatitude, BigDecimal appliedLongitude, String appliedRoadAddress, Long adminId) {
+    public static CoordinateRevision create(ToiletReport report, BigDecimal previousLatitude, BigDecimal previousLongitude, String previousRoadAddress, String previousJibunAddress,
+                                            BigDecimal appliedLatitude, BigDecimal appliedLongitude, String appliedRoadAddress, String appliedJibunAddress, Long adminId) {
         CoordinateRevision revision = new CoordinateRevision(); revision.toiletId = report.getToiletId(); revision.reportId = report.getId();
         revision.previousLatitude = previousLatitude; revision.previousLongitude = previousLongitude;
         revision.appliedLatitude = appliedLatitude; revision.appliedLongitude = appliedLongitude;
         revision.previousRoadAddress = previousRoadAddress; revision.appliedRoadAddress = appliedRoadAddress;
+        revision.previousJibunAddress = previousJibunAddress; revision.appliedJibunAddress = appliedJibunAddress;
         revision.appliedByUserId = adminId; revision.appliedAt = KoreanTime.now(); revision.source = "USER_REPORT_APPROVED"; return revision;
     }
 
     public static CoordinateRevision createAdminDirect(Long toiletId, BigDecimal previousLatitude, BigDecimal previousLongitude,
-                                                       String previousRoadAddress, BigDecimal appliedLatitude,
-                                                       BigDecimal appliedLongitude, String appliedRoadAddress, Long adminId) {
+                                                       String previousRoadAddress, String previousJibunAddress, BigDecimal appliedLatitude,
+                                                       BigDecimal appliedLongitude, String appliedRoadAddress, String appliedJibunAddress, Long adminId) {
         CoordinateRevision revision = new CoordinateRevision();
         revision.toiletId = toiletId;
         revision.previousLatitude = previousLatitude;
         revision.previousLongitude = previousLongitude;
         revision.previousRoadAddress = previousRoadAddress;
+        revision.previousJibunAddress = previousJibunAddress;
         revision.appliedLatitude = appliedLatitude;
         revision.appliedLongitude = appliedLongitude;
         revision.appliedRoadAddress = appliedRoadAddress;
+        revision.appliedJibunAddress = appliedJibunAddress;
         revision.appliedByUserId = adminId;
         revision.appliedAt = KoreanTime.now();
         revision.source = "ADMIN_DIRECT";
