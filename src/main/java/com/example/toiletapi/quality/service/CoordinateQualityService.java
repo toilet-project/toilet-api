@@ -2,6 +2,7 @@ package com.example.toiletapi.quality.service;
 
 import com.example.toiletapi.auth.model.AuditAction;
 import com.example.toiletapi.auth.service.AuditLogService;
+import com.example.toiletapi.geocoding.CoordinateAddressResolver;
 import com.example.toiletapi.quality.dto.CoordinateQualityReportResponse;
 import com.example.toiletapi.quality.dto.CoordinateQualityRevisionResponse;
 import com.example.toiletapi.quality.dto.CorrectToiletCoordinateRequest;
@@ -69,6 +70,7 @@ public class CoordinateQualityService {
     private final ToiletReportRepository reportRepository;
     private final CoordinateRevisionRepository revisionRepository;
     private final AuditLogService auditLogService;
+    private final CoordinateAddressResolver addressResolver;
 
     @Transactional(readOnly = true)
     public DuplicateCoordinateGroupPageResponse search(String keyword, CoordinateQualityStatus status, int page, int size) {
@@ -134,11 +136,12 @@ public class CoordinateQualityService {
     }
 
     public DuplicateCoordinateToiletResponse correctToilet(Long adminId, Long toiletId, CorrectToiletCoordinateRequest request) {
+        var address = addressResolver.resolve(request.latitude(), request.longitude());
         Toilet toilet = toiletRepository.findByIdForUpdate(toiletId)
                 .orElseThrow(() -> new IllegalArgumentException("화장실을 찾을 수 없습니다."));
         CoordinateRevision revision = CoordinateRevision.createAdminDirect(toiletId, toilet.getLatitude(), toilet.getLongitude(),
-                toilet.getRoadAddress(), request.latitude(), request.longitude(), request.roadAddress().trim(), adminId);
-        toilet.applyAdminConfirmedCoordinates(request.latitude(), request.longitude(), request.roadAddress().trim());
+                toilet.getRoadAddress(), toilet.getJibunAddress(), address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress(), adminId);
+        toilet.applyAdminConfirmedCoordinates(address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress());
         revisionRepository.save(revision);
         auditLogService.record(adminId, AuditAction.TOILET_COORDINATE_CORRECTED, "TOILET", toiletId,
                 Map.of("source", "ADMIN_DIRECT", "reviewNote", Objects.toString(trim(request.note()), "")));
@@ -189,7 +192,7 @@ public class CoordinateQualityService {
         return new CoordinateQualityRevisionResponse(revision.getId(), revision.getToiletId(), revision.getReportId(),
                 revision.getPreviousLatitude(), revision.getPreviousLongitude(), revision.getAppliedLatitude(),
                 revision.getAppliedLongitude(), revision.getAppliedRoadAddress(), revision.getAppliedByUserId(),
-                revision.getAppliedAt(), revision.getSource());
+                revision.getAppliedAt(), revision.getSource(), revision.getAppliedJibunAddress());
     }
 
     private String trim(String value) {

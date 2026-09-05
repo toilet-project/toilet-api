@@ -14,6 +14,7 @@ public record CoordinateQualityRevisionResponse(
         String appliedRoadAddress,
         Long appliedByUserId,
         LocalDateTime appliedAt,
-        String source
+        String source,
+        String appliedJibunAddress
 ) {
 }
