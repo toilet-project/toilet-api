@@ -20,4 +20,4 @@ jobs:
       - name: Unit tests and disposable MySQL transaction tests
         run: |
           chmod +x ./gradlew
-          ./gradlew test --tests '*CacheInvalidation*Test' --tests '*ToiletServiceTest' --tests '*ToiletControllerTest' --no-daemon --console=plain
+          ./gradlew test --tests '*CacheInvalidation*Test' --tests '*ToiletSitemap*Test' --tests '*ToiletServiceTest' --tests '*ToiletControllerTest' --no-daemon --console=plain
