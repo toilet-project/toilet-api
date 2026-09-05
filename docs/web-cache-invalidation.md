@@ -1,10 +1,18 @@
 # 공개 상세 캐시 갱신 — opt-in 설계·운영 절차
 
-2026-09-05 · `feature/toilet-seo-projection` · WBS toilet-web #186
+2026-09-05 · `feature/durable-preview-cache` · WBS toilet-web #186
 
 ## 적용 상태
 
-코드 및 검증용 DDL을 작성했다. **운영 DB 적용, main 병합, 운영 배포, secret 등록은 수행하지 않았다.** 전송기는 기본 비활성화다. 아래 DDL은 자동 Flyway 경로 `db/migration` 바깥에 있으므로 API 배포만으로 설치되지 않는다.
+운영자가 DDL을 직접 설치했고 읽기 전용 확인을 완료했다. **main 병합·운영 API 재배포·자동 전송 활성화는 아직 하지 않았다.** 전송기는 기본 비활성화다. 아래 DDL은 자동 Flyway 경로 `db/migration` 바깥에 있으므로 API 배포로 다시 설치되지 않는다.
+
+- InnoDB 대기열 1개, 컬럼 7개, PK 및 `idx_web_cache_due`를 설치문과 대조했다.
+- `toilet`/`toilet_region` AFTER INSERT·UPDATE·DELETE 트리거 6개의 본문이 설치문과 일치한다. DEFINER는 `root@%`다.
+- 대기열은 확인 시점 0건. 원본 두 테이블은 각각 53,582건이며 검증 과정에서 원본/대기열 쓰기는 하지 않았다.
+- 실제 API 계정 `luha@%`로 SELECT 및 EXPLAIN UPDATE/DELETE를 확인했다. 대기열 조회 인덱스도 사용된다. 이전 사전 검사에서 DB 이름 `toilet\\_db`의 이스케이프 표기를 누락하여 권한 부족으로 잘못 판별한 안내는 정정한다. 현재 계정은 DB 전체 권한과 전역 CREATE USER 권한이 있으며, 이 작업에서 권한을 변경하지 않았다. 최소 권한 정리는 별도 보안 작업이다.
+- GitHub API 저장소 `WEB_CACHE_REVALIDATION_SECRET`과 preview Worker `CACHE_REVALIDATION_SECRET`에 별도 랜덤 키를 등록했다. 실제 수신자에 서명 요청 200/미서명 요청 401을 확인했다. 키 값은 파일·문서에 기록하지 않는다.
+- GitHub 변수 `WEB_CACHE_ORIGIN=https://preview.geupddong.com`, `WEB_CACHE_REVALIDATION_ENABLED=false`. 현재 실행 중인 API에는 새 설정이 아직 주입되지 않았다.
+- 격리 MySQL 및 실제 Spring 스케줄러/서명 수신자 검증: [CI 33966325006 성공](https://github.com/toilet-project/toilet-api/actions/runs/33966325006). 운영 업무 변경→실제 전송→ACK 전체 연결은 활성화 후 별도 확인해야 한다.
 
 ## 변경 포착과 일관성
 
@@ -51,12 +59,12 @@
 3. 별도 승인된 Workers preview에 R2/DO/D1 태그 저장소와 전용 secret을 준비한다. D1에는 화장실 원본이 아니라 캐시 태그/갱신 시각만 저장한다.
 4. API `WEB_CACHE_ORIGIN`을 preview origin으로, `WEB_CACHE_REVALIDATION_SECRET`을 Workers `CACHE_REVALIDATION_SECRET`과 동일하게 주입한다. OAuth/JWT 키와 별개의 랜덤 32바이트 이상 키를 사용한다. URL query·문서·브라우저 공개 변수에 넣지 않는다.
 5. `WEB_CACHE_REVALIDATION_ENABLED=true`는 DDL 설치 및 receiver 검증 후에만 적용한다. `CACHE_RUNTIME=workers`는 wrangler에 설정돼 있다. preview와 운영에는 같은 키/대기열 수신자를 동시에 쓰지 않는다.
-6. 운영 DB를 preview 테스트용으로 사용하지 않는다. preview는 격리된 테스트 DB/API 전송기로 검증한다. 운영 전환 시 대상 origin/secret을 교체하고 기존 미전송 대기열을 다시 확인한다.
+6. 쓰기 동작/롤백/재시작 검증은 격리된 MySQL과 Spring 전송기로 수행한다. 사용자가 승인한 현재 연결은 실제 운영 변경을 preview 캐시에 전달하는 것이다. 테스트를 위해 정상 화장실을 임의 수정하지 않는다. 공개 웹 전환 시 대상 origin/secret을 검토하고 기존 미전송 대기열을 확인한다.
 7. 승인 후 원본 DB 반영, 대기열 생성/삭제, Workers 응답, 신규 HTTP 요청의 HTML·지역·metadata 갱신을 끝까지 확인한다. main 배포는 별도 검토/승인 후 진행한다.
 
 ## 관측·복구
 
-- Micrometer: `web.cache.invalidation.pending`(-1은 조회 장애), `web.cache.invalidation.deliveries`, `web.cache.invalidation.failures`. 메트릭은 기존 보호된 운영 수집 경로에서 확인한다.
+- Micrometer: `web.cache.invalidation.pending`, `web.cache.invalidation.oldest.seconds`(-1은 조회 장애), `web.cache.invalidation.deliveries`, `web.cache.invalidation.failures`. 메트릭은 기존 보호된 운영 수집 경로에서 확인한다. 오래된 대기/실패에 대한 별도 알림 연결은 이 PR에 포함하지 않는다.
 - pending이 오래 유지되면 `first_queued_at`, attempts, last_error_code로 확인한다. 첫 데이터 변경부터 ACK까지의 최대 지연을 운영 preview에서 측정해야 한다.
 - 수신지 복구 후 자동 재시도한다. 재시도 앞당김은 대상 ID에 한해 next_attempt_at을 UTC 현재로 변경하는 수동 운영 작업이다. 전체 대기열 무조건 삭제는 금지한다.
 - 수신 ACK와 DB 삭제 사이에 서버가 재시작돼도 행이 남아 중복 배달된다. 허용된 멱등 동작이다.
@@ -67,4 +75,5 @@
 
 Java 단위 테스트: 서명 전송·정확한 ACK·실패 보존·백오프·무효 설정·민감정보 로그 회피.
 MySQL Testcontainers: commit/rollback, 다른 연결의 미커밋 이벤트 비노출, 변경 합치기, 오래된 ACK/재시도의 새 이벤트 보호, region insert/update/delete, 원본 삭제, 실패 재시도/재시작 후 유지. 로컬에는 Docker가 없어 이 통합 테스트는 Linux CI에서 실행한다.
+실제 Spring 스케줄러 + 격리 MySQL + HMAC 검증 수신자: 커밋 후 자동 전송/ACK, 롤백 미전송, 503 후 대기열 보존 및 Spring 컨텍스트 재시작 후 재전송. 실제 해제 SQL 실행 후 트리거 6개 제거와 대기열 보존도 검증한다. API 운영 계정에 CREATE TRIGGER 권한을 추가하는 테스트가 아니라 별도 fixture DBA가 설치한다.
 Web 모의 production: 정상 서명 갱신, 위조 서명 미갱신, 이름/시간/지역 반영, 지역 제거, 삭제 404와 복구 200, 1회 원본 호출 및 HIT, 미존재와 원본 장애 구분.
