@@ -3,6 +3,7 @@ package com.example.toiletapi.auth.config;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.context.annotation.Bean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpMethod;
@@ -26,7 +27,13 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, OAuthLoginSuccessHandler oauthLoginSuccessHandler) throws Exception {
+    OAuthLoginFailureHandler oauthLoginFailureHandler(@Value("${auth.frontend-base-url:https://geupddong.com}") String home) {
+        return new OAuthLoginFailureHandler(home);
+    }
+
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http, OAuthLoginSuccessHandler oauthLoginSuccessHandler,
+                                           OAuthLoginFailureHandler oauthLoginFailureHandler) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -48,7 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/reports/**").authenticated()
                         .anyRequest().authenticated()
                 )
-                .oauth2Login(login -> login.successHandler(oauthLoginSuccessHandler))
+                .oauth2Login(login -> login.successHandler(oauthLoginSuccessHandler).failureHandler(oauthLoginFailureHandler))
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .bearerTokenResolver(new CookieBearerTokenResolver())
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))

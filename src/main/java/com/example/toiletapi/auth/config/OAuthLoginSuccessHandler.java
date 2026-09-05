@@ -1,7 +1,6 @@
 package com.example.toiletapi.auth.config;
 
 import com.example.toiletapi.auth.controller.AuthController;
-import com.example.toiletapi.auth.controller.OAuthLoginRedirectController;
 import com.example.toiletapi.auth.service.AuthTokenService;
 import com.example.toiletapi.auth.service.OAuthLoginService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,20 +28,19 @@ public class OAuthLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHand
         OAuth2AuthenticationToken oauth = (OAuth2AuthenticationToken) authentication;
         OAuthLoginService.LoginUser user = loginService.login(oauth.getAuthorizedClientRegistrationId(), oauth.getPrincipal());
         AuthController.writeCookies(response, tokenService.issue(user.userId(), user.roles()));
-        Object returnUrl = request.getSession(false) == null ? null
-                : request.getSession(false).getAttribute(OAuthLoginRedirectController.RETURN_URL_SESSION_ATTRIBUTE);
-        if (request.getSession(false) != null) request.getSession(false).removeAttribute(OAuthLoginRedirectController.RETURN_URL_SESSION_ATTRIBUTE);
+        String returnUrl = OAuthReturnTargets.consume(request, frontendBaseUrl);
         String targetUrl;
         if (user.consentRequired()) {
-            String returnTarget = returnUrl instanceof String ? "admin" : null;
-            targetUrl = UriComponentsBuilder.fromUriString(frontendBaseUrl)
+            String returnTarget = OAuthReturnTargets.ADMIN.equals(returnUrl) ? "admin" : null;
+            String consentBase = OAuthReturnTargets.PREVIEW.equals(returnUrl) ? returnUrl : frontendBaseUrl;
+            targetUrl = UriComponentsBuilder.fromUriString(consentBase)
                     .path("/")
                     .queryParam("login", "success")
                     .queryParam("consent", "required")
                     .queryParamIfPresent("returnTo", Optional.ofNullable(returnTarget))
                     .build().encode().toUriString();
         } else {
-            targetUrl = returnUrl instanceof String value ? value : frontendBaseUrl + "/?login=success";
+            targetUrl = OAuthReturnTargets.ADMIN.equals(returnUrl) ? returnUrl : returnUrl + "/?login=success";
         }
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
