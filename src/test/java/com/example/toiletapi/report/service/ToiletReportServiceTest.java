@@ -12,6 +12,10 @@ import com.example.toiletapi.auth.model.AppUser;
 import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuditLogService;
 import com.example.toiletapi.notification.service.UserNotificationService;
+import com.example.toiletapi.geocoding.CoordinateAddress;
+import com.example.toiletapi.geocoding.CoordinateAddressResolver;
+import com.example.toiletapi.geocoding.AddressLookupException;
+import com.example.toiletapi.report.model.CoordinateRevision;
 import com.example.toiletapi.report.dto.CreateToiletReportRequest;
 import com.example.toiletapi.report.dto.ReviewToiletReportRequest;
 import com.example.toiletapi.report.dto.ToiletReportDashboardResponse;
@@ -46,6 +50,7 @@ class ToiletReportServiceTest {
     @Mock private AppUserRepository userRepository;
     @Mock private AuditLogService auditLogService;
     @Mock private UserNotificationService notificationService;
+    @Mock private CoordinateAddressResolver addressResolver;
     @InjectMocks private ToiletReportService service;
 
     @Test
@@ -55,6 +60,7 @@ class ToiletReportServiceTest {
         when(userRepository.findById(3L)).thenReturn(Optional.of(mock(AppUser.class)));
         when(reportRepository.existsByActiveRequestKey(any())).thenReturn(false);
         when(reportRepository.save(any(ToiletReport.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(addressResolver.resolve(any(), any())).thenReturn(new CoordinateAddress(new BigDecimal("36.3500000"), new BigDecimal("127.3800000"), "대전광역시 서구 둔산대로 100", "대전 서구 둔산동 100"));
 
         ToiletReportResponse response = service.submit(3L, new CreateToiletReportRequest(10L, "COORDINATE_CORRECTION", new BigDecimal("36.3500000"), new BigDecimal("127.3800000"), "대전광역시 서구 둔산대로 100", null, "출입구 위치가 다릅니다."));
 
@@ -62,6 +68,8 @@ class ToiletReportServiceTest {
         verify(reportRepository).save(captor.capture());
         assertEquals("COORDINATE_CORRECTION", captor.getValue().getReportType());
         assertEquals("대전광역시 서구 둔산대로 100", captor.getValue().getProposedRoadAddress());
+        assertEquals("대전 서구 둔산동 100", captor.getValue().getProposedJibunAddress());
+        assertEquals("대전 서구 둔산동 100", response.jibunAddress());
         assertEquals("시청 공중화장실", response.toiletName());
     }
 
@@ -81,25 +89,32 @@ class ToiletReportServiceTest {
     }
 
     @Test
-    void shouldRejectLocationReportWithoutConfirmedRoadAddress() {
+    void shouldRejectLocationReportWithoutCoordinates() {
         assertThrows(IllegalArgumentException.class, () -> service.submit(3L,
-                new CreateToiletReportRequest(10L, "COORDINATE_CORRECTION", new BigDecimal("36.3500000"), new BigDecimal("127.3800000"), "", null, "주소가 없습니다.")));
+                new CreateToiletReportRequest(10L, "COORDINATE_CORRECTION", null, new BigDecimal("127.3800000"), "", null, "좌표가 없습니다.")));
 
         verifyNoInteractions(toiletRepository, userRepository, reportRepository);
     }
 
     @Test
     void shouldApplyAdministratorAdjustedCoordinateWithoutChangingOriginalReport() {
-        ToiletReport report = ToiletReport.createCoordinateCorrection(10L, 3L, new BigDecimal("36.3500000"), new BigDecimal("127.3800000"), "제보 주소", "사유", "key");
+        ToiletReport report = ToiletReport.createCoordinateCorrection(10L, 3L, new BigDecimal("36.3500000"), new BigDecimal("127.3800000"), "제보 주소", "제보 지번", "사유", "key");
         Toilet toilet = mock(Toilet.class); when(toilet.getLatitude()).thenReturn(new BigDecimal("36.3400000")); when(toilet.getLongitude()).thenReturn(new BigDecimal("127.3700000"));
         when(toilet.getRoadAddress()).thenReturn("기존 주소"); when(toilet.getName()).thenReturn("시청 공중화장실");
-        when(reportRepository.findByIdForUpdate(12L)).thenReturn(Optional.of(report)); when(toiletRepository.findById(10L)).thenReturn(Optional.of(toilet));
+        when(toilet.getJibunAddress()).thenReturn("기존 지번");
+        when(reportRepository.findByIdForUpdate(12L)).thenReturn(Optional.of(report)); when(toiletRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(toilet));
+        when(addressResolver.resolve(new BigDecimal("36.3510000"), new BigDecimal("127.3810000")))
+                .thenReturn(new CoordinateAddress(new BigDecimal("36.3510000"), new BigDecimal("127.3810000"), "조회한 도로명", "조회한 지번"));
 
         service.approve(9L, 12L, new ReviewToiletReportRequest("현장 확인", new BigDecimal("36.3510000"), new BigDecimal("127.3810000"), "관리자 보정 주소"));
 
-        verify(toilet).applyAdminConfirmedCoordinates(new BigDecimal("36.3510000"), new BigDecimal("127.3810000"), "관리자 보정 주소");
+        verify(toilet).applyAdminConfirmedCoordinates(new BigDecimal("36.3510000"), new BigDecimal("127.3810000"), "조회한 도로명", "조회한 지번");
         assertEquals(new BigDecimal("36.3500000"), report.getProposedLatitude());
-        verify(revisionRepository).save(any());
+        assertEquals("제보 지번", report.getProposedJibunAddress());
+        ArgumentCaptor<CoordinateRevision> revision = ArgumentCaptor.forClass(CoordinateRevision.class);
+        verify(revisionRepository).save(revision.capture());
+        assertEquals("기존 지번", revision.getValue().getPreviousJibunAddress());
+        assertEquals("조회한 지번", revision.getValue().getAppliedJibunAddress());
         verify(notificationService).createReportDecision(report, "시청 공중화장실");
     }
 
@@ -153,5 +168,57 @@ class ToiletReportServiceTest {
         when(report.getId()).thenReturn(id); when(report.getToiletId()).thenReturn(toiletId); when(report.getReportType()).thenReturn(type); when(report.getStatus()).thenReturn(ReportStatus.REJECTED);
         when(report.getCreatedAt()).thenReturn(LocalDateTime.of(2026, 8, 31, 2, 0));
         return report;
+    }
+
+    @Test
+    void shouldStoreJibunOnlyWithoutTrustingClientRoadAddress() {
+        when(toiletRepository.findById(10L)).thenReturn(Optional.of(mock(Toilet.class)));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(mock(AppUser.class)));
+        when(reportRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(addressResolver.resolve(any(), any())).thenReturn(new CoordinateAddress(BigDecimal.ONE, BigDecimal.TEN, null, "지번만 반환"));
+        var response = service.submit(3L, new CreateToiletReportRequest(10L, "COORDINATE_CORRECTION", BigDecimal.ONE, BigDecimal.TEN, "잘못된 도로명 입력", null, "위치 수정"));
+        org.junit.jupiter.api.Assertions.assertNull(response.roadAddress());
+        assertEquals("지번만 반환", response.jibunAddress());
+    }
+
+    @Test
+    void shouldNotApplyApprovalWhenAddressLookupFails() {
+        var report = ToiletReport.createCoordinateCorrection(10L, 3L, BigDecimal.ONE, BigDecimal.TEN, "레거시 주소", null, "사유", "key");
+        when(reportRepository.findByIdForUpdate(12L)).thenReturn(Optional.of(report));
+        when(addressResolver.resolve(any(), any())).thenThrow(new AddressLookupException());
+        assertThrows(AddressLookupException.class, () -> service.approve(9L, 12L, null));
+        assertEquals(ReportStatus.PENDING, report.getStatus());
+        verifyNoInteractions(toiletRepository, revisionRepository, auditLogService, notificationService);
+    }
+
+    @Test
+    void approvalWithoutOverrideResolvesLegacyProposalAndKeepsOriginalText() {
+        var report = ToiletReport.createCoordinateCorrection(10L, 3L, BigDecimal.ONE, BigDecimal.TEN, "레거시 혼합 주소", null, "사유", "key");
+        when(reportRepository.findByIdForUpdate(12L)).thenReturn(Optional.of(report));
+        Toilet toilet = mock(Toilet.class);
+        when(toiletRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(toilet));
+        when(addressResolver.resolve(BigDecimal.ONE, BigDecimal.TEN)).thenReturn(new CoordinateAddress(BigDecimal.ONE, BigDecimal.TEN, null, "조회한 지번"));
+        service.approve(9L, 12L, null);
+        verify(toilet).applyAdminConfirmedCoordinates(BigDecimal.ONE, BigDecimal.TEN, null, "조회한 지번");
+        assertEquals("레거시 혼합 주소", report.getProposedRoadAddress());
+        assertEquals(ReportStatus.APPROVED, report.getStatus());
+    }
+
+    @Test
+    void shouldRejectPartialCoordinateOverrideBeforeLookup() {
+        var report = ToiletReport.createCoordinateCorrection(10L, 3L, BigDecimal.ONE, BigDecimal.TEN, "주소", null, "사유", "key");
+        when(reportRepository.findByIdForUpdate(12L)).thenReturn(Optional.of(report));
+        assertThrows(IllegalArgumentException.class, () -> service.approve(9L, 12L, new ReviewToiletReportRequest(null, BigDecimal.TEN, null, null)));
+        verifyNoInteractions(addressResolver, toiletRepository, revisionRepository);
+    }
+
+    @Test
+    void shouldNotSaveSubmissionWhenAddressLookupFails() {
+        when(toiletRepository.findById(10L)).thenReturn(Optional.of(mock(Toilet.class)));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(mock(AppUser.class)));
+        when(addressResolver.resolve(any(), any())).thenThrow(new AddressLookupException());
+        assertThrows(AddressLookupException.class, () -> service.submit(3L, new CreateToiletReportRequest(10L, "COORDINATE_CORRECTION", BigDecimal.ONE, BigDecimal.TEN, null, null, "사유")));
+        verify(reportRepository, org.mockito.Mockito.never()).save(any());
+        verifyNoInteractions(revisionRepository, auditLogService, notificationService);
     }
 }

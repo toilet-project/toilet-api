@@ -112,10 +112,11 @@ public class Toilet {
     @Column(name = "data_source", length = 20)
     private String dataSource;
 
-    public void applyAdminConfirmedCoordinates(BigDecimal latitude, BigDecimal longitude, String roadAddress) {
+    public void applyAdminConfirmedCoordinates(BigDecimal latitude, BigDecimal longitude, String roadAddress, String jibunAddress) {
         this.latitude = latitude;
         this.longitude = longitude;
         this.roadAddress = roadAddress;
+        this.jibunAddress = jibunAddress;
         this.coordinateSource = "ADMIN_CONFIRMED";
     }
 

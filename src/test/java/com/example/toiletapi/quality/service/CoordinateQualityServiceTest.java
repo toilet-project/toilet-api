@@ -7,6 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.example.toiletapi.auth.model.AuditAction;
 import com.example.toiletapi.auth.service.AuditLogService;
+import com.example.toiletapi.geocoding.CoordinateAddress;
+import com.example.toiletapi.geocoding.CoordinateAddressResolver;
+import com.example.toiletapi.geocoding.AddressLookupException;
 import com.example.toiletapi.quality.dto.CorrectToiletCoordinateRequest;
 import com.example.toiletapi.quality.repository.CoordinateQualityReviewRepository;
 import com.example.toiletapi.report.model.CoordinateRevision;
@@ -32,13 +35,14 @@ class CoordinateQualityServiceTest {
     @Mock ToiletReportRepository reportRepository;
     @Mock CoordinateRevisionRepository revisionRepository;
     @Mock AuditLogService auditLogService;
+    @Mock CoordinateAddressResolver addressResolver;
     @Mock Toilet toilet;
     private CoordinateQualityService service;
 
     @BeforeEach
     void setUp() {
         service = new CoordinateQualityService(jdbc, reviewRepository, toiletRepository, reportRepository,
-                revisionRepository, auditLogService);
+                revisionRepository, auditLogService, addressResolver);
     }
 
     @Test
@@ -53,13 +57,22 @@ class CoordinateQualityServiceTest {
         when(toilet.getLongitude()).thenReturn(new BigDecimal("127.3140000"), longitude);
         when(toilet.getRoadAddress()).thenReturn("기존 주소", "대전광역시 유성구 노은로 101");
         when(toilet.getCoordinateSource()).thenReturn("ADMIN_CONFIRMED");
+        when(addressResolver.resolve(latitude, longitude)).thenReturn(new CoordinateAddress(latitude, longitude, "대전광역시 유성구 노은로 101", "지번 주소"));
 
         service.correctToilet(adminId, toiletId, new CorrectToiletCoordinateRequest(
                 latitude, longitude, "대전광역시 유성구 노은로 101", "관리자 현장 확인"));
 
-        verify(toilet).applyAdminConfirmedCoordinates(latitude, longitude, "대전광역시 유성구 노은로 101");
+        verify(toilet).applyAdminConfirmedCoordinates(latitude, longitude, "대전광역시 유성구 노은로 101", "지번 주소");
         verify(revisionRepository).save(any(CoordinateRevision.class));
         verify(auditLogService).record(eq(adminId), eq(AuditAction.TOILET_COORDINATE_CORRECTED),
                 eq("TOILET"), eq(toiletId), any(Map.class));
+    }
+
+    @Test
+    void lookupFailureDoesNotLockOrChangeToilet() {
+        when(addressResolver.resolve(any(), any())).thenThrow(new AddressLookupException());
+        org.junit.jupiter.api.Assertions.assertThrows(AddressLookupException.class,
+                () -> service.correctToilet(7L, 101L, new CorrectToiletCoordinateRequest(BigDecimal.ONE, BigDecimal.TEN, null, null)));
+        org.mockito.Mockito.verifyNoInteractions(toiletRepository, revisionRepository, auditLogService);
     }
 }

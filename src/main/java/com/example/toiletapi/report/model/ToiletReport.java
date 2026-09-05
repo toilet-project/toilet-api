@@ -16,6 +16,7 @@ public class ToiletReport {
     @Column(name = "proposed_latitude", precision = 10, scale = 7) private BigDecimal proposedLatitude;
     @Column(name = "proposed_longitude", precision = 10, scale = 7) private BigDecimal proposedLongitude;
     @Column(name = "proposed_road_address", length = 255) private String proposedRoadAddress;
+    @Column(name = "proposed_jibun_address", length = 255) private String proposedJibunAddress;
     @Column(name = "proposed_open_time", length = 50) private String proposedOpenTime;
     @Column(nullable = false, length = 500) private String reason;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private ReportStatus status = ReportStatus.PENDING;
@@ -27,10 +28,11 @@ public class ToiletReport {
     @Column(name = "updated_at") private LocalDateTime updatedAt;
     @PrePersist void created() { var now = KoreanTime.now(); createdAt = now; updatedAt = now; }
     @PreUpdate void updated() { updatedAt = KoreanTime.now(); }
-    public static ToiletReport createCoordinateCorrection(Long toiletId, Long reporterUserId, BigDecimal latitude, BigDecimal longitude, String roadAddress, String reason, String activeKey) {
+    public static ToiletReport createCoordinateCorrection(Long toiletId, Long reporterUserId, BigDecimal latitude, BigDecimal longitude, String roadAddress, String jibunAddress, String reason, String activeKey) {
         ToiletReport report = new ToiletReport(); report.toiletId = toiletId; report.reporterUserId = reporterUserId;
         report.reportType = "COORDINATE_CORRECTION"; report.proposedLatitude = latitude; report.proposedLongitude = longitude;
-        report.proposedRoadAddress = roadAddress; report.reason = reason; report.activeRequestKey = activeKey; return report;
+        report.proposedRoadAddress = roadAddress; report.proposedJibunAddress = jibunAddress;
+        report.reason = reason; report.activeRequestKey = activeKey; return report;
     }
     public static ToiletReport createOpenTimeCorrection(Long toiletId, Long reporterUserId, String openTime, String reason, String activeKey) {
         ToiletReport report = new ToiletReport(); report.toiletId = toiletId; report.reporterUserId = reporterUserId;
