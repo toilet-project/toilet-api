@@ -16,6 +16,7 @@ import org.springframework.core.env.MapPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -73,14 +74,26 @@ class CacheInvalidationPipelineMySqlTest {
                 "web-cache.secret",CacheInvalidationClientTest.SECRET, "web-cache.poll-ms","50")));
         context.registerBean(JdbcTemplate.class,()->jdbc);
         context.registerBean(SimpleMeterRegistry.class,SimpleMeterRegistry::new);
+        // Closing the old process must finish its in-flight delivery before the test
+        // advances the retry clock and starts the replacement process.
+        context.registerBean("taskScheduler",ThreadPoolTaskScheduler.class,()->{
+            var scheduler=new ThreadPoolTaskScheduler();
+            scheduler.setPoolSize(1);
+            scheduler.setWaitForTasksToCompleteOnShutdown(true);
+            scheduler.setAwaitTerminationSeconds(15);
+            return scheduler;
+        });
         context.register(CacheInvalidationRepository.class,CacheInvalidationDispatcher.class,CacheInvalidationConfiguration.class);
         context.refresh();
     }
     @AfterEach void close() { if (context!=null) context.close(); if(receiver!=null) receiver.stop(0); }
     void await(java.util.function.BooleanSupplier condition) throws Exception {
-        long deadline=System.nanoTime()+Duration.ofSeconds(8).toNanos();
+        // A CI runner may need longer than the client's 8-second HTTP timeout.
+        long deadline=System.nanoTime()+Duration.ofSeconds(30).toNanos();
         while (!condition.getAsBoolean() && System.nanoTime()<deadline) Thread.sleep(25);
-        assertTrue(condition.getAsBoolean(),"Bounded pipeline wait expired");
+        assertTrue(condition.getAsBoolean(),()->"Bounded pipeline wait expired: calls="+calls.get()
+                +", signed="+validSignatures.get()+", queue="+jdbc.queryForList(
+                    "SELECT toilet_id,attempts,last_error_code FROM web_cache_invalidation"));
     }
     @Test void committedChangeIsAutomaticallySignedAndAcknowledged() throws Exception {
         startSender();
