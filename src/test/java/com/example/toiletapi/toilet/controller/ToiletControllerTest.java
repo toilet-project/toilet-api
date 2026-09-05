@@ -15,6 +15,7 @@ import com.example.toiletapi.auth.config.SecurityConfig;
 import com.example.toiletapi.auth.config.OAuthLoginSuccessHandler;
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
+import com.example.toiletapi.toilet.dto.ToiletRegionResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.service.ToiletService;
@@ -132,6 +133,18 @@ class ToiletControllerTest {
     }
 
     @Test
+    void shouldExposeVerifiedRegionWithoutChangingExistingDetailFields() throws Exception {
+        when(toiletService.getToiletDetail(101L)).thenReturn(detailResponse(
+                new ToiletRegionResponse("서울특별시", "11", "강남구", "11680", null, "강남구")));
+        mockMvc.perform(get("/api/v1/toilets/101"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.region.sidoName").value("서울특별시"))
+                .andExpect(jsonPath("$.region.sidoCode").value("11"))
+                .andExpect(jsonPath("$.region.sigunguCode").value("11680"))
+                .andExpect(jsonPath("$.roadAddress").value("서울특별시 강남구 강남대로 396"));
+    }
+
+    @Test
     void shouldRejectUnauthenticatedAdminRequest() throws Exception {
         mockMvc.perform(get("/api/admin/monitoring"))
                 .andExpect(status().isUnauthorized())
@@ -150,11 +163,15 @@ class ToiletControllerTest {
     }
 
     private ToiletDetailResponse detailResponse() {
+        return detailResponse(null);
+    }
+
+    private ToiletDetailResponse detailResponse(ToiletRegionResponse region) {
         return new ToiletDetailResponse(
                 101L, "강남역 공중화장실", "공중화장실", "서울특별시 강남구 강남대로 396", "서울특별시 강남구 역삼동 858", new java.math.BigDecimal("37.4979"), new java.math.BigDecimal("127.0276"),
                 3, 4, 1, 1, 0, 1, 6, 1, 1,
                 "강남구청", "02-3423-5900", "24시간", "연중무휴", "2018-05",
-                "Y", "화장실 내부", "Y", "Y", "여자화장실 입구", "2024-01-01", "PUBLIC_DATA"
+                "Y", "화장실 내부", "Y", "Y", "여자화장실 입구", "2024-01-01", "PUBLIC_DATA", region
         );
     }
 }
