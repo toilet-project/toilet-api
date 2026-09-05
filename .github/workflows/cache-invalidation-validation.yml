@@ -1,0 +1,23 @@
+name: Cache invalidation validation
+on:
+  push:
+    branches: [feature/toilet-seo-projection]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Unit tests and disposable MySQL transaction tests
+        run: |
+          chmod +x ./gradlew
+          ./gradlew test --tests '*CacheInvalidation*Test' --tests '*ToiletServiceTest' --tests '*ToiletControllerTest' --no-daemon --console=plain
