@@ -1,5 +1,7 @@
 package com.example.toiletapi.auth.controller;
 
+import com.example.toiletapi.auth.config.OAuthReturnTargets;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -14,8 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Controller
 @RequestMapping("/api/v1/auth/login")
 public class OAuthLoginRedirectController {
-    public static final String RETURN_URL_SESSION_ATTRIBUTE = "oauth.login.return-url";
-    private static final String ADMIN_URL = "https://admin.geupddong.com";
+    public static final String RETURN_URL_SESSION_ATTRIBUTE = OAuthReturnTargets.SESSION_ATTRIBUTE;
     private static final Set<String> PROVIDERS = Set.of("google", "kakao");
 
     @GetMapping("/{provider}")
@@ -25,7 +26,13 @@ public class OAuthLoginRedirectController {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
-        if ("admin".equals(returnTo)) request.getSession(true).setAttribute(RETURN_URL_SESSION_ATTRIBUTE, ADMIN_URL);
+        if (request.getSession(false) != null) request.getSession(false).removeAttribute(RETURN_URL_SESSION_ATTRIBUTE);
+        switch (returnTo) {
+            case "admin" -> request.getSession(true).setAttribute(RETURN_URL_SESSION_ATTRIBUTE, OAuthReturnTargets.ADMIN);
+            case "preview" -> request.getSession(true).setAttribute(RETURN_URL_SESSION_ATTRIBUTE, OAuthReturnTargets.PREVIEW);
+            case "home" -> { }
+            default -> { response.sendError(HttpServletResponse.SC_BAD_REQUEST); return; }
+        }
         response.sendRedirect("/oauth2/authorization/" + provider);
     }
 }

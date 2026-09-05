@@ -116,4 +116,20 @@ class AuthControllerTest {
         return new AuthTokenService.IssuedTokens(
                 "new-access-token", "new-refresh-token", Instant.now().plus(Duration.ofMinutes(15)), Duration.ofDays(14));
     }
+
+    @Test
+    void previewCorsIsExactAndCredentialsRemainSupported() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options("/api/v1/auth/me")
+                        .header("Origin", "https://preview.geupddong.com")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://preview.geupddong.com"))
+                .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
+        for (String origin : java.util.List.of("https://preview.geupddong.com.evil.example", "http://preview.geupddong.com", "https://evil.workers.dev")) {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options("/api/v1/auth/me")
+                            .header("Origin", origin).header("Access-Control-Request-Method", "GET"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(header().doesNotExist("Access-Control-Allow-Origin"));
+        }
+    }
 }

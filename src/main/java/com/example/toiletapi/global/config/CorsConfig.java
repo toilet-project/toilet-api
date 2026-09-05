@@ -17,6 +17,7 @@ public class CorsConfig implements WebMvcConfigurer {
                         "https://geupddong.com",
                         "https://www.geupddong.com",
                         "https://admin.geupddong.com",
+                        "https://preview.geupddong.com",
                         "http://localhost:5173"
                 )
                 .allowCredentials(true)
