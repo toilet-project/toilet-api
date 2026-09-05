@@ -5,6 +5,9 @@ import java.util.concurrent.CompletableFuture;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterAll;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -33,6 +36,15 @@ class CacheInvalidationMySqlTest {
         repository=new CacheInvalidationRepository(jdbc);
     }
     @BeforeEach void clear() {jdbc.update("DELETE FROM toilet_region");jdbc.update("DELETE FROM toilet");jdbc.update("DELETE FROM web_cache_invalidation");}
+    @AfterAll static void rollbackRetainsQueueButRemovesOnlyOwnedTriggers() throws Exception {
+        long before = repository.pendingCount();
+        assertEquals(6, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
+        try (var connection = new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword()).getConnection()) {
+            ScriptUtils.executeSqlScript(connection,new ClassPathResource("db/cache-revalidation/rollback_triggers.sql"));
+        }
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
+        assertEquals(before, repository.pendingCount(), "Rollback must retain queued events");
+    }
     @Test void queueIsCommittedAndRolledBackWithTheToiletMutation() {
         var tx=new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         tx.execute(status->{

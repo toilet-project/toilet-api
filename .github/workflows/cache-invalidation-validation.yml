@@ -1,7 +1,7 @@
 name: Cache invalidation validation
 on:
   push:
-    branches: [feature/toilet-seo-projection]
+    branches: [feature/durable-preview-cache]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:

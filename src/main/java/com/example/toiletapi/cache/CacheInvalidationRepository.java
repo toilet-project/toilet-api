@@ -15,6 +15,9 @@ public class CacheInvalidationRepository {
                 (rs,n) -> new Pending(rs.getLong(1),rs.getString(2),rs.getInt(3)));
     }
     public long pendingCount() { return jdbc.queryForObject("SELECT COUNT(*) FROM web_cache_invalidation", Long.class); }
+    public long oldestPendingSeconds() {
+        return jdbc.queryForObject("SELECT COALESCE(GREATEST(0,TIMESTAMPDIFF(SECOND,MIN(first_queued_at),UTC_TIMESTAMP(6))),0) FROM web_cache_invalidation", Long.class);
+    }
     public void acknowledge(Pending item) {
         jdbc.update("DELETE FROM web_cache_invalidation WHERE toilet_id=? AND event_id=?",item.toiletId(),item.eventId());
     }

@@ -17,17 +17,20 @@ public class CacheInvalidationDispatcher {
     private final CacheInvalidationClient client;
     private final Counter deliveries, failures;
     private final AtomicLong pending = new AtomicLong();
+    private final AtomicLong oldestPendingSeconds = new AtomicLong();
     public CacheInvalidationDispatcher(CacheInvalidationRepository repository,CacheInvalidationClient client,MeterRegistry metrics) {
         this.repository=repository; this.client=client;
         deliveries=metrics.counter("web.cache.invalidation.deliveries");
         failures=metrics.counter("web.cache.invalidation.failures");
         metrics.gauge("web.cache.invalidation.pending",pending);
+        metrics.gauge("web.cache.invalidation.oldest.seconds",oldestPendingSeconds);
     }
     // Never holds the toilet mutation transaction open while making HTTP calls.
     @Scheduled(fixedDelayString="${web-cache.poll-ms:5000}")
     public void dispatch() {
         try {
             pending.set(repository.pendingCount());
+            oldestPendingSeconds.set(repository.oldestPendingSeconds());
             var items=repository.due();
             if(items.isEmpty()) return;
             try {
@@ -46,6 +49,7 @@ public class CacheInvalidationDispatcher {
         } catch (Exception error) {
             failures.increment();
             pending.set(-1);
+            oldestPendingSeconds.set(-1);
             log.warn("Web cache queue unavailable; pending items retained");
         }
     }
