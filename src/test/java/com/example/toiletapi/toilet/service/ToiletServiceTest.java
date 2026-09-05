@@ -3,6 +3,8 @@ package com.example.toiletapi.toilet.service;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -11,6 +13,7 @@ import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.repository.ToiletRegionProjection;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +25,38 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ToiletServiceTest {
+
+    @Test
+    void shouldExposeOnlyCurrentVerifiedRegion() {
+        Toilet toilet = mock(Toilet.class);
+        ToiletRegionProjection region = mock(ToiletRegionProjection.class);
+        when(toiletRepository.findById(101L)).thenReturn(Optional.of(toilet));
+        when(toiletRepository.findCurrentRegion(101L)).thenReturn(Optional.of(region));
+        when(region.getSidoName()).thenReturn("충청남도");
+        when(region.getSidoCode()).thenReturn("44");
+        when(region.getSigunguName()).thenReturn("천안시 서북구");
+        when(region.getSigunguCode()).thenReturn("44133");
+        when(region.getCityName()).thenReturn("천안시");
+        when(region.getDistrictName()).thenReturn("서북구");
+
+        var result = toiletService.getToiletDetail(101L).region();
+        assertEquals("44", result.sidoCode());
+        assertEquals("천안시 서북구", result.sigunguName());
+        assertEquals("44133", result.sigunguCode());
+        assertEquals("천안시", result.cityName());
+        assertEquals("서북구", result.districtName());
+    }
+
+    @Test
+    void shouldNotInventRegionWhenCurrentViewHasNoMatch() {
+        Toilet toilet = mock(Toilet.class);
+        when(toiletRepository.findById(102L)).thenReturn(Optional.of(toilet));
+        when(toiletRepository.findCurrentRegion(102L)).thenReturn(Optional.empty());
+        when(toilet.getRoadAddress()).thenReturn("대전광역시 유성구 대학로 99");
+        var result = toiletService.getToiletDetail(102L);
+        assertNull(result.region());
+        assertEquals("대전광역시 유성구 대학로 99", result.roadAddress());
+    }
 
     @Mock
     private ToiletRepository toiletRepository;

@@ -15,6 +15,16 @@ import org.springframework.data.jpa.repository.Lock;
  */
 public interface ToiletRepository extends JpaRepository<Toilet, Long> {
 
+    // The view excludes unverified results and results whose source coordinates/addresses have changed.
+    @Query(value = """
+            SELECT sido_name AS sidoName, sido_code AS sidoCode,
+                   sigungu_name AS sigunguName, sigungu_code AS sigunguCode,
+                   city_name AS cityName, district_name AS districtName
+            FROM current_toilet_region
+            WHERE toilet_id = :toiletId
+            """, nativeQuery = true)
+    Optional<ToiletRegionProjection> findCurrentRegion(@Param("toiletId") Long toiletId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select toilet from Toilet toilet where toilet.id = :id")
     Optional<Toilet> findByIdForUpdate(@Param("id") Long id);
