@@ -7,7 +7,7 @@
 - ID만 반환하고 toilet 엔티티·region·제보·사용자를 JOIN하지 않는다. 상세 API와 같은 공개 테이블의 양의 safe integer ID를 사용한다. 좌표 누락만으로 상세 URL을 제외하지 않는다.
 - `ToiletSitemapService`의 read-only 트랜잭션, JdbcTemplate parameter binding, PK range, LIMIT 10000. OFFSET과 신규 인덱스/DDL 없음.
 - max ID 9007199254740991, 마지막 구간 900719925474. 범위 밖 요청은 400. 비숫자/필수 파라미터 누락은 MVC 400.
-- index 집계는 PK scan/group이며 최대 50000을 읽고 50000 이상이면 실패한다. Web 정적 sitemap 1개를 고려해 실제 허용은 49999구간이다. 이 규모에 도달하면 별도 index 분할 필요.
+- index 집계는 PK scan/group이며 결과를 최대 50000구간으로 제한하고 50000 이상이면 실패한다. 스캔하는 원본 행 수의 상한은 아니므로 데이터 증가 시 실행계획/시간을 다시 점검한다. Web 정적 sitemap 1개를 고려해 실제 허용은 49999구간이다. 이 규모에 도달하면 별도 index 분할 필요.
 - API cache header 5분, Web data cache 1시간. 신규/삭제 즉시 sitemap 갱신은 아니며 요청 기반 재조회. 상세 cache webhook과 독립적이다.
 - 실제 수정시각이 보장되지 않으므로 lastmod 없음. database_date 같은 원본 기준일을 대체 사용하지 않는다.
 - SecurityConfig의 기존 공개 toilet GET 범위를 재사용한다. noindex 응답 헤더. 인증/개인정보를 추가하지 않는다.
