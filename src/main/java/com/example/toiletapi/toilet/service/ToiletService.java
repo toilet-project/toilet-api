@@ -2,6 +2,7 @@ package com.example.toiletapi.toilet.service;
 
 import com.example.toiletapi.toilet.dto.ToiletClusterResponse;
 import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
+import com.example.toiletapi.toilet.dto.ToiletRegionResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
@@ -79,7 +80,8 @@ public class ToiletService {
      */
     public ToiletDetailResponse getToiletDetail(Long toiletId) {
         return toiletRepository.findById(toiletId)
-                .map(ToiletDetailResponse::from)
+                .map(toilet -> ToiletDetailResponse.from(toilet,
+                        toiletRepository.findCurrentRegion(toiletId).map(ToiletRegionResponse::from).orElse(null)))
                 .orElseThrow(() -> new ToiletNotFoundException(toiletId));
     }
 
