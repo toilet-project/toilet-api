@@ -26,7 +26,9 @@ class CacheInvalidationMySqlTest {
         jdbc=new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7))");
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
-        Flyway.configure().dataSource(dataSource).baselineOnMigrate(true).baselineVersion("0")
+        // DDL is an explicit DBA operation; application writes below keep the regular test user.
+        var ddlDataSource=new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword());
+        Flyway.configure().dataSource(ddlDataSource).baselineOnMigrate(true).baselineVersion("0")
                 .locations("classpath:db/cache-revalidation").load().migrate();
         repository=new CacheInvalidationRepository(jdbc);
     }
