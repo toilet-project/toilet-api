@@ -1,3 +1,9 @@
+web-cache:
+  enabled: ${WEB_CACHE_REVALIDATION_ENABLED:false}
+  origin: ${WEB_CACHE_ORIGIN:}
+  secret: ${WEB_CACHE_REVALIDATION_SECRET:}
+  poll-ms: 5000
+
 server:
   port: ${API_PORT}
   forward-headers-strategy: framework
