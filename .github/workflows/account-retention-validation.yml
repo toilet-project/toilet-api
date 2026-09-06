@@ -16,6 +16,10 @@ jobs:
         with:
           node-version: '24'
       - run: node --test scripts/prepare-account-lifecycle.test.mjs
+      - name: Verify nonpersistent Redis in isolated Docker
+        run: node --test scripts/redis-deployment.test.mjs
+        env:
+          REDIS_DEPLOYMENT_DOCKER_TEST: 'true'
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

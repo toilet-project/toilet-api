@@ -76,7 +76,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/toilet-api:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/toilet-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/toilet-api:${{ github.sha }}
 
       - name: Deploy to Mini PC via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -86,8 +88,19 @@ jobs:
           username: ${{ secrets.MINI_PC_USERNAME }}
           key: ${{ secrets.MINI_PC_KEY }}
           script: |
+            set -eu
+            umask 077
             mkdir -p ~/toilet-api
             cd ~/toilet-api
+
+            # Preserve the previous configuration and image ID; never prune rollback images here.
+            rollback_dir=$(mktemp -d "$PWD/rollback-preparation.XXXXXXXX")
+            for file in .env .account-lifecycle.env compose.yaml; do
+              if [ -f "$file" ]; then cp -p -- "$file" "$rollback_dir/"; fi
+            done
+            if docker container inspect toilet-api >/dev/null 2>&1; then
+              docker container inspect --format '{{.Image}}' toilet-api > "$rollback_dir/api-image-id"
+            fi
 
             cat <<EOF > .env
             API_PORT=${{ secrets.API_PORT }}
@@ -114,21 +127,22 @@ jobs:
             printf '%s' '${{ steps.lifecycle.outputs.payload }}' | base64 --decode > .account-lifecycle.env
             chmod 600 .env .account-lifecycle.env
 
-            cat <<EOF > compose.yaml
+            cat <<'EOF' > compose.yaml
             services:
               redis:
                 image: redis:7.4-alpine
                 container_name: toilet-redis
                 restart: unless-stopped
-                command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"\${REDIS_PASSWORD}\""]
+                command: ["sh", "-c", "exec redis-server --save '' --appendonly no --requirepass \"$$REDIS_PASSWORD\""]
                 env_file:
                   - .env
-                volumes:
-                  - redis-data:/data
+                # Do not mount/load the old redis-data volume. Its files require separate cleanup approval.
+                tmpfs:
+                  - /data:rw,noexec,nosuid,size=64m
                 networks:
                   - toilet-network
                 healthcheck:
-                  test: ["CMD-SHELL", "redis-cli -a \"\${REDIS_PASSWORD}\" ping | grep PONG"]
+                  test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -qx PONG"]
                   interval: 10s
                   timeout: 3s
                   retries: 5
@@ -140,7 +154,7 @@ jobs:
                     max-file: "5"
 
               api:
-                image: ${{ secrets.DOCKERHUB_USERNAME }}/toilet-api:latest
+                image: ${{ secrets.DOCKERHUB_USERNAME }}/toilet-api:${{ github.sha }}
                 container_name: toilet-api
                 restart: unless-stopped
                 env_file:
@@ -163,10 +177,8 @@ jobs:
               toilet-network:
                 external: true
 
-            volumes:
-              redis-data:
             EOF
 
+            docker compose config --quiet
             docker compose pull
-            docker compose up -d --remove-orphans
-            docker image prune -f --filter "until=24h"
+            docker compose up -d --wait --wait-timeout 120 redis api
