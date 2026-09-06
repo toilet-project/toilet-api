@@ -19,16 +19,31 @@ public class OAuthLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHand
     private final OAuthLoginService loginService;
     private final AuthTokenService tokenService;
     private final String frontendBaseUrl;
+    private final com.example.toiletapi.auth.service.RecoveryChallengeStore recoveryChallenges;
     public OAuthLoginSuccessHandler(OAuthLoginService loginService, AuthTokenService tokenService,
-                                    @Value("${auth.frontend-base-url}") String frontendBaseUrl) {
+                                    @Value("${auth.frontend-base-url}") String frontendBaseUrl,
+                                    com.example.toiletapi.auth.service.RecoveryChallengeStore recoveryChallenges) {
         this.loginService = loginService; this.tokenService = tokenService; this.frontendBaseUrl = frontendBaseUrl;
+        this.recoveryChallenges = recoveryChallenges;
     }
     @Override public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                                    Authentication authentication) throws IOException {
         OAuth2AuthenticationToken oauth = (OAuth2AuthenticationToken) authentication;
         OAuthLoginService.LoginUser user = loginService.login(oauth.getAuthorizedClientRegistrationId(), oauth.getPrincipal());
-        AuthController.writeCookies(response, tokenService.issue(user.userId(), user.roles()));
         String returnUrl = OAuthReturnTargets.consume(request, frontendBaseUrl);
+        // The OAuth session must not act as an authenticated service session for withdrawn users.
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        if (request.getSession(false) != null) request.getSession(false).invalidate();
+        if (user.recoveryKey() != null) {
+            AuthController.clearCookies(response);
+            com.example.toiletapi.auth.controller.AccountRecoveryController.writeRecoveryCookie(response,
+                    recoveryChallenges.issue(user.userId(), user.recoveryKey()),
+                    com.example.toiletapi.auth.service.RecoveryChallengeStore.TTL);
+            String home = OAuthReturnTargets.PREVIEW.equals(returnUrl) ? returnUrl : frontendBaseUrl;
+            getRedirectStrategy().sendRedirect(request, response, home + "/?recovery=required");
+            return;
+        }
+        AuthController.writeCookies(response, tokenService.issue(user.userId(), user.roles()));
         String targetUrl;
         if (user.consentRequired()) {
             String returnTarget = OAuthReturnTargets.ADMIN.equals(returnUrl) ? "admin" : null;

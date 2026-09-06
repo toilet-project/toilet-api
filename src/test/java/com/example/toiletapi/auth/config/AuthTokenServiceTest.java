@@ -26,13 +26,18 @@ class AuthTokenServiceTest {
     private final AuthTokenProperties properties = new AuthTokenProperties(
             Base64.getEncoder().encodeToString(new byte[32]), Duration.ofMinutes(15), Duration.ofDays(14));
     private final JwtConfig jwtConfig = new JwtConfig();
+    private final com.example.toiletapi.auth.repository.AppUserRepository users = mock(com.example.toiletapi.auth.repository.AppUserRepository.class);
+
+    @org.junit.jupiter.api.BeforeEach void setupUser() {
+        org.mockito.Mockito.when(users.lockById(7L)).thenReturn(java.util.Optional.of(com.example.toiletapi.auth.model.AppUser.create("회원", null, false)));
+    }
 
     @Test
     void shouldIssueAccessTokenWithRolesAndRefreshToken() {
         RefreshTokenStore refreshTokenStore = mock(RefreshTokenStore.class);
         JwtEncoder encoder = jwtConfig.jwtEncoder(jwtConfig.jwtSecretKey(properties));
         JwtDecoder decoder = jwtConfig.jwtDecoder(jwtConfig.jwtSecretKey(properties));
-        AuthTokenService service = new AuthTokenService(encoder, refreshTokenStore, properties);
+        AuthTokenService service = new AuthTokenService(encoder, refreshTokenStore, properties, users);
 
         AuthTokenService.IssuedTokens tokens = service.issue(7L, List.of(Role.USER));
 
@@ -61,7 +66,7 @@ class AuthTokenServiceTest {
     void shouldDeleteRefreshTokenOnRevoke() {
         RefreshTokenStore refreshTokenStore = mock(RefreshTokenStore.class);
         AuthTokenService service = new AuthTokenService(
-                jwtConfig.jwtEncoder(jwtConfig.jwtSecretKey(properties)), refreshTokenStore, properties);
+                jwtConfig.jwtEncoder(jwtConfig.jwtSecretKey(properties)), refreshTokenStore, properties, users);
 
         service.revoke("refresh-token");
 

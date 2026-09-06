@@ -21,6 +21,7 @@ public class UserNotificationService {
 
     @Transactional
     public void createReportDecision(ToiletReport report, String toiletName) {
+        if (report.getReporterUserId() == null) return; // Erased author: keep the report, never recreate an account link.
         NotificationType type = switch (report.getStatus()) {
             case APPROVED -> NotificationType.REPORT_APPROVED;
             case REJECTED -> NotificationType.REPORT_REJECTED;

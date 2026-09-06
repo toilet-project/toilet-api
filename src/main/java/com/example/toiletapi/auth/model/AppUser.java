@@ -17,6 +17,7 @@ public class AppUser {
     @Column(length = 255) private String email;
     @Column(name = "email_verified", nullable = false) private boolean emailVerified;
     @Column(name = "last_login_at") private LocalDateTime lastLoginAt;
+    @Column(name = "auth_version", nullable = false) private long authVersion;
     @Column(name = "created_at", nullable = false, updatable = false) private LocalDateTime createdAt;
     @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;
     @PrePersist void onCreate() { var now = KoreanTime.now(); createdAt = now; updatedAt = now; }
@@ -55,5 +56,13 @@ public class AppUser {
         displayName = "탈퇴한 사용자";
         email = null;
         emailVerified = false;
+        lastLoginAt = null;
+        authVersion++;
+    }
+
+    public void restore(String nickname) {
+        status = UserStatus.PENDING_CONSENT;
+        displayName = nickname == null || nickname.isBlank() ? "급똥 사용자" : nickname;
+        authVersion++;
     }
 }

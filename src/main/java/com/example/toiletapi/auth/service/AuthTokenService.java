@@ -18,20 +18,28 @@ public class AuthTokenService {
     private final JwtEncoder jwtEncoder;
     private final RefreshTokenStore refreshTokenStore;
     private final AuthTokenProperties properties;
+    private final com.example.toiletapi.auth.repository.AppUserRepository users;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public AuthTokenService(JwtEncoder jwtEncoder, RefreshTokenStore refreshTokenStore, AuthTokenProperties properties) {
+    public AuthTokenService(JwtEncoder jwtEncoder, RefreshTokenStore refreshTokenStore, AuthTokenProperties properties,
+                            com.example.toiletapi.auth.repository.AppUserRepository users) {
         this.jwtEncoder = jwtEncoder;
         this.refreshTokenStore = refreshTokenStore;
         this.properties = properties;
+        this.users = users;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public IssuedTokens issue(Long userId, List<Role> roles) {
+        var user = users.lockById(userId).orElseThrow(RecoveryChallengeStore::expired);
+        if (user.getStatus() == com.example.toiletapi.auth.model.UserStatus.WITHDRAWN
+                || user.getStatus() == com.example.toiletapi.auth.model.UserStatus.SUSPENDED) throw RecoveryChallengeStore.expired();
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(properties.accessTokenTtl());
         String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(MacAlgorithm.HS256).type("JWT").build(),
                 JwtClaimsSet.builder().subject(userId.toString()).issuedAt(issuedAt).expiresAt(expiresAt)
+                        .claim("auth_version", user.getAuthVersion())
                         .claim("roles", roles.stream().map(Role::name).toList()).build()
         )).getTokenValue();
         String refreshToken = randomToken();

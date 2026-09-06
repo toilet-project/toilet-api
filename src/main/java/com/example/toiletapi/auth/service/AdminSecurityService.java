@@ -72,7 +72,7 @@ public class AdminSecurityService {
         Map<Long, String> actorNames = userRepository.findAllById(actorIds).stream().collect(Collectors.toMap(
                 AppUser::getId, user -> Optional.ofNullable(user.getDisplayName()).filter(name -> !name.isBlank()).orElse("사용자 #" + user.getId())));
         var items = logs.getContent().stream().map(log -> AuditLogResponse.from(log,
-                log.getActorUserId() == null ? "시스템" : actorNames.getOrDefault(log.getActorUserId(), "사용자 #" + log.getActorUserId()))).toList();
+                log.isActorErased() ? "탈퇴한 사용자" : log.getActorUserId() == null ? "시스템" : actorNames.getOrDefault(log.getActorUserId(), "사용자 #" + log.getActorUserId()))).toList();
         return new AuditLogPageResponse(items, logs.getNumber(), logs.getSize(), logs.getTotalElements(), logs.getTotalPages());
     }
 

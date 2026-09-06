@@ -11,7 +11,7 @@ import lombok.*;
 public class ToiletReport {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "report_id") private Long id;
     @Column(name = "toilet_id", nullable = false) private Long toiletId;
-    @Column(name = "reporter_user_id", nullable = false) private Long reporterUserId;
+    @Column(name = "reporter_user_id") private Long reporterUserId;
     @Column(name = "report_type", nullable = false, length = 30) private String reportType;
     @Column(name = "proposed_latitude", precision = 10, scale = 7) private BigDecimal proposedLatitude;
     @Column(name = "proposed_longitude", precision = 10, scale = 7) private BigDecimal proposedLongitude;

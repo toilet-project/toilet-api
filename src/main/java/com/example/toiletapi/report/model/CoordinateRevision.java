@@ -20,7 +20,7 @@ public class CoordinateRevision {
     @Column(name = "previous_jibun_address", length = 255) private String previousJibunAddress;
     @Column(name = "applied_road_address", length = 255) private String appliedRoadAddress;
     @Column(name = "applied_jibun_address", length = 255) private String appliedJibunAddress;
-    @Column(name = "applied_by_user_id", nullable = false) private Long appliedByUserId;
+    @Column(name = "applied_by_user_id") private Long appliedByUserId;
     @Column(name = "applied_at", nullable = false) private LocalDateTime appliedAt;
     @Column(nullable = false, length = 30) private String source;
     public static CoordinateRevision create(ToiletReport report, BigDecimal previousLatitude, BigDecimal previousLongitude, String previousRoadAddress, String previousJibunAddress,

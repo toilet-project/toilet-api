@@ -17,16 +17,19 @@ public class AccountService {
     private final UserPolicyConsentRepository consentRepository;
     private final RefreshTokenStore refreshTokenStore;
     private final AuditLogService auditLogService;
+    private final com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals;
 
     public AccountService(AppUserRepository userRepository, UserSocialAccountRepository socialAccountRepository,
                           UserRoleAssignmentRepository roleRepository, UserPolicyConsentRepository consentRepository,
-                          RefreshTokenStore refreshTokenStore, AuditLogService auditLogService) {
+                          RefreshTokenStore refreshTokenStore, AuditLogService auditLogService,
+                          com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
         this.roleRepository = roleRepository;
         this.consentRepository = consentRepository;
         this.refreshTokenStore = refreshTokenStore;
         this.auditLogService = auditLogService;
+        this.withdrawals = withdrawals;
     }
 
     @Transactional
@@ -39,7 +42,7 @@ public class AccountService {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "닉네임은 제어 문자를 제외한 2~30자로 입력해 주세요.");
         }
-        AppUser user = userRepository.findById(userId).orElseThrow(() ->
+        AppUser user = userRepository.lockById(userId).orElseThrow(() ->
                 new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED));
         if (user.getStatus() != com.example.toiletapi.auth.model.UserStatus.ACTIVE) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
@@ -49,11 +52,23 @@ public class AccountService {
     }
 
     @Transactional
-    public void withdraw(Long userId) {
-        AppUser user = userRepository.findById(userId)
+    public void withdraw(Long userId, boolean retainForRecovery, String consentVersion) {
+        if (retainForRecovery && !com.example.toiletapi.auth.model.AccountWithdrawal.CONSENT_VERSION.equals(consentVersion)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "복구용 정보 보관 동의를 다시 확인해 주세요.");
+        }
+        AppUser user = userRepository.lockById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        if (user.getStatus() == com.example.toiletapi.auth.model.UserStatus.WITHDRAWN) return;
+        if (retainForRecovery && user.getStatus() == com.example.toiletapi.auth.model.UserStatus.SUSPENDED) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,
+                    "이용 제한 계정은 복구용 보관을 선택할 수 없습니다.");
+        }
+        withdrawals.save(com.example.toiletapi.auth.model.AccountWithdrawal.create(user, retainForRecovery,
+                com.example.toiletapi.global.time.KoreanTime.now()));
         consentRepository.findAllByUserIdAndWithdrawnAtIsNull(userId).forEach(consent -> consent.withdraw());
-        socialAccountRepository.deleteAllByUserId(userId);
+        if (retainForRecovery) socialAccountRepository.findAllByUserId(userId).forEach(account -> account.clearPersonalProfile());
+        else socialAccountRepository.deleteAllByUserId(userId);
         roleRepository.deleteAllByUserId(userId);
         user.withdraw();
         auditLogService.record(userId, com.example.toiletapi.auth.model.AuditAction.USER_WITHDRAWN,

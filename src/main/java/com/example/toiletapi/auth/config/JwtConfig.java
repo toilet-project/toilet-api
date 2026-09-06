@@ -37,8 +37,28 @@ public class JwtConfig {
         return new NimbusJwtEncoder(new ImmutableSecret<SecurityContext>(jwtSecretKey));
     }
 
-    @Bean
     JwtDecoder jwtDecoder(SecretKey jwtSecretKey) {
         return NimbusJwtDecoder.withSecretKey(jwtSecretKey).macAlgorithm(MacAlgorithm.HS256).build();
+    }
+
+    @Bean
+    JwtDecoder accountAwareJwtDecoder(SecretKey jwtSecretKey,
+            com.example.toiletapi.auth.repository.AppUserRepository users) {
+        JwtDecoder signatureDecoder = jwtDecoder(jwtSecretKey);
+        return token -> {
+            var jwt = signatureDecoder.decode(token);
+            try {
+                var user = users.findById(Long.valueOf(jwt.getSubject())).orElseThrow();
+                var status = user.getStatus();
+                Number version = jwt.getClaim("auth_version");
+                long tokenVersion = version == null ? 0 : version.longValue();
+                if (status == com.example.toiletapi.auth.model.UserStatus.WITHDRAWN
+                        || status == com.example.toiletapi.auth.model.UserStatus.SUSPENDED
+                        || tokenVersion != user.getAuthVersion()) throw new IllegalStateException();
+                return jwt;
+            } catch (RuntimeException invalid) {
+                throw new org.springframework.security.oauth2.jwt.BadJwtException("이용할 수 없는 로그인 세션입니다.");
+            }
+        };
     }
 }

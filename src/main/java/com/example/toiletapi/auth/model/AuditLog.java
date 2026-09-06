@@ -13,6 +13,7 @@ public class AuditLog {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "audit_log_id") private Long id;
     @Column(name = "actor_user_id") private Long actorUserId;
+    @Column(name = "actor_erased", nullable = false) private boolean actorErased;
     @Column(nullable = false, length = 100) private String action;
     @Column(name = "target_type", nullable = false, length = 50) private String targetType;
     @Column(name = "target_id") private Long targetId;

@@ -60,6 +60,8 @@ class AuthControllerTest {
     @MockitoBean
     private AccountService accountService;
     @MockitoBean
+    private com.example.toiletapi.auth.service.AccountErasureService erasureService;
+    @MockitoBean
     private OAuthLoginSuccessHandler oauthLoginSuccessHandler;
     @MockitoBean
     private JwtDecoder jwtDecoder;
