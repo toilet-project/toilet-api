@@ -33,16 +33,22 @@ public class AuthController {
     private final UserRolePolicyService rolePolicyService;
     private final PolicyConsentService policyConsentService;
     private final AccountService accountService;
+    private final com.example.toiletapi.auth.service.AccountErasureService erasureService;
+    private final com.example.toiletapi.auth.service.AccountLifecycleGate lifecycle;
 
     public AuthController(RefreshTokenStore refreshTokenStore, AuthTokenService tokenService,
                           AppUserRepository userRepository, UserRolePolicyService rolePolicyService,
-                          PolicyConsentService policyConsentService, AccountService accountService) {
+                          PolicyConsentService policyConsentService, AccountService accountService,
+                          com.example.toiletapi.auth.service.AccountErasureService erasureService,
+                          com.example.toiletapi.auth.service.AccountLifecycleGate lifecycle) {
         this.refreshTokenStore = refreshTokenStore;
         this.tokenService = tokenService;
         this.userRepository = userRepository;
         this.rolePolicyService = rolePolicyService;
         this.policyConsentService = policyConsentService;
         this.accountService = accountService;
+        this.erasureService = erasureService;
+        this.lifecycle = lifecycle;
     }
 
     @PostMapping("/refresh")
@@ -69,11 +75,24 @@ public class AuthController {
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Jwt jwt, HttpServletResponse response) {
-        accountService.withdraw(Long.valueOf(jwt.getSubject()));
-        expire(response, "geupddong_access", "/");
-        expire(response, REFRESH_COOKIE, "/api/v1/auth");
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> withdraw(@AuthenticationPrincipal Jwt jwt, HttpServletResponse response,
+            jakarta.servlet.http.HttpServletRequest servletRequest,
+            @org.springframework.web.bind.annotation.RequestBody(required = false) WithdrawalRequest request) {
+        AccountRecoveryController.requireTrustedOrigin(servletRequest);
+        lifecycle.requireWithdrawal();
+        boolean retain = request != null && request.retainForRecovery();
+        Long id = Long.valueOf(jwt.getSubject());
+        var receipt = accountService.withdraw(id, retain, request == null ? null : request.consentVersion());
+        clearCookies(response);
+        if (!retain) {
+            try { erasureService.eraseIfDue(id, com.example.toiletapi.global.time.KoreanTime.now()); }
+            catch (Exception failure) {
+                erasureService.recordFailure(id);
+                return ResponseEntity.accepted().build();
+            }
+        }
+        return retain ? ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(receipt)
+                : ResponseEntity.noContent().build();
     }
 
     @org.springframework.web.bind.annotation.PatchMapping("/me/profile")
@@ -84,6 +103,18 @@ public class AuthController {
 
     public record NicknameRequest(String displayName) { }
     public record NicknameResponse(String displayName) { }
+
+    @GetMapping("/withdrawal-options")
+    public WithdrawalOptions withdrawalOptions() {
+        return new WithdrawalOptions(lifecycle.withdrawalAvailable(), com.example.toiletapi.auth.model.AccountWithdrawal.CONSENT_VERSION,
+                com.example.toiletapi.global.time.KoreanTime.now().plusMonths(3).atOffset(java.time.ZoneOffset.ofHours(9)));
+    }
+    public record WithdrawalRequest(boolean retainForRecovery, String consentVersion) { }
+    public record WithdrawalOptions(boolean enabled, String consentVersion, java.time.OffsetDateTime purgeAfter) { }
+
+    public static void clearCookies(HttpServletResponse response) {
+        expire(response, "geupddong_access", "/"); expire(response, REFRESH_COOKIE, "/api/v1/auth");
+    }
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(jakarta.servlet.http.HttpServletRequest request, HttpServletResponse response) {

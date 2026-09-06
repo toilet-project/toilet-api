@@ -8,4 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserSocialAccountRepository extends JpaRepository<UserSocialAccount, Long> {
     Optional<UserSocialAccount> findByProviderAndProviderSubjectHash(SocialProvider provider, String providerSubjectHash);
     void deleteAllByUserId(Long userId);
+    java.util.List<UserSocialAccount> findAllByUserId(Long userId);
 }

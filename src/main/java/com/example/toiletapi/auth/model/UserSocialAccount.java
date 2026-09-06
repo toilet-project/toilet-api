@@ -42,4 +42,6 @@ public class UserSocialAccount {
         }
         this.lastLoginAt = KoreanTime.now();
     }
+
+    public void clearPersonalProfile() { providerEmail = null; lastLoginAt = null; }
 }

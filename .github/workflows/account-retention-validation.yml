@@ -1,0 +1,37 @@
+name: Account withdrawal and erasure validation
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [feature/account-withdrawal-retention]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test scripts/prepare-account-lifecycle.test.mjs
+      - name: Verify nonpersistent Redis in isolated Docker
+        run: node --test scripts/redis-deployment.test.mjs
+        env:
+          REDIS_DEPLOYMENT_DOCKER_TEST: 'true'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Require isolated Docker runtime
+        run: docker info > /dev/null
+      - name: Account lifecycle and real MySQL DDL
+        run: |
+          chmod +x ./gradlew
+          ./gradlew test --tests '*AccountLifecycleIntegrationTest' --tests '*AccountLifecycleGateTest' --tests '*AccountWithdrawalMySqlTest' --tests '*WithdrawalSecurityTest' --tests '*AccountRecoveryControllerTest' --tests '*RecoveryChallengeStoreTest' --tests '*AuthTokenServiceTest' --tests '*AuthControllerTest' --tests '*PreviewOAuthTest' --tests '*UserRolePolicyServiceTest' --tests '*ErasureLedgerTest' --no-daemon --console=plain
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: account-retention-test-results
+          path: build/test-results/test

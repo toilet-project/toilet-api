@@ -22,13 +22,21 @@ public class OAuthLoginService {
     private final UserSocialAccountRepository socialAccountRepository;
     private final UserRolePolicyService rolePolicyService;
     private final PolicyConsentService policyConsentService;
+    private final com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals;
+    private final AccountErasureService erasure;
+    private final AccountLifecycleGate lifecycle;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
 
     public OAuthLoginService(AppUserRepository userRepository, UserSocialAccountRepository socialAccountRepository,
-                             UserRolePolicyService rolePolicyService, PolicyConsentService policyConsentService) {
+                             UserRolePolicyService rolePolicyService, PolicyConsentService policyConsentService,
+                             com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals,
+                             AccountErasureService erasure, AccountLifecycleGate lifecycle) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
         this.rolePolicyService = rolePolicyService;
         this.policyConsentService = policyConsentService;
+        this.withdrawals = withdrawals; this.erasure = erasure;
+        this.lifecycle = lifecycle;
     }
 
     @Transactional
@@ -37,6 +45,22 @@ public class OAuthLoginService {
         UserSocialAccount socialAccount = socialAccountRepository
                 .findByProviderAndProviderSubjectHash(profile.provider(), sha256(profile.subject()))
                 .orElseGet(() -> link(profile));
+        // Serialize OAuth against erasure/withdrawal; no profile writes or roles before this check.
+        var user = userRepository.lockById(socialAccount.getUser().getId())
+                .orElseThrow(() -> new IllegalStateException("계정 상태가 변경되었습니다. 다시 로그인해 주세요."));
+        entityManager.refresh(user); // Do not use a pre-lock OAuth association snapshot after concurrent withdrawal.
+        if (user.getStatus() == com.example.toiletapi.auth.model.UserStatus.WITHDRAWN) {
+            lifecycle.requireRecovery();
+            var withdrawal = withdrawals.findById(user.getId()).orElse(null);
+            var now = com.example.toiletapi.global.time.KoreanTime.now();
+            if (withdrawal != null && withdrawal.canRecover(now)) {
+                return new LoginUser(user.getId(), List.of(), false, withdrawal.getWithdrawalKey());
+            }
+            if (!erasure.eraseIfDue(user.getId(), now)) throw new IllegalStateException("탈퇴 계정 확인이 필요합니다.");
+            socialAccount = link(profile);
+        } else if (user.getStatus() == com.example.toiletapi.auth.model.UserStatus.SUSPENDED) {
+            throw new IllegalStateException("이용이 제한된 계정입니다.");
+        }
         socialAccount.getUser().refreshOAuthProfile(
                 profile.displayName(), profile.email(), profile.emailVerified());
         socialAccount.recordLogin(profile.email());
@@ -78,5 +102,7 @@ public class OAuthLoginService {
         }
     }
 
-    public record LoginUser(Long userId, List<Role> roles, boolean consentRequired) { }
+    public record LoginUser(Long userId, List<Role> roles, boolean consentRequired, String recoveryKey) {
+        public LoginUser(Long userId, List<Role> roles, boolean consentRequired) { this(userId, roles, consentRequired, null); }
+    }
 }

@@ -10,6 +10,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from AppUser u where u.id = :id")
+    java.util.Optional<AppUser> lockById(@Param("id") Long id);
     @Query("""
             select distinct user from AppUser user
             where (:keyword is null

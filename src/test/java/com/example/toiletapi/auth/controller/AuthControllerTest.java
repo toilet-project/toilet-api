@@ -36,12 +36,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(value = {AuthController.class, OAuthLoginRedirectController.class}, properties = {
+        "account.retention.enabled=true",
+        "account.erasure.enabled=true",
+        "account.lifecycle.maintenance=false",
         "spring.security.oauth2.client.registration.google.client-id=test-google-client",
         "spring.security.oauth2.client.registration.google.client-secret=test-google-secret",
         "spring.security.oauth2.client.registration.kakao.client-id=test-kakao-client",
         "spring.security.oauth2.client.registration.kakao.client-secret=test-kakao-secret"
 })
-@Import({CorsConfig.class, SecurityConfig.class})
+@Import({CorsConfig.class, SecurityConfig.class, com.example.toiletapi.auth.service.AccountLifecycleGate.class})
 class AuthControllerTest {
 
     @Autowired
@@ -60,9 +63,28 @@ class AuthControllerTest {
     @MockitoBean
     private AccountService accountService;
     @MockitoBean
+    private com.example.toiletapi.auth.service.AccountErasureService erasureService;
+    @MockitoBean
     private OAuthLoginSuccessHandler oauthLoginSuccessHandler;
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @Test void withdrawalUsesAuthenticatedIdAndReturnsConfirmedDeadline() throws Exception {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("withdrawal-test")
+                .header("alg", "HS256").subject("7").claim("roles", java.util.List.of("USER"))
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(300)).build();
+        when(jwtDecoder.decode("withdrawal-test")).thenReturn(jwt);
+        when(accountService.withdraw(7L, true, "recovery-2026-09-v1"))
+                .thenReturn(new AccountService.WithdrawalReceipt(java.time.OffsetDateTime.parse("2026-12-06T18:00:00+09:00")));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/auth/me")
+                .header("Authorization", "Bearer withdrawal-test").header("Origin", "https://geupddong.com")
+                .contentType("application/json").content("{\"userId\":999,\"retainForRecovery\":true,\"consentVersion\":\"recovery-2026-09-v1\"}"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.purgeAfter").value("2026-12-06T18:00:00+09:00"))
+                .andExpect(cookie().maxAge("geupddong_access", 0));
+        verify(accountService).withdraw(7L, true, "recovery-2026-09-v1");
+        verify(erasureService, never()).eraseIfDue(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any());
+    }
 
     @Test
     void shouldRotateRefreshTokenWithoutAccessToken() throws Exception {
