@@ -1,7 +1,6 @@
 account:
   retention:
     enabled: ${ACCOUNT_RETENTION_ENABLED:false}
-    poll-ms: 60000
 
 web-cache:
   enabled: ${WEB_CACHE_REVALIDATION_ENABLED:false}
