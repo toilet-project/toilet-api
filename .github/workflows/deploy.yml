@@ -32,6 +32,25 @@ jobs:
           CACHE_SECRET: ${{ secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET'] }}
         run: node scripts/check-web-cache-deployment.mjs
 
+      - name: Validate and prepare paused account lifecycle configuration
+        id: lifecycle
+        env:
+          ACCOUNT_LIFECYCLE_DEPLOYMENT_APPROVED: ${{ vars.ACCOUNT_LIFECYCLE_DEPLOYMENT_APPROVED || 'false' }}
+          ACCOUNT_LIFECYCLE_MAINTENANCE: 'true'
+          ACCOUNT_RETENTION_ENABLED: 'false'
+          ACCOUNT_ERASURE_ENABLED: 'false'
+          ERASURE_LEDGER_ENABLED: 'false'
+          ERASURE_LEDGER_CATALOGUE_ENABLED: 'false'
+          ERASURE_LEDGER_ENDPOINT: ${{ vars.ERASURE_LEDGER_ENDPOINT }}
+          ERASURE_LEDGER_REALM: ${{ vars.ERASURE_LEDGER_REALM || 'production' }}
+          ERASURE_LEDGER_BUCKET: ${{ vars.ERASURE_LEDGER_BUCKET || 'geupddong-account-erasure-ledger' }}
+          ERASURE_LEDGER_ACTIVE_KEY_ID: ${{ vars.ERASURE_LEDGER_ACTIVE_KEY_ID || 'k1' }}
+          ERASURE_LEDGER_ACCESS_KEY_ID: ${{ secrets.ERASURE_LEDGER_ACCESS_KEY_ID }}
+          ERASURE_LEDGER_SECRET_ACCESS_KEY: ${{ secrets.ERASURE_LEDGER_SECRET_ACCESS_KEY }}
+          ERASURE_LEDGER_KEYS_JSON: ${{ secrets.ERASURE_LEDGER_KEYS_JSON }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+        run: node scripts/prepare-account-lifecycle.mjs api
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -79,13 +98,18 @@ jobs:
             KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
             REDIS_HOST=redis
             REDIS_PORT=6379
-            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             AUTH_ADMIN_BOOTSTRAP_EMAILS=${{ secrets.AUTH_ADMIN_BOOTSTRAP_EMAILS }}
             WEB_CACHE_REVALIDATION_ENABLED=${{ vars.WEB_CACHE_REVALIDATION_ENABLED || 'false' }}
             WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}
             WEB_CACHE_REVALIDATION_SECRET=${{ secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET'] }}
             EOF
+
+            # Only base64 crosses the shell boundary; JSON and dollar signs remain literal.
+            umask 077
+            printf '%s' '${{ steps.lifecycle.outputs.redisPayload }}' | base64 --decode >> .env
+            printf '%s' '${{ steps.lifecycle.outputs.payload }}' | base64 --decode > .account-lifecycle.env
+            chmod 600 .env .account-lifecycle.env
 
             cat <<EOF > compose.yaml
             services:
@@ -118,6 +142,7 @@ jobs:
                 restart: unless-stopped
                 env_file:
                   - .env
+                  - .account-lifecycle.env
                 depends_on:
                   redis:
                     condition: service_healthy

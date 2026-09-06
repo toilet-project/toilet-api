@@ -34,13 +34,13 @@ public class AuthController {
     private final PolicyConsentService policyConsentService;
     private final AccountService accountService;
     private final com.example.toiletapi.auth.service.AccountErasureService erasureService;
-    @org.springframework.beans.factory.annotation.Value("${account.retention.enabled:false}")
-    private boolean retentionEnabled;
+    private final com.example.toiletapi.auth.service.AccountLifecycleGate lifecycle;
 
     public AuthController(RefreshTokenStore refreshTokenStore, AuthTokenService tokenService,
                           AppUserRepository userRepository, UserRolePolicyService rolePolicyService,
                           PolicyConsentService policyConsentService, AccountService accountService,
-                          com.example.toiletapi.auth.service.AccountErasureService erasureService) {
+                          com.example.toiletapi.auth.service.AccountErasureService erasureService,
+                          com.example.toiletapi.auth.service.AccountLifecycleGate lifecycle) {
         this.refreshTokenStore = refreshTokenStore;
         this.tokenService = tokenService;
         this.userRepository = userRepository;
@@ -48,6 +48,7 @@ public class AuthController {
         this.policyConsentService = policyConsentService;
         this.accountService = accountService;
         this.erasureService = erasureService;
+        this.lifecycle = lifecycle;
     }
 
     @PostMapping("/refresh")
@@ -78,8 +79,7 @@ public class AuthController {
             jakarta.servlet.http.HttpServletRequest servletRequest,
             @org.springframework.web.bind.annotation.RequestBody(required = false) WithdrawalRequest request) {
         AccountRecoveryController.requireTrustedOrigin(servletRequest);
-        if (!retentionEnabled) throw new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "탈퇴 기능 점검 중입니다. 개인정보 문의로 요청해 주세요.");
+        lifecycle.requireWithdrawal();
         boolean retain = request != null && request.retainForRecovery();
         Long id = Long.valueOf(jwt.getSubject());
         var receipt = accountService.withdraw(id, retain, request == null ? null : request.consentVersion());
@@ -106,7 +106,7 @@ public class AuthController {
 
     @GetMapping("/withdrawal-options")
     public WithdrawalOptions withdrawalOptions() {
-        return new WithdrawalOptions(retentionEnabled, com.example.toiletapi.auth.model.AccountWithdrawal.CONSENT_VERSION,
+        return new WithdrawalOptions(lifecycle.withdrawalAvailable(), com.example.toiletapi.auth.model.AccountWithdrawal.CONSENT_VERSION,
                 com.example.toiletapi.global.time.KoreanTime.now().plusMonths(3).atOffset(java.time.ZoneOffset.ofHours(9)));
     }
     public record WithdrawalRequest(boolean retainForRecovery, String consentVersion) { }

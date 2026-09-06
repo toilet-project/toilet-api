@@ -18,17 +18,22 @@ public class AccountRecoveryController {
     private final AccountRecoveryService recovery;
     private final AccountErasureService erasure;
     private final AuthTokenService tokens;
+    private final AccountLifecycleGate lifecycle;
     public AccountRecoveryController(RecoveryChallengeStore challenges, AccountRecoveryService recovery,
-            AccountErasureService erasure, AuthTokenService tokens) {
+            AccountErasureService erasure, AuthTokenService tokens, AccountLifecycleGate lifecycle) {
         this.challenges = challenges; this.recovery = recovery; this.erasure = erasure; this.tokens = tokens;
+        this.lifecycle = lifecycle;
     }
     @GetMapping
     public ResponseEntity<AccountRecoveryService.RecoveryStatus> status(HttpServletRequest request) {
+        lifecycle.requireRecovery();
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(recovery.status(challenges.read(cookie(request))));
     }
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Void> decide(@RequestBody Decision decision, HttpServletRequest request, HttpServletResponse response) {
         requireTrustedOrigin(request);
+        lifecycle.requireRecovery();
+        if ("ERASE".equals(decision.action())) lifecycle.requireErasure();
         String token = cookie(request);
         var proof = challenges.read(token);
         if ("RESTORE".equals(decision.action())) {

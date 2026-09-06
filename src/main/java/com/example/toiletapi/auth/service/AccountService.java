@@ -18,11 +18,12 @@ public class AccountService {
     private final RefreshTokenStore refreshTokenStore;
     private final AuditLogService auditLogService;
     private final com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals;
+    private final AccountLifecycleGate lifecycle;
 
     public AccountService(AppUserRepository userRepository, UserSocialAccountRepository socialAccountRepository,
                           UserRoleAssignmentRepository roleRepository, UserPolicyConsentRepository consentRepository,
                           RefreshTokenStore refreshTokenStore, AuditLogService auditLogService,
-                          com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals) {
+                          com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals, AccountLifecycleGate lifecycle) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
         this.roleRepository = roleRepository;
@@ -30,6 +31,7 @@ public class AccountService {
         this.refreshTokenStore = refreshTokenStore;
         this.auditLogService = auditLogService;
         this.withdrawals = withdrawals;
+        this.lifecycle = lifecycle;
     }
 
     @Transactional
@@ -53,6 +55,7 @@ public class AccountService {
 
     @Transactional
     public WithdrawalReceipt withdraw(Long userId, boolean retainForRecovery, String consentVersion) {
+        lifecycle.requireWithdrawal();
         if (retainForRecovery && !com.example.toiletapi.auth.model.AccountWithdrawal.CONSENT_VERSION.equals(consentVersion)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "복구용 정보 보관 동의를 다시 확인해 주세요.");

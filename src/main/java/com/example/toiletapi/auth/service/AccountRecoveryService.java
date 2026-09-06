@@ -14,9 +14,11 @@ public class AccountRecoveryService {
     private final AccountWithdrawalRepository withdrawals;
     private final UserRoleAssignmentRepository roles;
     private final AuditLogService audit;
+    private final AccountLifecycleGate lifecycle;
     public AccountRecoveryService(AppUserRepository users, AccountWithdrawalRepository withdrawals,
-            UserRoleAssignmentRepository roles, AuditLogService audit) {
+            UserRoleAssignmentRepository roles, AuditLogService audit, AccountLifecycleGate lifecycle) {
         this.users = users; this.withdrawals = withdrawals; this.roles = roles; this.audit = audit;
+        this.lifecycle = lifecycle;
     }
 
     @Transactional(readOnly = true)
@@ -27,6 +29,7 @@ public class AccountRecoveryService {
 
     @Transactional
     public Long confirm(RecoveryChallengeStore.Proof proof) {
+        lifecycle.requireRecovery();
         var user = users.lockById(proof.userId()).orElseThrow(RecoveryChallengeStore::expired);
         var withdrawal = verified(proof);
         if (user.getStatus() != UserStatus.WITHDRAWN) throw RecoveryChallengeStore.expired();
@@ -42,6 +45,8 @@ public class AccountRecoveryService {
 
     @Transactional
     public Long requestImmediateErasure(RecoveryChallengeStore.Proof proof) {
+        lifecycle.requireRecovery();
+        lifecycle.requireErasure();
         var user = users.lockById(proof.userId()).orElseThrow(RecoveryChallengeStore::expired);
         var withdrawal = verified(proof);
         if (user.getStatus() != UserStatus.WITHDRAWN) throw RecoveryChallengeStore.expired();
@@ -50,6 +55,7 @@ public class AccountRecoveryService {
     }
 
     private AccountWithdrawal verified(RecoveryChallengeStore.Proof proof) {
+        lifecycle.requireRecovery();
         var withdrawal = withdrawals.findById(proof.userId()).orElseThrow(RecoveryChallengeStore::expired);
         if (!withdrawal.getWithdrawalKey().equals(proof.withdrawalKey()) || !withdrawal.canRecover(KoreanTime.now())) {
             throw RecoveryChallengeStore.expired();

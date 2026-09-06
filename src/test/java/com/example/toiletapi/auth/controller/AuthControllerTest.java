@@ -37,12 +37,14 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(value = {AuthController.class, OAuthLoginRedirectController.class}, properties = {
         "account.retention.enabled=true",
+        "account.erasure.enabled=true",
+        "account.lifecycle.maintenance=false",
         "spring.security.oauth2.client.registration.google.client-id=test-google-client",
         "spring.security.oauth2.client.registration.google.client-secret=test-google-secret",
         "spring.security.oauth2.client.registration.kakao.client-id=test-kakao-client",
         "spring.security.oauth2.client.registration.kakao.client-secret=test-kakao-secret"
 })
-@Import({CorsConfig.class, SecurityConfig.class})
+@Import({CorsConfig.class, SecurityConfig.class, com.example.toiletapi.auth.service.AccountLifecycleGate.class})
 class AuthControllerTest {
 
     @Autowired

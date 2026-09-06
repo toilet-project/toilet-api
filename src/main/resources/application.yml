@@ -1,4 +1,8 @@
 account:
+  lifecycle:
+    maintenance: ${ACCOUNT_LIFECYCLE_MAINTENANCE:true}
+  erasure:
+    enabled: ${ACCOUNT_ERASURE_ENABLED:false}
   retention:
     enabled: ${ACCOUNT_RETENTION_ENABLED:false}
 

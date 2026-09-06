@@ -34,6 +34,7 @@ class AccountLifecycleIntegrationTest {
     @EnableJpaRepositories(basePackages = {"com.example.toiletapi.auth.repository", "com.example.toiletapi.policy.repository"})
     @Import({AccountService.class, AccountRecoveryService.class, AccountErasureService.class, AuditLogService.class})
     static class Config {
+        @Bean AccountLifecycleGate accountLifecycleGate() { return new AccountLifecycleGate(false, true, true); }
         @Bean DataSource dataSource() {
             var ds = com.example.toiletapi.auth.support.NativeMySqlFixture.enabled()
                     ? com.example.toiletapi.auth.support.NativeMySqlFixture.create()

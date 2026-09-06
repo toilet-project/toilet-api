@@ -12,7 +12,19 @@ class AccountRecoveryControllerTest {
     private final AccountRecoveryService recovery = mock(AccountRecoveryService.class);
     private final AccountErasureService erasure = mock(AccountErasureService.class);
     private final AuthTokenService tokens = mock(AuthTokenService.class);
-    private final AccountRecoveryController controller = new AccountRecoveryController(challenges, recovery, erasure, tokens);
+    private final AccountRecoveryController controller = new AccountRecoveryController(challenges, recovery, erasure, tokens, new AccountLifecycleGate(false, true, true));
+
+    @Test void maintenanceBlocksStatusAndDecisionsBeforeProofAccessButAllowsCancel() {
+        var stopped = new AccountRecoveryController(challenges, recovery, erasure, tokens, new AccountLifecycleGate(true, true, true));
+        var request = new MockHttpServletRequest(); request.addHeader("Origin", "https://geupddong.com");
+        assertThatThrownBy(() -> stopped.status(request)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        for (String action : new String[]{"RESTORE", "ERASE"})
+            assertThatThrownBy(() -> stopped.decide(new AccountRecoveryController.Decision(action), request, new MockHttpServletResponse()))
+                    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        verifyNoInteractions(challenges, recovery, erasure, tokens);
+        assertThat(stopped.cancel(request, new MockHttpServletResponse()).getStatusCode().value()).isEqualTo(204);
+        verify(challenges).delete(null);
+    }
 
     @Test void rejectsForeignOriginBeforeReadingProofOrChangingAccount() {
         for (String origin : new String[]{"https://evil.example", "https://geupddong.com.evil.example", "null"}) {
