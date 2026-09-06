@@ -10,16 +10,16 @@ import static org.mockito.Mockito.*;
 
 class AccountNicknameTest {
     final AppUserRepository users = mock(AppUserRepository.class);
-    final AccountService service = new AccountService(users, null, null, null, null, null);
+    final AccountService service = new AccountService(users, null, null, null, null, null, null);
 
     @Test void trimsAndSavesOnlyAuthenticatedUser() {
         var user = AppUser.create("이전 이름", "unchanged@example.com", true);
         user.activateAfterConsent();
-        when(users.findById(7L)).thenReturn(Optional.of(user));
+        when(users.lockById(7L)).thenReturn(Optional.of(user));
         assertThat(service.updateNickname(7L, "  새 닉네임  ")).isEqualTo("새 닉네임");
         assertThat(user.getDisplayName()).isEqualTo("새 닉네임");
         assertThat(user.getEmail()).isEqualTo("unchanged@example.com");
-        verify(users).findById(7L);
+        verify(users).lockById(7L);
     }
     @Test void rejectsInvalidNicknameBeforeDatabaseAccess() {
         for (String input : new String[]{null, "", "  ", "가", "가".repeat(31), "가\n나", "가\u202E나"}) {
@@ -30,7 +30,7 @@ class AccountNicknameTest {
     }
     @Test void rejectsPendingAndWithdrawnAccounts() {
         var user = AppUser.create("기존", null, false);
-        when(users.findById(7L)).thenReturn(Optional.of(user));
+        when(users.lockById(7L)).thenReturn(Optional.of(user));
         assertThatThrownBy(() -> service.updateNickname(7L, "새 이름")).isInstanceOf(ResponseStatusException.class);
         user.withdraw();
         assertThatThrownBy(() -> service.updateNickname(7L, "새 이름")).isInstanceOf(ResponseStatusException.class);

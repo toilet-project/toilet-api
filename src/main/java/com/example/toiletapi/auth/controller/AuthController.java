@@ -74,7 +74,7 @@ public class AuthController {
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<Void> withdraw(@AuthenticationPrincipal Jwt jwt, HttpServletResponse response,
+    public ResponseEntity<?> withdraw(@AuthenticationPrincipal Jwt jwt, HttpServletResponse response,
             jakarta.servlet.http.HttpServletRequest servletRequest,
             @org.springframework.web.bind.annotation.RequestBody(required = false) WithdrawalRequest request) {
         AccountRecoveryController.requireTrustedOrigin(servletRequest);
@@ -82,7 +82,7 @@ public class AuthController {
                 org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "탈퇴 기능 점검 중입니다. 개인정보 문의로 요청해 주세요.");
         boolean retain = request != null && request.retainForRecovery();
         Long id = Long.valueOf(jwt.getSubject());
-        accountService.withdraw(id, retain, request == null ? null : request.consentVersion());
+        var receipt = accountService.withdraw(id, retain, request == null ? null : request.consentVersion());
         clearCookies(response);
         if (!retain) {
             try { erasureService.eraseIfDue(id, com.example.toiletapi.global.time.KoreanTime.now()); }
@@ -91,7 +91,8 @@ public class AuthController {
                 return ResponseEntity.accepted().build();
             }
         }
-        return ResponseEntity.noContent().build();
+        return retain ? ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(receipt)
+                : ResponseEntity.noContent().build();
     }
 
     @org.springframework.web.bind.annotation.PatchMapping("/me/profile")

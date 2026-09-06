@@ -52,19 +52,22 @@ public class AccountService {
     }
 
     @Transactional
-    public void withdraw(Long userId, boolean retainForRecovery, String consentVersion) {
+    public WithdrawalReceipt withdraw(Long userId, boolean retainForRecovery, String consentVersion) {
         if (retainForRecovery && !com.example.toiletapi.auth.model.AccountWithdrawal.CONSENT_VERSION.equals(consentVersion)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "복구용 정보 보관 동의를 다시 확인해 주세요.");
         }
         AppUser user = userRepository.lockById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        if (user.getStatus() == com.example.toiletapi.auth.model.UserStatus.WITHDRAWN) return;
+        if (user.getStatus() == com.example.toiletapi.auth.model.UserStatus.WITHDRAWN) {
+            var previous = withdrawals.findById(userId).orElseThrow(() -> new IllegalStateException("탈퇴 상태 확인이 필요합니다."));
+            return new WithdrawalReceipt(previous.getPurgeAfter().atOffset(java.time.ZoneOffset.ofHours(9)));
+        }
         if (retainForRecovery && user.getStatus() == com.example.toiletapi.auth.model.UserStatus.SUSPENDED) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,
                     "이용 제한 계정은 복구용 보관을 선택할 수 없습니다.");
         }
-        withdrawals.save(com.example.toiletapi.auth.model.AccountWithdrawal.create(user, retainForRecovery,
+        var withdrawal = withdrawals.save(com.example.toiletapi.auth.model.AccountWithdrawal.create(user, retainForRecovery,
                 com.example.toiletapi.global.time.KoreanTime.now()));
         consentRepository.findAllByUserIdAndWithdrawnAtIsNull(userId).forEach(consent -> consent.withdraw());
         if (retainForRecovery) socialAccountRepository.findAllByUserId(userId).forEach(account -> account.clearPersonalProfile());
@@ -74,5 +77,7 @@ public class AccountService {
         auditLogService.record(userId, com.example.toiletapi.auth.model.AuditAction.USER_WITHDRAWN,
                 "USER", userId, Map.of("reason", "SELF_SERVICE"));
         refreshTokenStore.deleteAllForUser(userId);
+        return new WithdrawalReceipt(withdrawal.getPurgeAfter().atOffset(java.time.ZoneOffset.ofHours(9)));
     }
+    public record WithdrawalReceipt(java.time.OffsetDateTime purgeAfter) { }
 }

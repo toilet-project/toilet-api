@@ -20,6 +20,13 @@ class UserNotificationServiceTest {
     private final UserNotificationRepository repository = mock(UserNotificationRepository.class);
     private final UserNotificationService service = new UserNotificationService(repository);
 
+    @Test void erasedAuthorDoesNotCreateNotificationOrRecreateUserLink() {
+        ToiletReport report = mock(ToiletReport.class);
+        when(report.getReporterUserId()).thenReturn(null);
+        service.createReportDecision(report, "시청 화장실");
+        verifyNoInteractions(repository);
+    }
+
     @Test
     void createsApprovedReportNotificationOnce() {
         ToiletReport report = mock(ToiletReport.class);
