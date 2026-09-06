@@ -1,0 +1,18 @@
+name: Self profile validation
+on:
+  pull_request:
+    branches: [main, develop]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+      - run: |
+          chmod +x ./gradlew
+          ./gradlew test --tests '*AccountNicknameTest' --tests '*AppUserTest' --tests '*AuthControllerTest' --no-daemon --console=plain

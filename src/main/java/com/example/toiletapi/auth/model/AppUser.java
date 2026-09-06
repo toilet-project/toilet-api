@@ -30,9 +30,9 @@ public class AppUser {
         return user;
     }
 
-    /** Refreshes provider-owned profile fields before authorization policies are evaluated. */
+    /** Email remains provider-owned; the display name becomes user-owned after initial signup. */
     public void refreshOAuthProfile(String displayName, String email, boolean emailVerified) {
-        if (displayName != null && !displayName.isBlank()) {
+        if ((this.displayName == null || this.displayName.isBlank()) && displayName != null && !displayName.isBlank()) {
             this.displayName = displayName;
         }
         if (email != null && !email.isBlank()) {
@@ -44,6 +44,10 @@ public class AppUser {
 
     public void activateAfterConsent() {
         if (status == UserStatus.PENDING_CONSENT) status = UserStatus.ACTIVE;
+    }
+
+    public void changeDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public void withdraw() {
