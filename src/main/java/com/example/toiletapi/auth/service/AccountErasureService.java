@@ -38,7 +38,7 @@ public class AccountErasureService {
         if (user == null || withdrawal == null || user.getStatus() != UserStatus.WITHDRAWN
                 || now.isBefore(withdrawal.getPurgeAfter())) return false;
         var createdAt = jdbc.queryForObject("SELECT created_at FROM app_user WHERE user_id=?",
-                java.sql.Timestamp.class, id).toLocalDateTime();
+                LocalDateTime.class, id);
         ledger.ensureRecorded(new com.geupddong.account.ErasureRecord(1, realm, id, createdAt.toString(),
                 withdrawal.getWithdrawalKey(), withdrawal.getPurgeAfter().toString()));
         refreshTokens.deleteAllForUser(id); // Fail closed on Redis failure; DB work remains retryable.

@@ -191,7 +191,7 @@ class AccountLifecycleIntegrationTest {
     @Test void backupReplayDryRunThenApplyErasesOnlyRecordedOriginalIdentity() {
         Long erasedId = fixture(), retainedId = fixture();
         var entry = new com.geupddong.account.ErasureRecord(1, "production", erasedId,
-                jdbc.queryForObject("SELECT created_at FROM app_user WHERE user_id=?", java.sql.Timestamp.class, erasedId).toLocalDateTime().toString(),
+                jdbc.queryForObject("SELECT created_at FROM app_user WHERE user_id=?", java.time.LocalDateTime.class, erasedId).toString(),
                 java.util.UUID.randomUUID().toString(), KoreanTime.now().minusDays(1).toString());
         var restore = new com.geupddong.account.AccountErasureRestore(jdbc, transactionManager);
         var plan = restore.replay(java.util.List.of(entry), "production", KoreanTime.now(), false);
@@ -204,7 +204,7 @@ class AccountLifecycleIntegrationTest {
     }
     @Test void backupReplayIdentityConflictRejectsWholeTransactionBeforeErasure() {
         Long first = fixture(), second = fixture();
-        String created = jdbc.queryForObject("SELECT created_at FROM app_user WHERE user_id=?", java.sql.Timestamp.class, first).toLocalDateTime().toString();
+        String created = jdbc.queryForObject("SELECT created_at FROM app_user WHERE user_id=?", java.time.LocalDateTime.class, first).toString();
         var firstEntry = new com.geupddong.account.ErasureRecord(1, "production", first, created,
                 java.util.UUID.randomUUID().toString(), KoreanTime.now().minusDays(1).toString());
         var conflicting = new com.geupddong.account.ErasureRecord(1, "production", second, "2000-01-01T00:00",
