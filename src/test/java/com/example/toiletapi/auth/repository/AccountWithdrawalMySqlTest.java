@@ -16,6 +16,10 @@ class AccountWithdrawalMySqlTest {
 
     @Test void realMysqlAcceptsMigrationAndRetainsReportAfterAuthorDeletion() {
         var ds = new DriverManagerDataSource(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
+        verifyMigration(ds);
+    }
+
+    static void verifyMigration(javax.sql.DataSource ds) {
         var jdbc = new JdbcTemplate(ds);
         jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT NOT NULL PRIMARY KEY)");
         for (String file : new String[]{"V1__create_auth_data_model.sql", "V2__create_toilet_report_and_coordinate_revision.sql",

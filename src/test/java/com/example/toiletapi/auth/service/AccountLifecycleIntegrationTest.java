@@ -27,7 +27,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Real SQL/JPA transactions on isolated H2 MySQL mode. Production MySQL remains a separate release gate. */
+/** H2 by default; opt-in native MySQL requires the guarded, synthetic-only local test instance. */
 @SpringJUnitConfig(AccountLifecycleIntegrationTest.Config.class)
 class AccountLifecycleIntegrationTest {
     @Configuration @EnableTransactionManagement
@@ -35,7 +35,9 @@ class AccountLifecycleIntegrationTest {
     @Import({AccountService.class, AccountRecoveryService.class, AccountErasureService.class, AuditLogService.class})
     static class Config {
         @Bean DataSource dataSource() {
-            var ds = new DriverManagerDataSource("jdbc:h2:mem:withdrawal;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE", "sa", "");
+            var ds = com.example.toiletapi.auth.support.NativeMySqlFixture.enabled()
+                    ? com.example.toiletapi.auth.support.NativeMySqlFixture.create()
+                    : new DriverManagerDataSource("jdbc:h2:mem:withdrawal;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE", "sa", "");
             new JdbcTemplate(ds).execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY)");
             for (String file : new String[]{"V1__create_auth_data_model.sql", "V2__create_toilet_report_and_coordinate_revision.sql",
                     "V4__create_user_notification.sql", "V5__create_coordinate_quality_review.sql",
@@ -150,7 +152,7 @@ class AccountLifecycleIntegrationTest {
     }
     @Test void unknownForeignKeyRollsBackEntireErasureAndCheckpointsRetry() {
         Long id = fixture(); accounts.withdraw(id, false, null);
-        jdbc.execute("CREATE TABLE erasure_blocker(user_id BIGINT REFERENCES app_user(user_id))");
+        jdbc.execute("CREATE TABLE erasure_blocker(user_id BIGINT, FOREIGN KEY(user_id) REFERENCES app_user(user_id))");
         try {
             jdbc.update("INSERT INTO erasure_blocker VALUES(?)", id);
             assertThatThrownBy(() -> erasure.eraseIfDue(id, KoreanTime.now())).isInstanceOf(RuntimeException.class);
