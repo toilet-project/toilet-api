@@ -99,3 +99,13 @@ management:
         http.server.requests: true
       slo:
         http.server.requests: 100ms,250ms,500ms,1s,2s
+erasure:
+  ledger:
+    enabled: ${ERASURE_LEDGER_ENABLED:false}
+    realm: ${ERASURE_LEDGER_REALM:production}
+    bucket: ${ERASURE_LEDGER_BUCKET:geupddong-account-erasure-ledger}
+    endpoint: ${ERASURE_LEDGER_ENDPOINT:}
+    access-key-id: ${ERASURE_LEDGER_ACCESS_KEY_ID:}
+    secret-access-key: ${ERASURE_LEDGER_SECRET_ACCESS_KEY:}
+    active-key-id: ${ERASURE_LEDGER_ACTIVE_KEY_ID:k1}
+    keys-json: ${ERASURE_LEDGER_KEYS_JSON:}

@@ -57,6 +57,7 @@ class AccountLifecycleIntegrationTest {
         @Bean ObjectMapper objectMapper() { return new ObjectMapper(); }
         @Bean RefreshTokenStore refreshTokenStore() { return mock(RefreshTokenStore.class); }
         @Bean RecoveryChallengeStore recoveryChallengeStore() { return mock(RecoveryChallengeStore.class); }
+        @Bean com.geupddong.account.ErasureLedger erasureLedger() { return mock(com.geupddong.account.ErasureLedger.class); }
     }
     @Autowired AppUserRepository users;
     @Autowired UserSocialAccountRepository socials;
@@ -68,8 +69,9 @@ class AccountLifecycleIntegrationTest {
     @Autowired RefreshTokenStore refresh;
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager transactionManager;
+    @Autowired com.geupddong.account.ErasureLedger ledger;
 
-    @BeforeEach void resetRefresh() { reset(refresh); }
+    @BeforeEach void resetRefresh() { reset(refresh, ledger); }
     Long fixture() {
         Long id = new TransactionTemplate(transactionManager).execute(tx -> {
             AppUser user = users.saveAndFlush(AppUser.create("원래 닉네임", "private@example.test", true));
@@ -175,6 +177,42 @@ class AccountLifecycleIntegrationTest {
         new TransactionTemplate(transactionManager).executeWithoutResult(tx -> users.findById(id).orElseThrow().withdraw());
         assertThat(withdrawals.existsById(id)).isFalse();
         assertThat(erasure.eraseIfDue(id, KoreanTime.now().plusYears(1))).isFalse();
+    }
+    @Test void externalLedgerFailurePreventsRedisAndDatabaseErasure() {
+        Long id = fixture(); accounts.withdraw(id, false, null);
+        reset(refresh);
+        doThrow(new IllegalStateException("ERASURE_LEDGER_UNAVAILABLE")).when(ledger).ensureRecorded(any());
+        assertThatThrownBy(() -> erasure.eraseIfDue(id, KoreanTime.now())).isInstanceOf(IllegalStateException.class);
+        assertThat(users.existsById(id)).isTrue();
+        assertThat(withdrawals.existsById(id)).isTrue();
+        verifyNoInteractions(refresh);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM toilet_report WHERE reporter_user_id=?", Integer.class, id)).isEqualTo(1);
+    }
+    @Test void backupReplayDryRunThenApplyErasesOnlyRecordedOriginalIdentity() {
+        Long erasedId = fixture(), retainedId = fixture();
+        var entry = new com.geupddong.account.ErasureRecord(1, "production", erasedId,
+                jdbc.queryForObject("SELECT created_at FROM app_user WHERE user_id=?", java.sql.Timestamp.class, erasedId).toLocalDateTime().toString(),
+                java.util.UUID.randomUUID().toString(), KoreanTime.now().minusDays(1).toString());
+        var restore = new com.geupddong.account.AccountErasureRestore(jdbc, transactionManager);
+        var plan = restore.replay(java.util.List.of(entry), "production", KoreanTime.now(), false);
+        assertThat(plan.matched()).isEqualTo(1); assertThat(plan.erased()).isZero();
+        assertThat(users.findById(erasedId).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
+        var result = restore.replay(java.util.List.of(entry), "production", KoreanTime.now(), true);
+        assertThat(result.erased()).isEqualTo(1); assertErased(erasedId);
+        assertThat(users.existsById(retainedId)).isTrue();
+        assertThat(restore.replay(java.util.List.of(entry), "production", KoreanTime.now(), true).absent()).isEqualTo(1);
+    }
+    @Test void backupReplayIdentityConflictRejectsWholeTransactionBeforeErasure() {
+        Long first = fixture(), second = fixture();
+        String created = jdbc.queryForObject("SELECT created_at FROM app_user WHERE user_id=?", java.sql.Timestamp.class, first).toLocalDateTime().toString();
+        var firstEntry = new com.geupddong.account.ErasureRecord(1, "production", first, created,
+                java.util.UUID.randomUUID().toString(), KoreanTime.now().minusDays(1).toString());
+        var conflicting = new com.geupddong.account.ErasureRecord(1, "production", second, "2000-01-01T00:00",
+                java.util.UUID.randomUUID().toString(), KoreanTime.now().minusDays(1).toString());
+        var restore = new com.geupddong.account.AccountErasureRestore(jdbc, transactionManager);
+        assertThatThrownBy(() -> restore.replay(java.util.List.of(firstEntry, conflicting), "production", KoreanTime.now(), true))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(users.existsById(first)).isTrue(); assertThat(users.existsById(second)).isTrue();
     }
     void assertErased(Long id) {
         assertThat(users.existsById(id)).isFalse(); assertThat(withdrawals.existsById(id)).isFalse();

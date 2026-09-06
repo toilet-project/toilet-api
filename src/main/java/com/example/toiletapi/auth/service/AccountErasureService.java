@@ -18,12 +18,17 @@ public class AccountErasureService {
     private final JdbcTemplate jdbc;
     private final EntityManager entityManager;
     private final RecoveryChallengeStore recoveryChallenges;
+    private final com.geupddong.account.ErasureLedger ledger;
+    private final String realm;
 
     public AccountErasureService(AppUserRepository users, AccountWithdrawalRepository withdrawals,
-            RefreshTokenStore refreshTokens, JdbcTemplate jdbc, EntityManager entityManager, RecoveryChallengeStore recoveryChallenges) {
+            RefreshTokenStore refreshTokens, JdbcTemplate jdbc, EntityManager entityManager, RecoveryChallengeStore recoveryChallenges,
+            com.geupddong.account.ErasureLedger ledger,
+            @org.springframework.beans.factory.annotation.Value("${erasure.ledger.realm:production}") String realm) {
         this.users = users; this.withdrawals = withdrawals; this.refreshTokens = refreshTokens;
         this.jdbc = jdbc; this.entityManager = entityManager;
         this.recoveryChallenges = recoveryChallenges;
+        this.ledger = ledger; this.realm = realm;
     }
 
     @Transactional
@@ -32,6 +37,10 @@ public class AccountErasureService {
         var withdrawal = withdrawals.findById(id).orElse(null);
         if (user == null || withdrawal == null || user.getStatus() != UserStatus.WITHDRAWN
                 || now.isBefore(withdrawal.getPurgeAfter())) return false;
+        var createdAt = jdbc.queryForObject("SELECT created_at FROM app_user WHERE user_id=?",
+                java.sql.Timestamp.class, id).toLocalDateTime();
+        ledger.ensureRecorded(new com.geupddong.account.ErasureRecord(1, realm, id, createdAt.toString(),
+                withdrawal.getWithdrawalKey(), withdrawal.getPurgeAfter().toString()));
         refreshTokens.deleteAllForUser(id); // Fail closed on Redis failure; DB work remains retryable.
         recoveryChallenges.deleteAllForUser(id);
         entityManager.flush();
