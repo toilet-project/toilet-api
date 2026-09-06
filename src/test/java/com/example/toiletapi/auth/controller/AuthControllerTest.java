@@ -118,6 +118,24 @@ class AuthControllerTest {
     }
 
     @Test
+    void nicknameRequiresLoginAndUsesJwtSubjectNotBodyUserId() throws Exception {
+        var request = org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/auth/me/profile");
+        mockMvc.perform(request.contentType("application/json").content("{\"displayName\":\"새 이름\"}"))
+                .andExpect(status().isUnauthorized());
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("profile-test-token")
+                .header("alg", "HS256").subject("7").claim("roles", java.util.List.of("USER"))
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(300)).build();
+        when(jwtDecoder.decode("profile-test-token")).thenReturn(jwt);
+        when(accountService.updateNickname(7L, "새 이름")).thenReturn("새 이름");
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/v1/auth/me/profile")
+                        .header("Authorization", "Bearer profile-test-token").contentType("application/json")
+                        .content("{\"displayName\":\"새 이름\",\"userId\":999}"))
+                .andExpect(status().isOk());
+        verify(accountService).updateNickname(7L, "새 이름");
+        verify(accountService, never()).updateNickname(eq(999L), org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
     void previewCorsIsExactAndCredentialsRemainSupported() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options("/api/v1/auth/me")
                         .header("Origin", "https://preview.geupddong.com")

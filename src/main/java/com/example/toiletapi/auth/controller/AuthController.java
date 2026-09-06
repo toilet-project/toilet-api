@@ -76,6 +76,15 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
+    @org.springframework.web.bind.annotation.PatchMapping("/me/profile")
+    public NicknameResponse updateProfile(@AuthenticationPrincipal Jwt jwt,
+            @org.springframework.web.bind.annotation.RequestBody NicknameRequest request) {
+        return new NicknameResponse(accountService.updateNickname(Long.valueOf(jwt.getSubject()), request.displayName()));
+    }
+
+    public record NicknameRequest(String displayName) { }
+    public record NicknameResponse(String displayName) { }
+
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(jakarta.servlet.http.HttpServletRequest request, HttpServletResponse response) {
         String refreshToken = cookie(request.getCookies(), REFRESH_COOKIE);

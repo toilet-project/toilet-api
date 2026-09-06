@@ -30,6 +30,25 @@ public class AccountService {
     }
 
     @Transactional
+    public String updateNickname(Long userId, String input) {
+        String nickname = input == null ? "" : java.text.Normalizer.normalize(input.strip(), java.text.Normalizer.Form.NFC);
+        if (nickname.length() < 2 || nickname.length() > 30
+                || nickname.codePoints().allMatch(code -> Character.isWhitespace(code) || Character.isSpaceChar(code))
+                || nickname.codePoints().anyMatch(code ->
+                Character.isISOControl(code) || Character.getType(code) == Character.FORMAT)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "닉네임은 제어 문자를 제외한 2~30자로 입력해 주세요.");
+        }
+        AppUser user = userRepository.findById(userId).orElseThrow(() ->
+                new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED));
+        if (user.getStatus() != com.example.toiletapi.auth.model.UserStatus.ACTIVE) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+        }
+        user.changeDisplayName(nickname);
+        return nickname;
+    }
+
+    @Transactional
     public void withdraw(Long userId) {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
