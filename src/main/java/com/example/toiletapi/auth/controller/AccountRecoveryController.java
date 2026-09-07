@@ -43,8 +43,10 @@ public class AccountRecoveryController {
         } else if ("ERASE".equals(decision.action())) {
             Long id = recovery.requestImmediateErasure(proof);
             AuthController.clearCookies(response);
-            try { erasure.eraseIfDue(id, KoreanTime.now()); }
-            catch (Exception failure) {
+            boolean erased;
+            try { erased = erasure.eraseIfDue(id, KoreanTime.now()); }
+            catch (Exception failure) { erased = false; }
+            if (!erased) {
                 erasure.recordFailure(id);
                 challenges.delete(token); writeRecoveryCookie(response, "", Duration.ZERO);
                 return ResponseEntity.accepted().cacheControl(CacheControl.noStore()).build();

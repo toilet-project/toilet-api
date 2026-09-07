@@ -85,14 +85,17 @@ public class AuthController {
         var receipt = accountService.withdraw(id, retain, request == null ? null : request.consentVersion());
         clearCookies(response);
         if (!retain) {
-            try { erasureService.eraseIfDue(id, com.example.toiletapi.global.time.KoreanTime.now()); }
-            catch (Exception failure) {
+            boolean erased;
+            try { erased = erasureService.eraseIfDue(id, com.example.toiletapi.global.time.KoreanTime.now()); }
+            catch (Exception failure) { erased = false; }
+            // A skipped/no-op deletion is not proof of completed erasure.
+            if (!erased) {
                 erasureService.recordFailure(id);
-                return ResponseEntity.accepted().build();
+                return ResponseEntity.accepted().cacheControl(org.springframework.http.CacheControl.noStore()).build();
             }
         }
         return retain ? ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(receipt)
-                : ResponseEntity.noContent().build();
+                : ResponseEntity.noContent().cacheControl(org.springframework.http.CacheControl.noStore()).build();
     }
 
     @org.springframework.web.bind.annotation.PatchMapping("/me/profile")
