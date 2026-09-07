@@ -32,6 +32,10 @@ test('workflow preflight and actual injection use identical no-value-fallback se
   const workflow=await readFile(new URL('../.github/workflows/deploy.yml',import.meta.url),'utf8')
   const expression="secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET']"
   assert.equal(workflow.split(expression).length-1,2)
-  assert.ok(workflow.indexOf('node scripts/check-web-cache-deployment.mjs')<workflow.indexOf('Log in to Docker Hub'))
-  assert.ok(workflow.indexOf('node scripts/check-web-cache-deployment.mjs')<workflow.indexOf('Deploy to Mini PC via SSH'))
+  const preflightIndex=workflow.indexOf('node scripts/check-web-cache-deployment.mjs')
+  const imageLoginIndex=workflow.indexOf('Log in to Docker Hub')
+  const deployIndex=workflow.indexOf('Deploy to Mini PC through Tunnel')
+  assert.ok(preflightIndex>=0 && imageLoginIndex>=0 && deployIndex>=0)
+  assert.ok(preflightIndex<imageLoginIndex)
+  assert.ok(preflightIndex<deployIndex)
 })
