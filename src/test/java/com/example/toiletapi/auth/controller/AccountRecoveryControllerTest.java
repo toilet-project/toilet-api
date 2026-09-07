@@ -44,6 +44,36 @@ class AccountRecoveryControllerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(202);
         verify(erasure).recordFailure(3L); verify(challenges).delete("proof"); verifyNoInteractions(tokens);
     }
+    @Test void unconfirmedErasureReturnsPendingAndInvalidatesProof() {
+        var request = new MockHttpServletRequest(); request.addHeader("Origin", "https://geupddong.com");
+        request.setCookies(new Cookie("geupddong_recovery", "proof"));
+        var proof = new RecoveryChallengeStore.Proof(3L, "generation");
+        when(challenges.read("proof")).thenReturn(proof);
+        when(recovery.requestImmediateErasure(proof)).thenReturn(3L);
+        when(erasure.eraseIfDue(eq(3L), any())).thenReturn(false);
+        var cookies = new MockHttpServletResponse();
+        var response = controller.decide(new AccountRecoveryController.Decision("ERASE"), request, cookies);
+        assertThat(response.getStatusCode().value()).isEqualTo(202);
+        assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
+        verify(erasure).recordFailure(3L);
+        verify(challenges).delete("proof");
+        assertThat(cookies.getHeaders("Set-Cookie")).anySatisfy(value ->
+                assertThat(value).contains("geupddong_recovery=", "Max-Age=0"));
+        verifyNoInteractions(tokens);
+    }
+
+    @Test void confirmedErasureReturnsCompletedWithoutRetry() {
+        var request = new MockHttpServletRequest(); request.addHeader("Origin", "https://geupddong.com");
+        var proof = new RecoveryChallengeStore.Proof(3L, "generation");
+        when(challenges.read(null)).thenReturn(proof);
+        when(recovery.requestImmediateErasure(proof)).thenReturn(3L);
+        when(erasure.eraseIfDue(eq(3L), any())).thenReturn(true);
+        var response = controller.decide(new AccountRecoveryController.Decision("ERASE"), request, new MockHttpServletResponse());
+        assertThat(response.getStatusCode().value()).isEqualTo(204);
+        verify(erasure, never()).recordFailure(anyLong());
+        verifyNoInteractions(tokens);
+    }
+
     @Test void unknownDecisionDoesNotRestoreOrErase() {
         var request = new MockHttpServletRequest(); request.addHeader("Origin", "https://preview.geupddong.com");
         when(challenges.read(null)).thenReturn(new RecoveryChallengeStore.Proof(1L, "g"));

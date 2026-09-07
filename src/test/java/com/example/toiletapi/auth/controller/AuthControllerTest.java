@@ -134,6 +134,36 @@ class AuthControllerTest {
                 .andExpect(redirectedUrl("/oauth2/authorization/google"));
     }
 
+    @Test void immediateWithdrawalWithoutConfirmedErasureStaysPending() throws Exception {
+        when(erasureService.eraseIfDue(eq(7L), org.mockito.ArgumentMatchers.any())).thenReturn(false);
+        immediateWithdrawal().andExpect(status().isAccepted());
+        verify(erasureService).recordFailure(7L);
+    }
+
+    @Test void immediateWithdrawalWithConfirmedErasureCompletes() throws Exception {
+        when(erasureService.eraseIfDue(eq(7L), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        immediateWithdrawal().andExpect(status().isNoContent());
+        verify(erasureService, never()).recordFailure(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test void immediateWithdrawalExceptionStaysPending() throws Exception {
+        when(erasureService.eraseIfDue(eq(7L), org.mockito.ArgumentMatchers.any())).thenThrow(new IllegalStateException());
+        immediateWithdrawal().andExpect(status().isAccepted());
+        verify(erasureService).recordFailure(7L);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions immediateWithdrawal() throws Exception {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("immediate-test")
+                .header("alg", "HS256").subject("7").claim("roles", java.util.List.of("USER"))
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(300)).build();
+        when(jwtDecoder.decode("immediate-test")).thenReturn(jwt);
+        return mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/auth/me")
+                .header("Authorization", "Bearer immediate-test").header("Origin", "https://geupddong.com")
+                .contentType("application/json").content("{\"retainForRecovery\":false}"))
+                .andExpect(cookie().maxAge("geupddong_access", 0))
+                .andExpect(cookie().maxAge("geupddong_refresh", 0));
+    }
+
     private AuthTokenService.IssuedTokens tokens() {
         return new AuthTokenService.IssuedTokens(
                 "new-access-token", "new-refresh-token", Instant.now().plus(Duration.ofMinutes(15)), Duration.ofDays(14));
