@@ -15,6 +15,14 @@ web-cache:
 server:
   port: ${API_PORT}
   forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        # OAuth state/return target uses JSESSIONID before JWT cookies are issued.
+        # Explicit flags also apply when the trusted proxy connects over HTTP.
+        secure: true
+        http-only: true
+        same-site: lax
 
 spring:
   jackson:

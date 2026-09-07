@@ -17,10 +17,11 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 
 /**
- * 공개 지도 조회 API와 앞으로 추가될 인증·관리자 API의 접근 경계를 정의한다.
+ * 공개 지도 조회 API와 인증·관리자 API의 접근 경계를 정의한다.
  *
- * <p>소셜 로그인과 JWT 발급은 OAuth 클라이언트 등록 작업에서 연결한다. 현재는 세션을 만들지 않고,
- * 등록되지 않은 쓰기 요청과 관리자 경로를 기본적으로 차단한다.</p>
+ * <p>OAuth 인가 요청과 허용된 복귀 주소 보관에는 필요한 경우 임시 세션을 사용한다.
+ * 로그인 완료 후의 서비스 인증은 JWT 쿠키를 사용하고, 성공 처리기는 임시 세션을 무효화한다.
+ * 임시 세션 쿠키의 보안 속성은 application.yml의 server.servlet.session.cookie에서 관리한다.</p>
  */
 @Configuration
 @EnableWebSecurity
