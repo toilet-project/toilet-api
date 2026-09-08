@@ -1,0 +1,12 @@
+# Reviewed preparation template only. Does not change Redis or account lifecycle flags.
+# Combine with the API compose file only after directory/migration/UID acceptance.
+services:
+  api:
+    user: "1000:1000"
+    volumes:
+      - type: bind
+        source: /var/lib/geupddong-erasure-ledger
+        target: /var/lib/geupddong-erasure-ledger
+        read_only: false
+        bind:
+          create_host_path: false

@@ -1,6 +1,7 @@
 package com.example.toiletapi.geocoding;
 
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.ByteArrayResource;
 import java.nio.charset.StandardCharsets;
@@ -10,16 +11,20 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CoordinateAddressMigrationTest {
-    @Test void migrationPreservesLegacyValuesAndAllowsJibunOnlyRevision() throws Exception {
-        var ds = new DriverManagerDataSource("jdbc:h2:mem:coordinate-address-v9;MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void migrationPreservesLegacyValuesAndAllowsJibunOnlyRevision(boolean windowsLineEndings) throws Exception {
+        var ds = new DriverManagerDataSource("jdbc:h2:mem:coordinate-address-v9-" + windowsLineEndings + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         var db = new JdbcTemplate(ds);
         db.execute("CREATE TABLE toilet_report (report_id BIGINT PRIMARY KEY, proposed_road_address VARCHAR(255))");
         db.execute("CREATE TABLE coordinate_revision (coordinate_revision_id BIGINT PRIMARY KEY, previous_road_address VARCHAR(255), applied_road_address VARCHAR(255) NOT NULL)");
         db.update("INSERT INTO toilet_report VALUES(1,'기존 제보 원문')");
         db.update("INSERT INTO coordinate_revision VALUES(1,'기존 변경 전','기존 적용 주소')");
         String migration = new ClassPathResource("db/migration/V9__separate_coordinate_report_addresses.sql").getContentAsString(StandardCharsets.UTF_8);
+        migration = migration.replace("\r\n", "\n");
+        if (windowsLineEndings) migration = migration.replace("\n", "\r\n");
         // H2 lacks MySQL's multi-clause ALTER. Keep column definitions intact, split only the clauses.
-        String h2Compatible = migration.replace(",\n    ADD COLUMN", ";\nALTER TABLE coordinate_revision ADD COLUMN")
+        String h2Compatible = migration.replace("\r\n", "\n").replace(",\n    ADD COLUMN", ";\nALTER TABLE coordinate_revision ADD COLUMN")
                 .replace(",\n    MODIFY COLUMN", ";\nALTER TABLE coordinate_revision MODIFY COLUMN");
         new ResourceDatabasePopulator(new ByteArrayResource(h2Compatible.getBytes(StandardCharsets.UTF_8))).execute(ds);
         assertEquals("기존 제보 원문", db.queryForObject("SELECT proposed_road_address FROM toilet_report WHERE report_id=1", String.class));
