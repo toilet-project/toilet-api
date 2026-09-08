@@ -1,0 +1,55 @@
+name: US ledger cutover read-only verification
+on:
+  push:
+    branches: [feature/us-ledger-preparation]
+    paths:
+      - '.github/workflows/us-ledger-cutover-readonly.yml'
+      - 'src/test/java/com/geupddong/account/UsLedgerCutoverReadOnlyTest.java'
+permissions:
+  contents: read
+concurrency:
+  group: us-ledger-cutover-readonly
+  cancel-in-progress: false
+jobs:
+  readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile and validate local guards without credentials
+        run: |
+          chmod +x gradlew
+          ./gradlew test --tests '*UsLedgerCutoverReadOnlyTest' --no-daemon --console=plain
+      - name: Read both buckets and independent checkpoint without writes
+        env:
+          US_CUTOVER_READONLY_CHECK: approved
+          OLD_ENDPOINT: ${{ vars.ERASURE_LEDGER_ENDPOINT }}
+          OLD_ACCESS_KEY_ID: ${{ secrets.ERASURE_LEDGER_ACCESS_KEY_ID }}
+          OLD_SECRET_ACCESS_KEY: ${{ secrets.ERASURE_LEDGER_SECRET_ACCESS_KEY }}
+          US_ACCESS_KEY_ID: ${{ secrets.ERASURE_LEDGER_US_RUNTIME_ACCESS_KEY_ID }}
+          US_SECRET_ACCESS_KEY: ${{ secrets.ERASURE_LEDGER_US_RUNTIME_SECRET_ACCESS_KEY }}
+          CHECKPOINT_TOKEN: ${{ secrets.ERASURE_CHECKPOINT_GITHUB_TOKEN }}
+          CHECKPOINT_DATABASE_EPOCH: ${{ vars.ERASURE_CHECKPOINT_DATABASE_EPOCH }}
+        run: ./gradlew test --tests '*UsLedgerCutoverReadOnlyTest' --rerun-tasks --no-daemon --console=plain
+      - name: Require actual live execution and publish aggregate-only result
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          import os
+          root = ET.parse('build/test-results/test/TEST-com.geupddong.account.UsLedgerCutoverReadOnlyTest.xml').getroot()
+          assert root.get('tests') == '3'
+          assert all(root.get(k) == '0' for k in ['failures', 'errors', 'skipped'])
+          lines = (root.findtext('system-out') or '').splitlines()
+          result = [line for line in lines if line.startswith('US_CUTOVER_READONLY_PASS ')]
+          assert len(result) == 1
+          print(result[0])
+          with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as summary:
+              summary.write(result[0] + '\n')
+          PY
