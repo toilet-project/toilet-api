@@ -110,6 +110,7 @@ jobs:
             set -eu
             umask 077
             # Read-only preflight must finish BEFORE touching operational configuration.
+            /home/luha/.local/bin/maintenance-preflight api
             test -x /home/luha/erasure-tools/local-ledger-preflight
             printf '%s' '${{ steps.lifecycle.outputs.payload }}' | /home/luha/erasure-tools/local-ledger-preflight api '${{ vars.ERASURE_LEDGER_LOCAL_STORE_ID }}'
             mkdir -p ~/toilet-api
@@ -179,10 +180,19 @@ jobs:
                 user: "1000:1000"
                 image: ${{ secrets.DOCKERHUB_USERNAME }}/toilet-api:${{ github.sha }}
                 container_name: toilet-api
+                environment:
+                  ERASURE_MAINTENANCE_LOCK_ENABLED: 'true'
+                  ERASURE_MAINTENANCE_DIRECTORY: '/home/luha/geupddong-maintenance'
                 volumes:
                   - type: bind
                     source: /home/luha/geupddong-erasure-ledger
                     target: /home/luha/geupddong-erasure-ledger
+                    read_only: false
+                    bind:
+                      create_host_path: false
+                  - type: bind
+                    source: /home/luha/geupddong-maintenance
+                    target: /home/luha/geupddong-maintenance
                     read_only: false
                     bind:
                       create_host_path: false
