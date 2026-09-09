@@ -1,0 +1,12 @@
+// Export compiled fixture tests and resolved dependencies only. No credentials or deployment.
+allprojects {
+    plugins.withId('java') {
+        tasks.register('exportIsolatedTests', Sync) {
+            dependsOn tasks.named('testClasses')
+            into layout.buildDirectory.dir('isolated-test-kit')
+            from(sourceSets.main.output) { into 'classes' }
+            from(sourceSets.test.output) { into 'classes' }
+            from(configurations.testRuntimeClasspath) { into 'lib' }
+        }
+    }
+}

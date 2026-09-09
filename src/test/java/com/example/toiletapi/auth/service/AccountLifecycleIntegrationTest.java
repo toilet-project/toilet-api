@@ -54,6 +54,9 @@ class AccountLifecycleIntegrationTest {
             factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "none")); return factory;
         }
         @Bean PlatformTransactionManager transactionManager(EntityManagerFactory emf) { return new JpaTransactionManager(emf); }
+        @Bean AccountMaintenanceTransactions maintenanceTransactions(PlatformTransactionManager manager) {
+            return new AccountMaintenanceTransactions(manager,()->()->{});
+        }
         @Bean JdbcTemplate jdbcTemplate(DataSource ds) { return new JdbcTemplate(ds); }
         @Bean ObjectMapper objectMapper() { return new ObjectMapper(); }
         @Bean RefreshTokenStore refreshTokenStore() { return mock(RefreshTokenStore.class); }

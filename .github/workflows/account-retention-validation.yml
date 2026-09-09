@@ -29,7 +29,7 @@ jobs:
       - name: Account lifecycle and real MySQL DDL
         run: |
           chmod +x ./gradlew
-          ./gradlew test --tests '*AccountLifecycleIntegrationTest' --tests '*AccountLifecycleGateTest' --tests '*AccountWithdrawalMySqlTest' --tests '*WithdrawalSecurityTest' --tests '*AccountRecoveryControllerTest' --tests '*RecoveryChallengeStoreTest' --tests '*AuthTokenServiceTest' --tests '*AuthControllerTest' --tests '*PreviewOAuthTest' --tests '*UserRolePolicyServiceTest' --tests '*ErasureLedgerTest' --no-daemon --console=plain
+          ./gradlew test --tests '*AccountLifecycleIntegrationTest' --tests '*AccountLifecycleGateTest' --tests '*AccountMaintenanceTransactionsTest' --tests '*AccountWithdrawalMySqlTest' --tests '*WithdrawalSecurityTest' --tests '*AccountRecoveryControllerTest' --tests '*RecoveryChallengeStoreTest' --tests '*AuthTokenServiceTest' --tests '*AuthControllerTest' --tests '*PreviewOAuthTest' --tests '*UserRolePolicyServiceTest' --tests '*ErasureLedgerTest' --no-daemon --console=plain
       - uses: actions/upload-artifact@v4
         if: always()
         with:
