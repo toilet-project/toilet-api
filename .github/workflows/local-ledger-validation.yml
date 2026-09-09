@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: [feature/local-erasure-ledger]
+    branches: [feature/local-erasure-ledger, feature/retirement-history-compatibility]
 permissions:
   contents: read
 jobs:
