@@ -17,7 +17,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** 실제 MySQL과 Flyway V1 migration을 사용해 인증 데이터 모델을 검증합니다. */
+/** 실제 MySQL과 전체 Flyway migration으로 인증 데이터 모델을 검증합니다. */
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = {
         "server.port=0",
@@ -28,12 +28,15 @@ import org.testcontainers.junit.jupiter.Testcontainers;
         "spring.security.oauth2.client.registration.kakao.client-secret=test-kakao-secret",
         "auth.jwt.secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
         "spring.jpa.hibernate.ddl-auto=validate",
+        "spring.flyway.baseline-on-migrate=true",
+        "spring.flyway.baseline-version=0",
         "auth.admin-bootstrap.emails=admin@geupddong.com"
 })
 class AuthDataModelIntegrationTest {
 
     @Container
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0.40");
+    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.0.40")
+            .withInitScript("db/test/auth-legacy-baseline.sql");
 
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
