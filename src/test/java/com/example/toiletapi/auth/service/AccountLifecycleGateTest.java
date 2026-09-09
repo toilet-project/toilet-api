@@ -30,9 +30,9 @@ class AccountLifecycleGateTest {
         var gate = new AccountLifecycleGate(true,true,true);
         var users = mock(com.example.toiletapi.auth.repository.AppUserRepository.class);
         var ledger = mock(com.geupddong.account.ErasureLedger.class);
-        var account = new AccountService(users,null,null,null,null,null,null,gate);
-        var erase = new AccountErasureService(users,null,null,null,null,null,ledger,"production",gate);
-        var recovery = new AccountRecoveryService(users,null,null,null,gate);
+        var account = new AccountService(users,null,null,null,null,null,null,gate,null);
+        var erase = new AccountErasureService(users,null,null,null,null,null,ledger,"production",gate,null);
+        var recovery = new AccountRecoveryService(users,null,null,null,gate,null);
         var proof = new RecoveryChallengeStore.Proof(1L,"synthetic");
         assertThatThrownBy(() -> account.withdraw(1L,false,null)).isInstanceOf(ResponseStatusException.class);
         assertThatThrownBy(() -> erase.eraseIfDue(1L,java.time.LocalDateTime.now())).isInstanceOf(ResponseStatusException.class);

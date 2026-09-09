@@ -21,21 +21,26 @@ public class AccountErasureService {
     private final com.geupddong.account.ErasureLedger ledger;
     private final String realm;
     private final AccountLifecycleGate lifecycle;
+    private final AccountMaintenanceTransactions maintenance;
 
     public AccountErasureService(AppUserRepository users, AccountWithdrawalRepository withdrawals,
             RefreshTokenStore refreshTokens, JdbcTemplate jdbc, EntityManager entityManager, RecoveryChallengeStore recoveryChallenges,
             com.geupddong.account.ErasureLedger ledger,
-            @org.springframework.beans.factory.annotation.Value("${erasure.ledger.realm:production}") String realm, AccountLifecycleGate lifecycle) {
+            @org.springframework.beans.factory.annotation.Value("${erasure.ledger.realm:production}") String realm, AccountLifecycleGate lifecycle,
+            AccountMaintenanceTransactions maintenance) {
         this.users = users; this.withdrawals = withdrawals; this.refreshTokens = refreshTokens;
         this.jdbc = jdbc; this.entityManager = entityManager;
         this.recoveryChallenges = recoveryChallenges;
         this.ledger = ledger; this.realm = realm;
         this.lifecycle = lifecycle;
+        this.maintenance = maintenance;
     }
 
-    @Transactional
     public boolean eraseIfDue(Long id, LocalDateTime now) {
         lifecycle.requireErasure();
+        return maintenance.executeErasure(()->eraseLocked(id,now));
+    }
+    private boolean eraseLocked(Long id, LocalDateTime now) {
         var user = users.lockById(id).orElse(null);
         var withdrawal = withdrawals.findById(id).orElse(null);
         if (user == null || withdrawal == null || user.getStatus() != UserStatus.WITHDRAWN

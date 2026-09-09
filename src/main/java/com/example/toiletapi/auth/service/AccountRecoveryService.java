@@ -15,10 +15,12 @@ public class AccountRecoveryService {
     private final UserRoleAssignmentRepository roles;
     private final AuditLogService audit;
     private final AccountLifecycleGate lifecycle;
+    private final AccountMaintenanceTransactions maintenance;
     public AccountRecoveryService(AppUserRepository users, AccountWithdrawalRepository withdrawals,
-            UserRoleAssignmentRepository roles, AuditLogService audit, AccountLifecycleGate lifecycle) {
+            UserRoleAssignmentRepository roles, AuditLogService audit, AccountLifecycleGate lifecycle, AccountMaintenanceTransactions maintenance) {
         this.users = users; this.withdrawals = withdrawals; this.roles = roles; this.audit = audit;
         this.lifecycle = lifecycle;
+        this.maintenance = maintenance;
     }
 
     @Transactional(readOnly = true)
@@ -27,9 +29,11 @@ public class AccountRecoveryService {
         return new RecoveryStatus(withdrawal.getPurgeAfter(), withdrawal.getRecoveryDisplayName());
     }
 
-    @Transactional
     public Long confirm(RecoveryChallengeStore.Proof proof) {
         lifecycle.requireRecovery();
+        return maintenance.execute(()->confirmLocked(proof));
+    }
+    private Long confirmLocked(RecoveryChallengeStore.Proof proof) {
         var user = users.lockById(proof.userId()).orElseThrow(RecoveryChallengeStore::expired);
         var withdrawal = verified(proof);
         if (user.getStatus() != UserStatus.WITHDRAWN) throw RecoveryChallengeStore.expired();
@@ -43,10 +47,12 @@ public class AccountRecoveryService {
         return user.getId();
     }
 
-    @Transactional
     public Long requestImmediateErasure(RecoveryChallengeStore.Proof proof) {
         lifecycle.requireRecovery();
         lifecycle.requireErasure();
+        return maintenance.execute(()->requestImmediateErasureLocked(proof));
+    }
+    private Long requestImmediateErasureLocked(RecoveryChallengeStore.Proof proof) {
         var user = users.lockById(proof.userId()).orElseThrow(RecoveryChallengeStore::expired);
         var withdrawal = verified(proof);
         if (user.getStatus() != UserStatus.WITHDRAWN) throw RecoveryChallengeStore.expired();

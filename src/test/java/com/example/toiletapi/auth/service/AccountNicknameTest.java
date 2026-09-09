@@ -10,7 +10,7 @@ import static org.mockito.Mockito.*;
 
 class AccountNicknameTest {
     final AppUserRepository users = mock(AppUserRepository.class);
-    final AccountService service = new AccountService(users, null, null, null, null, null, null, new AccountLifecycleGate(true, false, false));
+    final AccountService service = new AccountService(users, null, null, null, null, null, null, new AccountLifecycleGate(true, false, false), null);
 
     @Test void trimsAndSavesOnlyAuthenticatedUser() {
         var user = AppUser.create("이전 이름", "unchanged@example.com", true);
