@@ -1,6 +1,7 @@
 package com.example.toiletapi.report.service;
 
 import com.example.toiletapi.auth.model.AuditAction;
+import com.example.toiletapi.auth.model.UserStatus;
 import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuditLogService;
 import com.example.toiletapi.notification.service.UserNotificationService;
@@ -63,7 +64,16 @@ public class ToiletReportService {
     @Transactional(readOnly = true) public ToiletReportDetailResponse pendingDetail(Long reportId) {
         ToiletReport report = reportRepository.findById(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
         Toilet toilet = toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
-        return ToiletReportDetailResponse.from(response(report, toilet.getName()), toilet);
+        return ToiletReportDetailResponse.from(response(report, toilet.getName()), toilet, reporterDisplayName(report));
+    }
+    // Resolve on the admin detail read only: do not snapshot names into retained reports.
+    private String reporterDisplayName(ToiletReport report) {
+        if (report.getReporterUserId() == null) return "탈퇴한 사용자";
+        return userRepository.findById(report.getReporterUserId()).map(user -> {
+            if (user.getStatus() == UserStatus.WITHDRAWN) return "탈퇴한 사용자";
+            String name = user.getDisplayName();
+            return name == null || name.isBlank() ? "급똥 사용자" : name;
+        }).orElse("작성자 정보 없음");
     }
     public ToiletReportResponse approve(Long adminId, Long reportId, ReviewToiletReportRequest request) {
         ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
