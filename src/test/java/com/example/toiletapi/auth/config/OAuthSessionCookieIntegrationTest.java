@@ -84,6 +84,23 @@ class OAuthSessionCookieIntegrationTest {
         verifyNoInteractions(successHandler);
     }
 
+    @Test void staleAccessCookieDoesNotBlockEitherProviderButStateRemainsRequired() throws Exception {
+        for (String provider : new String[]{"google", "kakao"}) {
+            String stale = "geupddong_access=fixture-revoked";
+            var start = get("/api/v1/auth/login/" + provider + "?returnTo=preview", stale, true);
+            assertThat(start.statusCode()).isEqualTo(302);
+            String cookies = cookiePair(start) + "; " + stale;
+            var authorization = get("/oauth2/authorization/" + provider, cookies, true);
+            assertThat(authorization.statusCode()).isEqualTo(302);
+            var failure = get("/login/oauth2/code/" + provider + "?error=access_denied&state=invalid-fixture-state",
+                    cookies, true);
+            assertThat(failure.statusCode()).isEqualTo(302);
+            assertThat(failure.headers().firstValue("Location").orElseThrow())
+                    .isEqualTo(OAuthReturnTargets.PREVIEW + "/?login=failed");
+        }
+        verifyNoInteractions(successHandler);
+    }
+
     private void assertCancelledFlow(String provider, String target, String expected) throws Exception {
         var start = get("/api/v1/auth/login/" + provider + "?returnTo=" + target, null, true);
         assertCookie(start);

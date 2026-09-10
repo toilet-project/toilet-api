@@ -18,4 +18,4 @@ jobs:
           distribution: temurin
       - run: |
           chmod +x ./gradlew
-          ./gradlew test --tests '*OAuthSessionCookieIntegrationTest' --tests '*PreviewOAuthTest' --tests '*AuthControllerTest' --tests '*ToiletControllerTest' --tests '*DataSyncStatusControllerTest' --tests '*AdminRegionReviewControllerTest' --no-daemon --console=plain
+          ./gradlew test --tests '*CookieBearerTokenResolverTest' --tests '*StaleCookieAuthenticationTest' --tests '*WithdrawalSecurityTest' --tests '*AccountRecoveryControllerTest' --tests '*OAuthSessionCookieIntegrationTest' --tests '*PreviewOAuthTest' --tests '*AuthControllerTest' --tests '*ToiletControllerTest' --tests '*DataSyncStatusControllerTest' --tests '*AdminRegionReviewControllerTest' --no-daemon --console=plain
