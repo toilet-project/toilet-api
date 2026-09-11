@@ -127,3 +127,9 @@ erasure:
     secret-access-key: ${ERASURE_LEDGER_SECRET_ACCESS_KEY:}
     active-key-id: ${ERASURE_LEDGER_ACTIVE_KEY_ID:k1}
     keys-json: ${ERASURE_LEDGER_KEYS_JSON:}
+
+# Separate approval is required to activate persistence; the design preview remains memory-only.
+reviews:
+  enabled: ${REVIEWS_ENABLED:false}
+  create-cooldown-seconds: ${REVIEWS_CREATE_COOLDOWN_SECONDS:60}
+  max-per-day: ${REVIEWS_MAX_PER_DAY:10}
