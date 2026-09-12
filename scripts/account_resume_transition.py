@@ -23,6 +23,17 @@ from html.parser import HTMLParser
 
 POLICY_PATHS = ('/policies/terms', '/policies/privacy')
 
+def api_health_ok(body):
+    # Keep the previous exact response during rollout and image rollback.
+    if body == 'API server is running (DB: toilet_db)':
+        return True
+    try:
+        return json.loads(body) == {'status': 'UP'}
+    except (ValueError, TypeError):
+        return False
+
+
+
 def policy_expectation(version, announced_at, effective_at, now=None):
     require(re.fullmatch(r'[a-z0-9-]{1,60}', version or '') is not None,
             'ACCOUNT_RESUME_POLICY_RELEASE_REQUIRED')
@@ -281,7 +292,7 @@ class Host:
         with opener.open('http://' + address + ':' + port + route, timeout=4) as response:
             require(response.status == 200)
             body = response.read(8192).decode()
-        require(body == 'API server is running (DB: toilet_db)' if self.role == 'api'
+        require(api_health_ok(body) if self.role == 'api'
                 else json.loads(body).get('status') == 'UP')
 
     def restart(self):
