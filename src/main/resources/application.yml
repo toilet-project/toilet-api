@@ -71,7 +71,7 @@ spring:
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
             redirect-uri: https://api.geupddong.com/login/oauth2/code/kakao
-            scope: profile_nickname, account_email
+            scope: ${KAKAO_LOGIN_SCOPES:profile_nickname, account_email}
             client-name: Kakao
         provider:
           kakao:
@@ -138,3 +138,13 @@ reviews:
   unlink-directory: ${REVIEW_UNLINK_DIRECTORY:}
   unlink-store-id: ${REVIEW_UNLINK_STORE_ID:}
   guard-cleanup-enabled: ${REVIEW_GUARD_CLEANUP_ENABLED:false}
+
+# OFF until photo notice, private R2, deletion and provider consent acceptance are complete.
+profile-photo:
+  enabled: ${PROFILE_PHOTO_ENABLED:false}
+  endpoint: ${PROFILE_PHOTO_R2_ENDPOINT:}
+  bucket: ${PROFILE_PHOTO_R2_BUCKET:}
+  access-key-id: ${PROFILE_PHOTO_R2_ACCESS_KEY_ID:}
+  secret-access-key: ${PROFILE_PHOTO_R2_SECRET_ACCESS_KEY:}
+  python: ${PROFILE_PHOTO_PYTHON:python3}
+  converter: ${PROFILE_PHOTO_CONVERTER:/app/normalize_profile_photo.py}

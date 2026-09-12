@@ -49,7 +49,7 @@ class WithdrawalSecurityTest {
         var response = new MockHttpServletResponse();
         var auth = new OAuth2AuthenticationToken(principal, principal.getAuthorities(), "google");
         SecurityContextHolder.getContext().setAuthentication(auth);
-        new OAuthLoginSuccessHandler(login, tokens, "https://geupddong.com", store).onAuthenticationSuccess(request, response, auth);
+        new OAuthLoginSuccessHandler(login, tokens, "https://geupddong.com", store, mock(com.example.toiletapi.photo.PhotoSync.class)).onAuthenticationSuccess(request, response, auth);
         verifyNoInteractions(tokens);
         assertThat(request.getSession(false)).isNull();
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();

@@ -1,0 +1,37 @@
+name: Profile photo validation
+on:
+  pull_request:
+    branches: [main, develop]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROFILE_PHOTO_CONVERTER_TEST: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install Pillow==12.3.0
+      - run: |
+          chmod +x gradlew
+          ./gradlew test --no-daemon --console=plain
+          for suite in PhotoProcessorTest PhotoContainerMySqlTest; do
+            result="build/test-results/test/TEST-com.example.toiletapi.photo.${suite}.xml"
+            test -s "$result"
+            grep -q 'skipped="0"' "$result"
+          done
+          python -B -m unittest scripts.test_normalize_profile_photo
+      - run: |
+          ./gradlew bootJar --no-daemon --console=plain
+          docker build --build-arg JAR_FILE=build/libs/*-SNAPSHOT.jar -t profile-photo-check .
+          docker run --rm --entrypoint python3 profile-photo-check -c "from PIL import features; assert features.check('webp')"

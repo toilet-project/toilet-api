@@ -20,11 +20,14 @@ public class OAuthLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHand
     private final AuthTokenService tokenService;
     private final String frontendBaseUrl;
     private final com.example.toiletapi.auth.service.RecoveryChallengeStore recoveryChallenges;
+    private final com.example.toiletapi.photo.PhotoSync photos;
     public OAuthLoginSuccessHandler(OAuthLoginService loginService, AuthTokenService tokenService,
                                     @Value("${auth.frontend-base-url}") String frontendBaseUrl,
-                                    com.example.toiletapi.auth.service.RecoveryChallengeStore recoveryChallenges) {
+                                    com.example.toiletapi.auth.service.RecoveryChallengeStore recoveryChallenges,
+                                    com.example.toiletapi.photo.PhotoSync photos) {
         this.loginService = loginService; this.tokenService = tokenService; this.frontendBaseUrl = frontendBaseUrl;
         this.recoveryChallenges = recoveryChallenges;
+        this.photos = photos;
     }
     @Override public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                                    Authentication authentication) throws IOException {
@@ -44,6 +47,7 @@ public class OAuthLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHand
             return;
         }
         AuthController.writeCookies(response, tokenService.issue(user.userId(), user.roles()));
+        if (!user.consentRequired()) photos.login(user.userId(), oauth.getAuthorizedClientRegistrationId(), oauth.getPrincipal().getAttributes());
         String targetUrl;
         if (user.consentRequired()) {
             String returnTarget = OAuthReturnTargets.ADMIN.equals(returnUrl) ? "admin" : null;
