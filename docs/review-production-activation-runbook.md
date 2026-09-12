@@ -12,7 +12,7 @@
 
 ## 사전 조건
 
-- [ ] API PR #106, 웹 PR #206, 배치 리뷰 복원 PR의 최종 커밋과 CI가 모두 성공이다.
+- [x] API PR #106, 웹 PR #206, 배치 PR #52가 Ready·병합 가능 상태이며 최신 커밋의 전체 CI가 2026-09-12 모두 성공했다.
 - [ ] 변경 전 암호화 DB 백업과 해시가 생성됐고 기존 읽기 전용 백업 점검이 성공이다.
 - [x] 회원 파기 대장과 분리된 리뷰 로컬 디렉터리·marker·lock·store ID가 준비됐다.
 - [x] 독립 저장소의 `review-anonymization-v1` orphan 브랜치에 realm `review-anonymization`, 현재 DB epoch, 0건 inventory genesis가 준비됐다.
