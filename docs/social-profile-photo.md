@@ -41,6 +41,8 @@ R2 쓰기 전에 무작위 파일 경로를 객체 대장에 먼저 기록한다
 
 ## 배포 전 확인
 
+CI의 `Profile photo validation`은 Pillow를 설치하고 `PROFILE_PHOTO_CONVERTER_TEST=true`로 실제 Java→Python 변환 검사를 강제한다. 사진 권한·삭제 검사는 H2와 폐기 가능한 MySQL 컨테이너에서 같은 시나리오를 실행하며 전용 CI는 MySQL 검사가 건너뛰어지면 실패한다. 일반 API 검사는 별도 Python 설치를 요구하지 않도록 변환 프로세스 검사만 제외한다. 로컬에서 변환 검사를 재현할 때도 이 환경 변수와 Pillow 설치가 필요하다.
+
 - `PROFILE_PHOTO_ENABLED=false`가 기본이다. 기존 로그인 권한과 계정 상태를 바꾸지 않는다.
 - 전용 비공개 버킷, 공개 도메인/r2.dev 비활성, 이 버킷만 읽기·쓰기·삭제 가능한 자격증명을 준비한다. 기존 ISR·회원 보호 기록 버킷을 재사용하지 않는다.
 - 환경 변수: `PROFILE_PHOTO_R2_ENDPOINT`, `PROFILE_PHOTO_R2_BUCKET`, `PROFILE_PHOTO_R2_ACCESS_KEY_ID`, `PROFILE_PHOTO_R2_SECRET_ACCESS_KEY`. 변환기 기본은 컨테이너의 `python3`, `/app/normalize_profile_photo.py`다.

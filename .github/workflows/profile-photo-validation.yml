@@ -8,6 +8,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PROFILE_PHOTO_CONVERTER_TEST: 'true'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,6 +25,11 @@ jobs:
       - run: |
           chmod +x gradlew
           ./gradlew test --no-daemon --console=plain
+          for suite in PhotoProcessorTest PhotoContainerMySqlTest; do
+            result="build/test-results/test/TEST-com.example.toiletapi.photo.${suite}.xml"
+            test -s "$result"
+            grep -q 'skipped="0"' "$result"
+          done
           python -B -m unittest scripts.test_normalize_profile_photo
       - run: |
           ./gradlew bootJar --no-daemon --console=plain

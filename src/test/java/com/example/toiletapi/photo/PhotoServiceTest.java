@@ -3,6 +3,7 @@ package com.example.toiletapi.photo;
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.*;
 import java.nio.charset.StandardCharsets;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.*;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -16,6 +17,9 @@ class PhotoServiceTest {
     MemoryStore store;
     @BeforeEach void setup() {
         var ds=new DriverManagerDataSource("jdbc:h2:mem:photos_"+UUID.randomUUID()+";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000","sa","");
+        setup(ds);
+    }
+    void setup(DataSource ds) {
         jdbc=new JdbcTemplate(ds);var manager=new DataSourceTransactionManager(ds);tx=new TransactionTemplate(manager);
         jdbc.execute("CREATE TABLE app_user(user_id BIGINT PRIMARY KEY,status VARCHAR(20),auth_version BIGINT NOT NULL DEFAULT 0)");
         jdbc.execute("CREATE TABLE toilet_review(review_id BIGINT PRIMARY KEY,toilet_id BIGINT,author_user_id BIGINT,author_detached BOOLEAN DEFAULT FALSE)");
@@ -55,7 +59,7 @@ class PhotoServiceTest {
     }
     @Test void batchDeletionCascadesAndFailedStorageDeletionRemainsRetryable() {
         upload(1);assertEquals(1,store.images.size());
-        jdbc.update("UPDATE profile_photo_object SET created_at=DATEADD('MINUTE',-10,CURRENT_TIMESTAMP)");
+        ageObjects();
         // Use the same deletion boundary as API, batch and erasure replay.
         jdbc.update("DELETE FROM app_user WHERE user_id=1");
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM profile_photo",Integer.class));
@@ -73,8 +77,11 @@ class PhotoServiceTest {
         photos.update(1,true,true);var ticket=photos.ticket(1,"s");store.failPut=true;
         assertThrows(IllegalStateException.class,()->photos.save(ticket,bytes,"h","s"));
         assertNull(photos.state(1).imageVersion());assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM profile_photo_object",Integer.class));
-        store.failPut=false;store.onPut=()->jdbc.update("UPDATE profile_photo_object SET created_at=DATEADD('MINUTE',-10,CURRENT_TIMESTAMP)");
+        store.failPut=false;store.onPut=this::ageObjects;
         photos.save(ticket,bytes,"h","s");assertNull(photos.state(1).imageVersion());
+    }
+    private void ageObjects() {
+        jdbc.update("UPDATE profile_photo_object SET created_at=?", java.sql.Timestamp.valueOf(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")).minusMinutes(10)));
     }
     @Test void disabledDoesNotQueryUnmigratedDatabase() {
         var disabled=new PhotoService(new PhotoSettings(false,null,null,null,null,null,null),null,nullManager(),store);

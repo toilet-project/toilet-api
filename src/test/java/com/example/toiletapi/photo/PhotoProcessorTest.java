@@ -5,6 +5,9 @@ import java.io.ByteArrayOutputStream;
 import java.nio.file.Path;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+// The dedicated photo workflow installs Pillow and must run this real-process check.
+@EnabledIfEnvironmentVariable(named="PROFILE_PHOTO_CONVERTER_TEST", matches="true")
 class PhotoProcessorTest {
     @Test void actualChildProcessProducesOnlyWebpAndRejectsNonImage() throws Exception {
         String python=System.getProperty("os.name").startsWith("Windows")?"python":"python3";
