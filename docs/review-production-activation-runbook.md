@@ -13,9 +13,10 @@
 
 - [ ] API PR #106, 웹 PR #206, 배치 리뷰 복원 PR의 최종 커밋과 CI가 모두 성공이다.
 - [ ] 변경 전 암호화 DB 백업과 해시가 생성됐고 기존 읽기 전용 백업 점검이 성공이다.
-- [ ] 회원 파기 대장과 분리된 리뷰 로컬 디렉터리·marker·lock·store ID가 준비됐다.
-- [ ] 독립 저장소의 `review-anonymization-v1` orphan 브랜치에 realm `review-anonymization`, 현재 DB epoch, 0건 inventory genesis가 준비됐다.
-- [ ] 서버에 별도로 보관한 키로 로컬 두 목록과 독립 checkpoint를 읽는 검사가 성공한다. 서버 설정값을 다시 읽는 것으로 대체하지 않는다.
+- [x] 회원 파기 대장과 분리된 리뷰 로컬 디렉터리·marker·lock·store ID가 준비됐다.
+- [x] 독립 저장소의 `review-anonymization-v1` orphan 브랜치에 realm `review-anonymization`, 현재 DB epoch, 0건 inventory genesis가 준비됐다.
+- [x] 별도 후보 도구로 로컬 두 목록과 독립 checkpoint를 읽는 0건 사전 검사가 성공했고, 실행 중인 컨테이너 설정과 대장 파일 바이트가 변하지 않았다.
+- [ ] 최종 API 이미지가 전용 경로를 마운트한 뒤 같은 snapshot 검사를 다시 통과한다. 이 항목은 실제 배포 단계에서만 확인한다.
 - [x] GitHub Actions의 일회용 MySQL 8에서 V12 형식 가상 백업의 회원 파기와 리뷰 연결 해제 결합 복원 시험이 성공했다. 운영 미니 PC에서는 복원 컨테이너를 실행하지 않는다.
 - [ ] 자유글 보존·위치 사용 목적·본문 개인정보 요청 절차의 공개 문구와 시행 시점을 별도 승인한다.
 
@@ -33,6 +34,8 @@ REVIEW_GUARD_CLEANUP_ENABLED=true
 ```
 
 API에는 기존 `ERASURE_LEDGER_PROVIDER=LOCAL`, 키 JSON·active key ID, 회원 대장 로컬 디렉터리, 독립 GitHub 토큰·DB epoch도 필요하다. 하나라도 없거나 대장 snapshot이 불완전하면 작성자 연결 해제 기능은 성공으로 처리되지 않는다.
+
+2026-09-12 준비 검사에서는 전용 orphan 기준선 0건, 전용 ext4 디렉터리 권한 0700, marker/lock 권한 0600, 알 수 없는 파일 0건을 확인했다. `ReviewUnlinkLedgerPreflightCli --read-only`의 결과는 `records=0`, `checkpointMatched=true`, `localStoreVerified=true`, `activationAllowed=false`였다. 운영 DB·Redis에 연결하지 않았고 컨테이너를 재시작하지 않았다. 가상 결합 복원은 운영 미니 PC가 아닌 [배치 GitHub Actions](https://github.com/toilet-project/toilet-batch/actions/runs/34673844484/job/103500043339)에서 통과했다.
 
 웹 운영 리뷰 후보는 다음 네 값이 빌드 시 모두 정확히 일치할 때만 API 모드를 포함한다. 기본 운영 후보는 계속 리뷰 OFF다.
 
