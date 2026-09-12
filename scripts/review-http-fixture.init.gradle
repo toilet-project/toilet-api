@@ -1,0 +1,15 @@
+// Explicit opt-in only; the fixture uses the test runtime and is never added to bootJar.
+allprojects {
+    afterEvaluate {
+        tasks.register('reviewHttpFixture', JavaExec) {
+            dependsOn testClasses
+            classpath = sourceSets.test.runtimeClasspath
+            mainClass = 'com.example.toiletapi.review.ReviewHttpFixture'
+            doFirst {
+                if (!System.getenv('REVIEW_HTTP_METADATA')) throw new GradleException('REVIEW_HTTP_METADATA is required')
+                args System.getenv('REVIEW_HTTP_METADATA')
+            }
+            jvmArgs '-Duser.timezone=Asia/Seoul'
+        }
+    }
+}

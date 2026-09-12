@@ -42,7 +42,7 @@ class ReviewDatabaseTest {
         jdbc.update("INSERT INTO toilet VALUES(1,'합성 화장실',36.3,127.3),(2,'좌표 없는 화장실',NULL,NULL)");
         for(long id=3;id<=20;id++)jdbc.update("INSERT INTO toilet VALUES(?,'다른 합성 화장실',36.3,127.3)",id);
         policies=mock(PolicyConsentService.class);
-        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock);
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,key->{});
     }
     <T>T call(Supplier<T> action){return tx.execute(status->action.get());}
     Create input(String comment){return new Create(1L,4,5,true,20,comment,new ReviewRules.Position(36.3,127.3,10.0,clock.instant()));}
@@ -84,6 +84,52 @@ class ReviewDatabaseTest {
         assertEquals(2,call(()->service.summary(1)).count());
         failure("REVIEW_ALREADY_EXISTS",()->service.create(author,input("해제로 제한 우회"),UUID.randomUUID().toString()));
     }
+    @Test void unlinkProtectionRunsOnlyAfterOwnerVersionDeadlineAndAcknowledgementChecks() {
+        var protection=mock(ReviewUnlinkProtection.class);
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,protection);
+        Item first=create("보존할 글");
+        failure("REVIEW_NOT_FOUND",()->service.detach(other,id(first),new Detach(0L,true)));
+        failure("REVIEW_CHANGED",()->service.detach(author,id(first),new Detach(2L,true)));
+        assertThrows(IllegalArgumentException.class,()->call(()->service.detach(author,id(first),new Detach(0L,false))));
+        verifyNoInteractions(protection);
+        call(()->service.detach(author,id(first),new Detach(0L,true)));
+        verify(protection).record(jdbc.queryForObject("SELECT review_key FROM toilet_review WHERE review_id=?",String.class,id(first)));
+    }
+    @Test void failedProtectionDoesNotUnlinkOrRemoveRequestIdentity() {
+        Item first=create("보존할 글");
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,key->{throw new ReviewFailure(503,"REVIEW_UNLINK_UNAVAILABLE","synthetic");});
+        failure("REVIEW_UNLINK_UNAVAILABLE",()->service.detach(author,id(first),new Detach(0L,true)));
+        assertEquals(1L,jdbc.queryForObject("SELECT author_user_id FROM toilet_review",Long.class));
+        assertEquals(0,jdbc.queryForObject("SELECT version FROM toilet_review",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review_submission",Integer.class));
+    }
+    @Test void acknowledgedIntentSurvivesLaterDatabaseRollbackWithoutFalseSqlSuccess() {
+        Item first=create("보존할 글");var intents=new ArrayList<String>();
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,intents::add);
+        assertThrows(IllegalStateException.class,()->call(()->{service.detach(author,id(first),new Detach(0L,true));throw new IllegalStateException("synthetic rollback");}));
+        assertEquals(1,intents.size());assertEquals(1L,jdbc.queryForObject("SELECT author_user_id FROM toilet_review",Long.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review_submission",Integer.class));
+    }
+    @Test void guardCleanupRemovesOnlyExpiredCooldownMetadataAndIsBounded() {
+        Item first=create("평가와 글 보존");clock.advance(86340);
+        Item second=createAt(3,"아직 제한 중");clock.advance(60);
+        var cleanup=new ReviewGuardCleanup(jdbc,clock);
+        assertEquals(1,call(cleanup::deleteExpired));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review",Integer.class));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review_submission",Integer.class));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review_write_guard",Integer.class));
+        assertEquals(3,jdbc.queryForObject("SELECT toilet_id FROM toilet_review_toilet_guard",Integer.class));
+        assertEquals(first.comment(),call(()->service.mineDetail(author,id(first))).comment());
+        assertEquals(second.comment(),call(()->service.mineDetail(author,id(second))).comment());
+        assertEquals(0,call(cleanup::deleteExpired));
+        failure("REVIEW_ALREADY_EXISTS",()->service.create(author,new Create(3L,4,5,true,20,"한도 유지",input("").position()),UUID.randomUUID().toString()));
+        for(int i=100;i<1101;i++){
+            jdbc.update("INSERT INTO toilet VALUES(?,'합성',36.3,127.3)",i);
+            jdbc.update("INSERT INTO toilet_review_toilet_guard(user_id,toilet_id,next_allowed_at) VALUES(1,?,?)",i,LocalDateTime.ofInstant(clock.instant(),ZoneOffset.ofHours(9)));
+        }
+        assertEquals(1000,call(cleanup::deleteExpired));assertEquals(1,call(cleanup::deleteExpired));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review_toilet_guard",Integer.class));
+    }
     @Test void ownershipVersionDeadlineAndNicknameAreServerControlled() {
         Item first=create("원문");
         failure("REVIEW_NOT_FOUND",()->service.mineDetail(other,id(first)));
@@ -123,7 +169,7 @@ class ReviewDatabaseTest {
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review",Integer.class));
     }
     @Test void disabledBeforeAnyDatabaseUse() {
-        var disabled=new ReviewService(mock(ReviewRepository.class),policies,new ReviewConfiguration.ReviewSettings(false,60,10),clock);
+        var disabled=new ReviewService(mock(ReviewRepository.class),policies,new ReviewConfiguration.ReviewSettings(false,60,10),clock,key->{});
         failure("REVIEWS_DISABLED",()->disabled.create(author,input(""),UUID.randomUUID().toString()));
         failure("REVIEWS_DISABLED",()->disabled.publicPage(1,null,10));
     }

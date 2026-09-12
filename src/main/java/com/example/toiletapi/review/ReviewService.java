@@ -22,11 +22,12 @@ public class ReviewService {
     private final PolicyConsentService policies;
     private final ReviewSettings settings;
     private final Clock clock;
+    private final ReviewUnlinkProtection unlinkProtection;
     private static final ZoneOffset KST=ZoneOffset.ofHours(9);
     private static final ReviewRules.LocationPolicy LOCATION = new ReviewRules.LocationPolicy(150,50);
     public ReviewService(ReviewRepository repository, PolicyConsentService policies, ReviewSettings settings,
-                         @Qualifier("reviewClock") Clock clock) {
-        this.repository=repository;this.policies=policies;this.settings=settings;this.clock=clock;
+                         @Qualifier("reviewClock") Clock clock,ReviewUnlinkProtection unlinkProtection) {
+        this.repository=repository;this.policies=policies;this.settings=settings;this.clock=clock;this.unlinkProtection=unlinkProtection;
     }
     private void authorize(Actor actor) {
         settings.requireEnabled();
@@ -95,6 +96,8 @@ public class ReviewService {
         if(request==null || !Boolean.TRUE.equals(request.acknowledgeContentRetention()))
             throw new IllegalArgumentException("리뷰 내용이 남고 작성자 연결을 복구할 수 없다는 안내를 확인해 주세요.");
         var row=manageable(actor,id,request.version());
+        // Authenticate ownership/version/deadline before any durable intent; never repurpose account-erasure records.
+        unlinkProtection.record(row.reviewKey());
         if(repository.detach(id,actor.id(),row.version())!=1)throw conflict();
         return new Detached(Long.toString(id),"익명",true);
     }

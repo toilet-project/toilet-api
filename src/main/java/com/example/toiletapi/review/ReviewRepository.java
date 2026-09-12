@@ -21,7 +21,7 @@ public class ReviewRepository {
     record Facility(String name, Double latitude, Double longitude) { }
     record Submission(long reviewId, String hash) { }
     record Guard(LocalDateTime lastCreatedAt, LocalDate date, int count) { }
-    record Row(long id, long toiletId, Long authorId, boolean detached, int satisfaction, int cleanliness,
+    record Row(long id, String reviewKey, long toiletId, Long authorId, boolean detached, int satisfaction, int cleanliness,
                boolean paper, int waitMinutes, String comment, long version, LocalDateTime createdAt,
                LocalDateTime updatedAt, String toiletName, String authorStatus, String displayName) { }
     private static final String SELECT = """
@@ -29,7 +29,7 @@ public class ReviewRepository {
               FROM toilet_review r JOIN toilet t ON t.toilet_id=r.toilet_id
               LEFT JOIN app_user u ON u.user_id=r.author_user_id
             """;
-    private static final RowMapper<Row> ROW = (rs, n) -> new Row(rs.getLong("review_id"), rs.getLong("toilet_id"),
+    private static final RowMapper<Row> ROW = (rs, n) -> new Row(rs.getLong("review_id"), rs.getString("review_key"), rs.getLong("toilet_id"),
             rs.getObject("author_user_id", Long.class), rs.getBoolean("author_detached"), rs.getInt("satisfaction"),
             rs.getInt("cleanliness"), rs.getBoolean("paper_available"), rs.getInt("wait_minutes"), rs.getString("comment"),
             rs.getLong("version"), rs.getObject("created_at", LocalDateTime.class), rs.getObject("updated_at", LocalDateTime.class),
@@ -76,10 +76,10 @@ public class ReviewRepository {
         var keys = new GeneratedKeyHolder();
         jdbc.update(connection -> {
             var statement = connection.prepareStatement("""
-                    INSERT INTO toilet_review(toilet_id,author_user_id,satisfaction,cleanliness,paper_available,
-                    wait_minutes,comment,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)
+                    INSERT INTO toilet_review(review_key,toilet_id,author_user_id,satisfaction,cleanliness,paper_available,
+                    wait_minutes,comment,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)
                     """, Statement.RETURN_GENERATED_KEYS);
-            Object[] values = {toilet,user,c.satisfaction(),c.cleanliness(),c.paperAvailable(),c.waitMinutes(),c.comment(),now,now};
+            Object[] values = {java.util.UUID.randomUUID().toString(),toilet,user,c.satisfaction(),c.cleanliness(),c.paperAvailable(),c.waitMinutes(),c.comment(),now,now};
             for (int i=0;i<values.length;i++) statement.setObject(i+1,values[i]);
             return statement;
         },keys);

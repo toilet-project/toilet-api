@@ -2,6 +2,7 @@
 -- No device coordinates, measured-at, nickname snapshot, email, IP or user agent.
 CREATE TABLE toilet_review (
     review_id BIGINT NOT NULL AUTO_INCREMENT,
+    review_key CHAR(36) NOT NULL,
     toilet_id BIGINT NOT NULL,
     author_user_id BIGINT NULL,
     author_detached BOOLEAN NOT NULL DEFAULT FALSE,
@@ -14,6 +15,7 @@ CREATE TABLE toilet_review (
     created_at DATETIME(6) NOT NULL,
     updated_at DATETIME(6) NOT NULL,
     PRIMARY KEY (review_id),
+    UNIQUE KEY uk_review_incarnation (review_key),
     KEY idx_review_author_created (author_user_id, created_at, review_id),
     KEY idx_review_toilet_created (toilet_id, created_at, review_id),
     CONSTRAINT fk_review_toilet FOREIGN KEY (toilet_id) REFERENCES toilet (toilet_id),
@@ -47,6 +49,7 @@ CREATE TABLE toilet_review_toilet_guard (
     toilet_id BIGINT NOT NULL,
     next_allowed_at DATETIME(6) NOT NULL,
     PRIMARY KEY (user_id, toilet_id),
+    KEY idx_review_toilet_guard_expiry (next_allowed_at),
     CONSTRAINT fk_review_toilet_guard_user FOREIGN KEY (user_id) REFERENCES app_user (user_id) ON DELETE CASCADE,
     CONSTRAINT fk_review_toilet_guard_toilet FOREIGN KEY (toilet_id) REFERENCES toilet (toilet_id) ON DELETE CASCADE
 );
