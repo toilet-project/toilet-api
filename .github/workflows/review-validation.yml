@@ -1,0 +1,32 @@
+name: Location review validation
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [feature/location-verified-reviews]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+      - name: Require isolated Docker, never use service database credentials
+        run: docker info > /dev/null
+      - name: Whole API regression and isolated MySQL review tests
+        run: |
+          chmod +x ./gradlew
+          ./gradlew test bootJar --no-daemon --console=plain
+          result=build/test-results/test/TEST-com.example.toiletapi.review.ReviewContainerMySqlTest.xml
+          test -s "$result"
+          grep -q 'skipped="0"' "$result"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: location-review-test-results
+          path: build/test-results/test

@@ -1,7 +1,7 @@
 # Account lifecycle deployment preparation
 
 This feature is not authorized for production activation. The deployment preflight requires
-`ACCOUNT_LIFECYCLE_DEPLOYMENT_APPROVED=true` as a repository variable before building/pushing an image or connecting to the host.
+`ACCOUNT_LIFECYCLE_DEPLOYMENT_APPROVED=true` and an exact `ACCOUNT_LIFECYCLE_DEPLOYMENT_APPROVED_SHA` match are required before building/pushing an image or connecting to the host.
 Do not set it just to make a failed build green: the API rollout runs Flyway V11 and temporarily disables existing self-service withdrawal.
 
 - Current workflow forces `ACCOUNT_LIFECYCLE_MAINTENANCE=true`, retention/erasure/ledger/catalogue flags false. Activation is rejected by preflight and requires a separate reviewed release.
