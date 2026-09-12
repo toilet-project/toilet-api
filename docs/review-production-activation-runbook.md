@@ -16,7 +16,7 @@
 - [ ] 회원 파기 대장과 분리된 리뷰 로컬 디렉터리·marker·lock·store ID가 준비됐다.
 - [ ] 독립 저장소의 `review-anonymization-v1` orphan 브랜치에 realm `review-anonymization`, 현재 DB epoch, 0건 inventory genesis가 준비됐다.
 - [ ] 서버에 별도로 보관한 키로 로컬 두 목록과 독립 checkpoint를 읽는 검사가 성공한다. 서버 설정값을 다시 읽는 것으로 대체하지 않는다.
-- [ ] GitHub Actions의 일회용 MySQL 8에서 V12 형식 가상 백업의 회원 파기와 리뷰 연결 해제 결합 복원 시험이 성공한다. 운영 미니 PC에서는 복원 컨테이너를 실행하지 않는다.
+- [x] GitHub Actions의 일회용 MySQL 8에서 V12 형식 가상 백업의 회원 파기와 리뷰 연결 해제 결합 복원 시험이 성공했다. 운영 미니 PC에서는 복원 컨테이너를 실행하지 않는다.
 - [ ] 자유글 보존·위치 사용 목적·본문 개인정보 요청 절차의 공개 문구와 시행 시점을 별도 승인한다.
 
 ## 필요한 설정 이름
