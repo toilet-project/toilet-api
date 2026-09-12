@@ -79,7 +79,7 @@ class PreviewOAuthTest {
         var request=new MockHttpServletRequest();
         if(target!=null) request.getSession().setAttribute(OAuthReturnTargets.SESSION_ATTRIBUTE,target);
         var response=new MockHttpServletResponse();
-        new OAuthLoginSuccessHandler(login,tokens,home,mock(com.example.toiletapi.auth.service.RecoveryChallengeStore.class)).onAuthenticationSuccess(request,response,new OAuth2AuthenticationToken(principal,principal.getAuthorities(),"google"));
+        new OAuthLoginSuccessHandler(login,tokens,home,mock(com.example.toiletapi.auth.service.RecoveryChallengeStore.class),mock(com.example.toiletapi.photo.PhotoSync.class)).onAuthenticationSuccess(request,response,new OAuth2AuthenticationToken(principal,principal.getAuthorities(),"google"));
         assertEquals(expected,response.getRedirectedUrl());
         assertTrue(request.getSession(false)==null || request.getSession().getAttribute(OAuthReturnTargets.SESSION_ATTRIBUTE)==null);
         assertEquals(2,response.getHeaders("Set-Cookie").size());
