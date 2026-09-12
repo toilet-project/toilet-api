@@ -3,11 +3,44 @@ import importlib.util
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import Mock, patch
 
 spec = importlib.util.spec_from_file_location('review_release', Path(__file__).with_name('review_release_transition.py'))
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 STORE = 'bc125d65-18a9-4106-9bbf-998ac3bc5392'
+
+
+class HealthResponseCompatibilityTest(unittest.TestCase):
+    def test_actual_health_gate_rejects_http_failure(self):
+        host = object.__new__(release.Host)
+        host.capture = Mock(return_value={'api': {
+            'Config': {'Env': ['API_PORT=8080']},
+            'NetworkSettings': {'Networks': {'toilet-network': {'IPAddress': '172.22.0.2'}}},
+        }})
+        response = Mock(status=200)
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        response.read.return_value = b'{"status":"UP"}'
+        with patch.object(release.urllib.request, 'build_opener') as opener:
+            opener.return_value.open.return_value = response
+            host.healthy()
+            response.status = 503
+            with self.assertRaises(ValueError): host.healthy()
+            response.status = 200
+            response.read.return_value = b'{"status":"DOWN"}'
+            with self.assertRaises(ValueError): host.healthy()
+
+    def test_both_success_formats(self):
+        for body in ('API server is running (DB: toilet_db)', '{"status":"UP"}', '{ "status": "UP" }'):
+            with self.subTest(body=body):
+                self.assertTrue(release.api_health_ok(body))
+
+    def test_failures_and_unexpected_payloads(self):
+        for body in ('API server is running (DB: other)', 'API database connection failed: synthetic',
+                     '{"status":"DOWN"}', '{"status":"UP","detail":"unexpected"}', 'null', '[]', '{}', 'OK'):
+            with self.subTest(body=body):
+                self.assertFalse(release.api_health_ok(body))
 
 
 class ReviewReleaseTransitionTest(unittest.TestCase):

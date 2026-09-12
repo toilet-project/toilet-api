@@ -23,6 +23,19 @@ def object_for(phase):
     return {'State': {'Running': True}, 'Config': {'User': '1000:1000',
             'Image': 'synthetic:' + COMMIT, 'Env': [k + '=' + v for k, v in env.items()]}}
 
+class HealthResponseCompatibilityTest(unittest.TestCase):
+    def test_both_success_formats(self):
+        for body in ('API server is running (DB: toilet_db)', '{"status":"UP"}', '{ "status": "UP" }'):
+            with self.subTest(body=body):
+                self.assertTrue(resume.api_health_ok(body))
+
+    def test_failures_and_unexpected_payloads(self):
+        for body in ('API server is running (DB: other)', 'API database connection failed: synthetic',
+                     '{"status":"DOWN"}', '{"status":"UP","detail":"unexpected"}', 'null', '[]', '{}', 'OK'):
+            with self.subTest(body=body):
+                self.assertFalse(resume.api_health_ok(body))
+
+
 class InspectionOrderTest(unittest.TestCase):
     def test_image_build_is_pinned_manual_and_has_no_server_access(self):
         source = (Path(__file__).parents[1] / '.github/workflows/account-image-build.yml').read_text()
@@ -388,6 +401,10 @@ class TransitionTest(unittest.TestCase):
             with self.assertRaises(ValueError): host.healthy(obj)
             response.read.return_value = b'API server is running (DB: toilet_db)'
             host.healthy(obj)
+            response.read.return_value = b'{"status":"UP"}'
+            host.healthy(obj)
+            response.status = 503
+            with self.assertRaises(ValueError): host.healthy(obj)
 
 @unittest.skipUnless(os.name == 'posix', 'real atomic replace/fsync fixture runs on Linux CI')
 class AtomicTransitionTest(unittest.TestCase):

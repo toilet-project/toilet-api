@@ -35,6 +35,17 @@ ACCOUNT_ACTIVE = {
 }
 
 
+def api_health_ok(body):
+    # Keep the previous exact response during rollout and image rollback.
+    if body == 'API server is running (DB: toilet_db)':
+        return True
+    try:
+        return json.loads(body) == {'status': 'UP'}
+    except (ValueError, TypeError):
+        return False
+
+
+
 def require(value, code='REVIEW_RELEASE_HELD'):
     if not value:
         raise ValueError(code)
@@ -186,7 +197,7 @@ class Host:
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         with opener.open('http://' + address + ':' + port + '/api/health', timeout=4) as response:
             body = response.read(8192).decode()
-        require(response.status == 200 and body == 'API server is running (DB: toilet_db)',
+        require(response.status == 200 and api_health_ok(body),
                 'REVIEW_RELEASE_HEALTH_REJECTED')
 
     def restart(self):
