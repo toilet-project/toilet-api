@@ -271,7 +271,8 @@ class TransitionTest(unittest.TestCase):
 
     @unittest.skipUnless(os.name == 'posix', 'bash syntax checked on Linux CI')
     def test_every_workflow_shell_block_parses(self):
-        for filename in ('account-guarded-transition.yml', 'account-active-transition.yml', 'account-preserving-rollout.yml'):
+        for filename in ('account-guarded-transition.yml', 'account-active-transition.yml',
+                         'account-preserving-rollout.yml', 'review-preserving-transition.yml'):
             source = (Path(__file__).parents[1] / '.github/workflows' / filename).read_text()
             blocks = re.findall(r'        run: \|\n((?:          [^\n]*\n|\n)+)', source + '\n')
             self.assertEqual(len(blocks), 4)
