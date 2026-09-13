@@ -31,6 +31,7 @@ jobs:
             grep -q 'skipped="0"' "$result"
           done
           python -B -m unittest scripts.test_normalize_profile_photo
+          python -m py_compile scripts/profile_photo_storage_probe.py
       - run: |
           ./gradlew bootJar --no-daemon --console=plain
           docker build --build-arg JAR_FILE=build/libs/*-SNAPSHOT.jar -t profile-photo-check .
