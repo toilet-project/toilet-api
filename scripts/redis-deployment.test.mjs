@@ -47,11 +47,19 @@ test('isolated Docker: literal password, no persistence, restart clears syntheti
         .replaceAll('${{ secrets.DOCKERHUB_USERNAME }}', 'synthetic')
         .replaceAll('${{ github.sha }}', 'synthetic')
         .replaceAll('${{ secrets.API_PORT }}', '8080')
+        .replaceAll('/home/luha/.config/geupddong/profile-photo.env', './profile-photo.env')
         .replaceAll('container_name: toilet-redis', `container_name: ${project}`)
         .replaceAll('container_name: toilet-api', `container_name: ${project}-unused-api`)
         .replace('external: true', 'internal: true'))
       writeFileSync(join(directory, '.env'), "REDIS_PASSWORD='synthetic$VALUE#=password'\n")
       writeFileSync(join(directory, '.account-lifecycle.env'), '')
+      writeFileSync(join(directory, 'profile-photo.env'), [
+        'PROFILE_PHOTO_R2_ENDPOINT=https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.us.r2.cloudflarestorage.com',
+        'PROFILE_PHOTO_R2_BUCKET=geupddong-profile-photos-us',
+        'PROFILE_PHOTO_R2_ACCESS_KEY_ID=synthetic',
+        'PROFILE_PHOTO_R2_SECRET_ACCESS_KEY=synthetic',
+        '',
+      ].join('\n'))
       dc('config', '--quiet')
       dc('up', '-d', '--wait', '--wait-timeout', '60', 'redis')
       const redis = (...args) => dc('exec', '-T', 'redis', 'sh', '-c',
