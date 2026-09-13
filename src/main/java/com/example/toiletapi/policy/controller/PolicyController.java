@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class PolicyController {
     private final PolicyConsentService service;
+    private final com.example.toiletapi.photo.PhotoSync photos;
 
     @GetMapping("/api/v1/policies")
     public List<PolicyDocumentResponse> policies() {
@@ -27,7 +28,10 @@ public class PolicyController {
     @PostMapping("/api/v1/auth/consents")
     public PolicyConsentStatusResponse agree(@Valid @RequestBody AgreePoliciesRequest request,
                                              @AuthenticationPrincipal Jwt jwt) {
-        return service.agree(userId(jwt), request.policyKeys());
+        var result = service.agree(userId(jwt), request.policyKeys());
+        // The service transaction has committed; never download before signup consent completes.
+        if (!result.consentRequired()) photos.completeSignup(userId(jwt));
+        return result;
     }
 
     private Long userId(Jwt jwt) {

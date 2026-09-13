@@ -59,6 +59,19 @@ class PreviewOAuthTest {
     @Test void tamperedSessionCannotRedirectExternally() throws Exception {
         assertSuccess("https://evil.example",false,home+"/?login=success");
     }
+    @Test void onlyNewAccountStagesSignupPhotoAndWaitsForServiceConsent() throws Exception {
+        var login=mock(OAuthLoginService.class);var tokens=mock(AuthTokenService.class);var photos=mock(com.example.toiletapi.photo.PhotoSync.class);
+        var attributes=Map.<String,Object>of("id","1","kakao_account",Map.of());
+        var principal=new DefaultOAuth2User(List.of(new SimpleGrantedAuthority("ROLE_USER")),attributes,"id");
+        when(tokens.issue(1L,List.of(Role.USER))).thenReturn(new AuthTokenService.IssuedTokens("a","r",Instant.now().plusSeconds(60),Duration.ofDays(1)));
+        var handler=new OAuthLoginSuccessHandler(login,tokens,home,mock(com.example.toiletapi.auth.service.RecoveryChallengeStore.class),photos);
+        when(login.login("kakao",principal)).thenReturn(new OAuthLoginService.LoginUser(1L,List.of(Role.USER),true,null,true));
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(),new MockHttpServletResponse(),new OAuth2AuthenticationToken(principal,principal.getAuthorities(),"kakao"));
+        verify(photos).stageSignup(1L,"kakao",attributes);verify(photos,never()).completeSignup(anyLong());
+        reset(photos);when(login.login("kakao",principal)).thenReturn(new OAuthLoginService.LoginUser(1L,List.of(Role.USER),false,null,false));
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(),new MockHttpServletResponse(),new OAuth2AuthenticationToken(principal,principal.getAuthorities(),"kakao"));
+        verifyNoInteractions(photos);
+    }
     @Test void failureReturnsSafelyAndConsumesTarget() throws Exception {
         for(String target:List.of(OAuthReturnTargets.PREVIEW,OAuthReturnTargets.ADMIN,"https://evil.example")) {
             var request=new MockHttpServletRequest();
@@ -79,7 +92,7 @@ class PreviewOAuthTest {
         var request=new MockHttpServletRequest();
         if(target!=null) request.getSession().setAttribute(OAuthReturnTargets.SESSION_ATTRIBUTE,target);
         var response=new MockHttpServletResponse();
-        new OAuthLoginSuccessHandler(login,tokens,home,mock(com.example.toiletapi.auth.service.RecoveryChallengeStore.class)).onAuthenticationSuccess(request,response,new OAuth2AuthenticationToken(principal,principal.getAuthorities(),"google"));
+        new OAuthLoginSuccessHandler(login,tokens,home,mock(com.example.toiletapi.auth.service.RecoveryChallengeStore.class),mock(com.example.toiletapi.photo.PhotoSync.class)).onAuthenticationSuccess(request,response,new OAuth2AuthenticationToken(principal,principal.getAuthorities(),"google"));
         assertEquals(expected,response.getRedirectedUrl());
         assertTrue(request.getSession(false)==null || request.getSession().getAttribute(OAuthReturnTargets.SESSION_ATTRIBUTE)==null);
         assertEquals(2,response.getHeaders("Set-Cookie").size());

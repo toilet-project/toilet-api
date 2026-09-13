@@ -20,12 +20,13 @@ public class AccountService {
     private final com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals;
     private final AccountLifecycleGate lifecycle;
     private final AccountMaintenanceTransactions maintenance;
+    private final com.example.toiletapi.photo.PhotoService photos;
 
     public AccountService(AppUserRepository userRepository, UserSocialAccountRepository socialAccountRepository,
                           UserRoleAssignmentRepository roleRepository, UserPolicyConsentRepository consentRepository,
                           RefreshTokenStore refreshTokenStore, AuditLogService auditLogService,
                           com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals, AccountLifecycleGate lifecycle,
-                          AccountMaintenanceTransactions maintenance) {
+                          AccountMaintenanceTransactions maintenance, com.example.toiletapi.photo.PhotoService photos) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
         this.roleRepository = roleRepository;
@@ -35,6 +36,7 @@ public class AccountService {
         this.withdrawals = withdrawals;
         this.lifecycle = lifecycle;
         this.maintenance = maintenance;
+        this.photos = photos;
     }
 
     @Transactional
@@ -82,6 +84,7 @@ public class AccountService {
         else socialAccountRepository.deleteAllByUserId(userId);
         roleRepository.deleteAllByUserId(userId);
         user.withdraw();
+        photos.withdraw(userId);
         auditLogService.record(userId, com.example.toiletapi.auth.model.AuditAction.USER_WITHDRAWN,
                 "USER", userId, Map.of("reason", "SELF_SERVICE"));
         refreshTokenStore.deleteAllForUser(userId);

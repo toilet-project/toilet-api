@@ -131,7 +131,7 @@ public class ReviewHttpFixture {
                     .tokenUri("http://127.0.0.1/unused").userInfoUri("http://127.0.0.1/unused").userNameAttributeName("sub").build());
         }
         @Bean OAuthLoginSuccessHandler oauthLoginSuccessHandler(){
-            return new OAuthLoginSuccessHandler(null,null,"http://127.0.0.1",null){
+            return new OAuthLoginSuccessHandler(null,null,"http://127.0.0.1",null,null){
                 @Override public void onAuthenticationSuccess(jakarta.servlet.http.HttpServletRequest request,jakarta.servlet.http.HttpServletResponse response,
                         org.springframework.security.core.Authentication auth) throws java.io.IOException {response.sendError(403,"OAuth not available in fixture");}
             };
