@@ -100,7 +100,8 @@ class ReportAuthorDisplayTest {
     }
 
     @Test void dashboardDoesNotAddAuthorLookups() {
-        when(reports.findTop5ByStatusOrderByCreatedAtAsc(any())).thenReturn(List.of());
+        when(reports.findTop7ByStatusOrderByCreatedAtAsc(any())).thenReturn(List.of());
+        when(reports.countByStatusAndCreatedAtLessThanEqual(any(), any())).thenReturn(0L);
         when(toilets.findAllById(any())).thenReturn(List.of());
         service.pendingDashboard();
         verifyNoInteractions(users);

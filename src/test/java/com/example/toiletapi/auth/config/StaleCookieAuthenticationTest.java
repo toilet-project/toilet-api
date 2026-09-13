@@ -159,7 +159,7 @@ class StaleCookieAuthenticationTest {
     @Test void realExpiredAndWithdrawnTokensAllowOnlyFreshLogin() throws Exception {
         var config = new JwtConfig();
         var properties = new AuthTokenProperties(Base64.getEncoder().encodeToString(new byte[32]),
-                Duration.ofMinutes(15), Duration.ofDays(14));
+                Duration.ofMinutes(15), Duration.ofMinutes(30), Duration.ofDays(14));
         var key = config.jwtSecretKey(properties);
         var encoder = config.jwtEncoder(key);
         var actualDecoder = config.accountAwareJwtDecoder(key, users);

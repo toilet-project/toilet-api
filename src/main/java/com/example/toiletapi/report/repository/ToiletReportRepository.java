@@ -12,8 +12,9 @@ public interface ToiletReportRepository extends JpaRepository<ToiletReport, Long
     boolean existsByActiveRequestKey(String activeRequestKey);
     List<ToiletReport> findByReporterUserIdOrderByCreatedAtDesc(Long reporterUserId);
     List<ToiletReport> findByStatusOrderByCreatedAtAsc(ReportStatus status);
-    List<ToiletReport> findTop5ByStatusOrderByCreatedAtAsc(ReportStatus status);
+    List<ToiletReport> findTop7ByStatusOrderByCreatedAtAsc(ReportStatus status);
     long countByStatus(ReportStatus status);
+    long countByStatusAndCreatedAtLessThanEqual(ReportStatus status, java.time.LocalDateTime createdAt);
     @Query(value = """
             select r from ToiletReport r where r.status = :status and (
                 :keyword = '' or exists (
