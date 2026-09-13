@@ -77,7 +77,7 @@ R2 쓰기 전에 객체 키를 사진 객체 대장에 기록한다. 대장에�
 계정 탈퇴·복구·정기 파기가 이미 활성화된 운영 환경에서는 준비 상태 전용 `deploy.yml`을 사용하지 않는다. 이 워크플로는 계정 기능이 중지된 상태만 허용하므로 현재 운영에서는 의도적으로 비활성 상태를 유지한다.
 
 1. 검토된 이미지는 `account-preserving-rollout.yml`로 교체한다. 이 경로는 API 이미지 한 항목만 바꾸고 계정 기능의 `active` 상태, 대장 설정, 일반 환경 파일과 배치 컨테이너를 보존한다.
-2. `profile-photo-preserving-transition.yml`의 `check`로 현재 이미지 커밋, API·배치의 활성 계정 상태와 미국 R2 전용 환경 파일을 읽기 전용으로 확인한다.
+2. `profile-photo-preserving-transition.yml`의 `check`로 현재 이미지 커밋, API·배치의 활성 계정 상태와 미국 R2 전용 환경 파일을 확인하고, 후보 Compose 전체 렌더를 메모리에서 읽기 전용으로 검증한다.
 3. `mount-disabled`로 API Compose에 전용 환경 파일과 명시적인 사진 기능 OFF 설정을 추가한다. 공통 유지보수 잠금을 잡고 전체 Compose 렌더가 프로필 사진 환경만 추가하는지 확인한 뒤 API만 재시작한다. 실패하면 기존 Compose로 복구하고 다시 시작한다.
 4. 웹 구현은 사진 빌드 플래그 OFF로 먼저 배포한다. 이 상태에서는 기존 기본 아바타와 안내가 유지된다.
 5. `activate`는 공개 개인정보 처리방침의 버전·시행 시각·미국 보관 내용을 확인하고 합성 WebP의 R2 쓰기·읽기·삭제를 통과한 경우에만 `PROFILE_PHOTO_ENABLED=true`와 Kakao `profile_image` 선택 scope를 함께 적용한다.

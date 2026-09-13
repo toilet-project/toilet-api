@@ -362,7 +362,10 @@ def main():
             'base_env': read_owned(ROOT / '.env', True),
             'account_env': read_owned(ROOT / '.account-lifecycle.env', True),
         }
-        if args.operation == 'mount-disabled':
+        if args.operation == 'check' and state == 'unmounted':
+            candidate = inject_profile(snapshots['compose'])
+            validate_render_change(snapshots['render'], host.rendered(candidate), storage, False)
+        elif args.operation == 'mount-disabled':
             require(state == 'unmounted')
             replacement = inject_profile(snapshots['compose'])
             validate_render_change(snapshots['render'], host.rendered(replacement), storage, False)
