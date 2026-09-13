@@ -26,6 +26,8 @@ test('deployment preserves rollback materials and targets the commit image witho
   assert.ok(workflow.includes('cp -p -- "$file" "$rollback_dir/"'))
   assert.ok(workflow.indexOf('umask 077') < workflow.indexOf('cat <<EOF > .env'))
   assert.ok(workflow.includes('docker compose config --quiet'))
+  assert.ok(compose.includes('/home/luha/.config/geupddong/profile-photo.env'))
+  assert.ok(workflow.includes("PROFILE_PHOTO_ENABLED=${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}"))
   assert.doesNotMatch(workflow, /docker image prune|--remove-orphans|docker volume rm/)
 })
 

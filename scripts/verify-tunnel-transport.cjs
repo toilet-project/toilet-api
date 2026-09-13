@@ -77,6 +77,19 @@ replaceOnce(mount,mount+'\n      - type: bind\n'
  +'        source: /home/luha/geupddong-maintenance\n'
  +'        target: /home/luha/geupddong-maintenance\n'
  +'        read_only: false\n        bind:\n          create_host_path: false');
+replaceOnce("printf '%s' '${{ steps.lifecycle.outputs.payload }}' | /home/luha/erasure-tools/local-ledger-preflight api '${{ vars.ERASURE_LEDGER_LOCAL_STORE_ID }}'",
+ "printf '%s' '${{ steps.lifecycle.outputs.payload }}' | /home/luha/erasure-tools/local-ledger-preflight api '${{ vars.ERASURE_LEDGER_LOCAL_STORE_ID }}'\n"
+ +'profile_photo_env=/home/luha/.config/geupddong/profile-photo.env\n'
+ +'test -f "$profile_photo_env"\n'
+ +'test "$(stat -c \'%a:%u:%g\' "$profile_photo_env")" = "600:$(id -u):$(id -g)"\n'
+ +"profile_photo_names=$(sed -n 's/^\\([A-Z0-9_]*\\)=.*$/\\1/p' \"$profile_photo_env\" | sort | paste -sd, -)\n"
+ +"test \"$profile_photo_names\" = 'PROFILE_PHOTO_R2_ACCESS_KEY_ID,PROFILE_PHOTO_R2_BUCKET,PROFILE_PHOTO_R2_ENDPOINT,PROFILE_PHOTO_R2_SECRET_ACCESS_KEY'");
+replaceOnce('KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}',
+ 'KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}\n'
+ +"PROFILE_PHOTO_ENABLED=${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}\n"
+ +"KAKAO_LOGIN_SCOPES=${{ vars.PROFILE_PHOTO_ENABLED == 'true' && 'profile_nickname,account_email,profile_image' || 'profile_nickname,account_email' }}");
+replaceOnce('      - .account-lifecycle.env',
+ '      - .account-lifecycle.env\n      - /home/luha/.config/geupddong/profile-photo.env');
 assert.equal(deploy.env.DEPLOY_SCRIPT,expectedScript,'Remote commands must match only the allowlisted LOCAL and maintenance delta');
 assert.equal(cleanup.if,'always()');
 assert.equal(deploy.env.TUNNEL_SERVICE_TOKEN_ID,'${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}');

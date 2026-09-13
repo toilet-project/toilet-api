@@ -117,6 +117,11 @@ jobs:
             /home/luha/.local/bin/maintenance-preflight api
             test -x /home/luha/erasure-tools/local-ledger-preflight
             printf '%s' '${{ steps.lifecycle.outputs.payload }}' | /home/luha/erasure-tools/local-ledger-preflight api '${{ vars.ERASURE_LEDGER_LOCAL_STORE_ID }}'
+            profile_photo_env=/home/luha/.config/geupddong/profile-photo.env
+            test -f "$profile_photo_env"
+            test "$(stat -c '%a:%u:%g' "$profile_photo_env")" = "600:$(id -u):$(id -g)"
+            profile_photo_names=$(sed -n 's/^\([A-Z0-9_]*\)=.*$/\1/p' "$profile_photo_env" | sort | paste -sd, -)
+            test "$profile_photo_names" = 'PROFILE_PHOTO_R2_ACCESS_KEY_ID,PROFILE_PHOTO_R2_BUCKET,PROFILE_PHOTO_R2_ENDPOINT,PROFILE_PHOTO_R2_SECRET_ACCESS_KEY'
             mkdir -p ~/toilet-api
             cd ~/toilet-api
 
@@ -139,6 +144,8 @@ jobs:
             GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
             KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
             KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
+            PROFILE_PHOTO_ENABLED=${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}
+            KAKAO_LOGIN_SCOPES=${{ vars.PROFILE_PHOTO_ENABLED == 'true' && 'profile_nickname,account_email,profile_image' || 'profile_nickname,account_email' }}
             REDIS_HOST=redis
             REDIS_PORT=6379
             JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -204,6 +211,7 @@ jobs:
                 env_file:
                   - .env
                   - .account-lifecycle.env
+                  - /home/luha/.config/geupddong/profile-photo.env
                 depends_on:
                   redis:
                     condition: service_healthy
