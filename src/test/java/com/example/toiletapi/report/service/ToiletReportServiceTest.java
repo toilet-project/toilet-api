@@ -122,13 +122,18 @@ class ToiletReportServiceTest {
     void shouldReturnOnlyRecentPendingReportsForDashboard() {
         ToiletReport report = report(12L, 10L, "COORDINATE_CORRECTION");
         Toilet toilet = mock(Toilet.class); when(toilet.getId()).thenReturn(10L); when(toilet.getName()).thenReturn("시청 공중화장실");
-        when(reportRepository.findTop5ByStatusOrderByCreatedAtAsc(ReportStatus.PENDING)).thenReturn(List.of(report));
+        when(reportRepository.findTop7ByStatusOrderByCreatedAtAsc(ReportStatus.PENDING)).thenReturn(List.of(report));
         when(reportRepository.countByStatus(ReportStatus.PENDING)).thenReturn(8L);
+        when(reportRepository.countByStatusAndCreatedAtLessThanEqual(
+                org.mockito.ArgumentMatchers.eq(ReportStatus.PENDING),
+                any(LocalDateTime.class)
+        )).thenReturn(3L);
         when(toiletRepository.findAllById(any())).thenReturn(List.of(toilet));
 
         ToiletReportDashboardResponse response = service.pendingDashboard();
 
         assertEquals(8L, response.pendingCount());
+        assertEquals(3L, response.overdueCount());
         assertEquals(1, response.recentReports().size());
         assertEquals("시청 공중화장실", response.recentReports().getFirst().toiletName());
     }

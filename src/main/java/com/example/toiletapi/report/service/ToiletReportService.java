@@ -4,6 +4,7 @@ import com.example.toiletapi.auth.model.AuditAction;
 import com.example.toiletapi.auth.model.UserStatus;
 import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.AuditLogService;
+import com.example.toiletapi.global.time.KoreanTime;
 import com.example.toiletapi.notification.service.UserNotificationService;
 import com.example.toiletapi.geocoding.CoordinateAddress;
 import com.example.toiletapi.geocoding.CoordinateAddressResolver;
@@ -40,8 +41,16 @@ public class ToiletReportService {
     @Transactional(readOnly = true) public List<ToiletReportResponse> mine(Long userId) { return responses(reportRepository.findByReporterUserIdOrderByCreatedAtDesc(userId)); }
     @Transactional(readOnly = true) public List<ToiletReportResponse> pending() { return responses(reportRepository.findByStatusOrderByCreatedAtAsc(ReportStatus.PENDING)); }
     @Transactional(readOnly = true) public ToiletReportDashboardResponse pendingDashboard() {
-        List<ToiletReport> recentReports = reportRepository.findTop5ByStatusOrderByCreatedAtAsc(ReportStatus.PENDING);
-        return new ToiletReportDashboardResponse(reportRepository.countByStatus(ReportStatus.PENDING), listItems(recentReports));
+        List<ToiletReport> recentReports = reportRepository.findTop7ByStatusOrderByCreatedAtAsc(ReportStatus.PENDING);
+        long overdueCount = reportRepository.countByStatusAndCreatedAtLessThanEqual(
+                ReportStatus.PENDING,
+                KoreanTime.now().minusHours(48)
+        );
+        return new ToiletReportDashboardResponse(
+                reportRepository.countByStatus(ReportStatus.PENDING),
+                overdueCount,
+                listItems(recentReports)
+        );
     }
     @Transactional(readOnly = true) public ToiletReportPageResponse pendingPage(String keyword, int page, int size) {
         int safePage = Math.max(page, 0); int safeSize = Math.min(Math.max(size, 1), 100);
