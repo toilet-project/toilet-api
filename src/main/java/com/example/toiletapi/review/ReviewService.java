@@ -133,10 +133,15 @@ public class ReviewService {
     private Item item(ReviewRepository.Row row,Long owner) {
         String name=row.detached()?"익명":row.authorId()==null || "WITHDRAWN".equals(row.authorStatus())?"탈퇴한 사용자"
                 :row.displayName()==null || row.displayName().isBlank()?"급똥 사용자":row.displayName();
+        String photoVersion=!row.detached() && row.authorId()!=null && "ACTIVE".equals(row.authorStatus())?photoVersion(row.photoKey()):null;
         return new Item(Long.toString(row.id()),row.toiletId(),row.toiletName(),row.satisfaction(),row.cleanliness(),row.paper(),
                 row.waitMinutes(),row.comment(),row.version(),row.createdAt().atOffset(KST),row.updatedAt().atOffset(KST),
                 row.createdAt().plusDays(7).atOffset(KST),owner!=null && ReviewRules.canManage(row.authorId(),owner,row.createdAt().toInstant(KST),clock.instant()),
-                row.authorId()==null,name);
+                row.authorId()==null,name,photoVersion);
+    }
+    private static String photoVersion(String key) {
+        if(key==null || !key.matches("avatars/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\\.webp")) return null;
+        return key.substring(8,key.length()-5);
     }
     private Page page(java.util.List<ReviewRepository.Row> rows,int size,Long owner) {
         boolean more=rows.size()>size;var visible=rows.subList(0,Math.min(size,rows.size()));

@@ -21,11 +21,13 @@ ROOT = Path('/home/luha/toilet-api')
 COMPOSE = ROOT / 'compose.yaml'
 PROFILE_ENV = Path('/home/luha/.config/geupddong/profile-photo.env')
 PROFILE_ENV_TEXT = str(PROFILE_ENV)
-PROFILE_KEYS = (
+PROFILE_BASE_KEYS = (
     'PROFILE_PHOTO_R2_ENDPOINT', 'PROFILE_PHOTO_R2_BUCKET',
     'PROFILE_PHOTO_R2_ACCESS_KEY_ID', 'PROFILE_PHOTO_R2_SECRET_ACCESS_KEY',
 )
-PROFILE_FLAGS = ('PROFILE_PHOTO_ENABLED', 'KAKAO_LOGIN_SCOPES')
+PROFILE_CDN_KEYS = ('PROFILE_PHOTO_CDN_ZONE_ID', 'PROFILE_PHOTO_CDN_TOKEN')
+PROFILE_KEYS = PROFILE_BASE_KEYS + PROFILE_CDN_KEYS
+PROFILE_FLAGS = ('PROFILE_PHOTO_ENABLED', 'PROFILE_PHOTO_CDN_ENABLED', 'KAKAO_LOGIN_SCOPES')
 ACCOUNT_ACTIVE = {
     'ACCOUNT_LIFECYCLE_MAINTENANCE': 'false',
     'ACCOUNT_RETENTION_ENABLED': 'true',
@@ -39,9 +41,9 @@ ACCOUNT_ACTIVE = {
 }
 POLICY = {
     'data-profile-photo-policy-status': 'published',
-    'data-profile-photo-policy-version': 'profile-photo-us-r2-v1',
-    'data-profile-photo-policy-announced-at': '2026-09-13T08:20:00Z',
-    'data-profile-photo-policy-effective-at': '2026-09-13T08:20:00Z',
+    'data-profile-photo-policy-version': 'profile-photo-us-r2-public-v2',
+    'data-profile-photo-policy-announced-at': '2026-09-13T15:15:00Z',
+    'data-profile-photo-policy-effective-at': '2026-09-13T15:15:00Z',
 }
 
 
@@ -75,9 +77,10 @@ def normalize_inspection(obj):
     return result
 
 
-def feature_values(active):
+def feature_values(active, cdn_enabled=False):
     return {
         'PROFILE_PHOTO_ENABLED': 'true' if active else 'false',
+        'PROFILE_PHOTO_CDN_ENABLED': 'true' if active and cdn_enabled else 'false',
         'KAKAO_LOGIN_SCOPES': ('profile_nickname,account_email,profile_image'
                                if active else 'profile_nickname,account_email'),
     }
@@ -91,7 +94,8 @@ def parse_storage(content):
         match = re.fullmatch(r'([A-Z][A-Z0-9_]*)=([^\r\n\0]+)', line)
         require(match and match[1] not in values, 'PROFILE_PHOTO_STORAGE_ENV_REJECTED')
         values[match[1]] = match[2]
-    require(tuple(sorted(values)) == tuple(sorted(PROFILE_KEYS)), 'PROFILE_PHOTO_STORAGE_ENV_REJECTED')
+    require(set(values) in (set(PROFILE_BASE_KEYS), set(PROFILE_KEYS)),
+            'PROFILE_PHOTO_STORAGE_ENV_REJECTED')
     endpoint = values['PROFILE_PHOTO_R2_ENDPOINT']
     require(re.fullmatch(r'https://[a-f0-9]{32}\.us\.r2\.cloudflarestorage\.com', endpoint),
             'PROFILE_PHOTO_STORAGE_ENDPOINT_REJECTED')
@@ -103,24 +107,29 @@ def parse_storage(content):
 def inject_profile(content):
     text = content.decode('utf-8')
     require(PROFILE_ENV_TEXT not in text and 'PROFILE_PHOTO_ENABLED:' not in text
-            and 'KAKAO_LOGIN_SCOPES:' not in text, 'PROFILE_PHOTO_RELEASE_ALREADY_MOUNTED')
+            and 'PROFILE_PHOTO_CDN_ENABLED:' not in text and 'KAKAO_LOGIN_SCOPES:' not in text,
+            'PROFILE_PHOTO_RELEASE_ALREADY_MOUNTED')
     env_anchor = "      ERASURE_MAINTENANCE_DIRECTORY: '/home/luha/geupddong-maintenance'\n"
     file_anchor = '      - .account-lifecycle.env\n'
     require(text.count(env_anchor) == 1 and text.count(file_anchor) == 1,
             'PROFILE_PHOTO_RELEASE_COMPOSE_SHAPE_REJECTED')
-    flags = "      PROFILE_PHOTO_ENABLED: 'false'\n      KAKAO_LOGIN_SCOPES: 'profile_nickname,account_email'\n"
+    flags = ("      PROFILE_PHOTO_ENABLED: 'false'\n"
+             "      PROFILE_PHOTO_CDN_ENABLED: 'false'\n"
+             "      KAKAO_LOGIN_SCOPES: 'profile_nickname,account_email'\n")
     text = text.replace(env_anchor, env_anchor + flags)
     text = text.replace(file_anchor, file_anchor + '      - ' + PROFILE_ENV_TEXT + '\n')
     return text.encode('utf-8')
 
 
-def switch_profile(content, active):
+def switch_profile(content, active, cdn_enabled=False):
     text = content.decode('utf-8')
-    before = feature_values(not active)
-    after = feature_values(active)
+    before = feature_values(not active, cdn_enabled and not active)
+    after = feature_values(active, cdn_enabled and active)
     source = ("      PROFILE_PHOTO_ENABLED: '" + before['PROFILE_PHOTO_ENABLED'] + "'\n"
+              "      PROFILE_PHOTO_CDN_ENABLED: '" + before['PROFILE_PHOTO_CDN_ENABLED'] + "'\n"
               "      KAKAO_LOGIN_SCOPES: '" + before['KAKAO_LOGIN_SCOPES'] + "'\n")
     target = ("      PROFILE_PHOTO_ENABLED: '" + after['PROFILE_PHOTO_ENABLED'] + "'\n"
+              "      PROFILE_PHOTO_CDN_ENABLED: '" + after['PROFILE_PHOTO_CDN_ENABLED'] + "'\n"
               "      KAKAO_LOGIN_SCOPES: '" + after['KAKAO_LOGIN_SCOPES'] + "'\n")
     require(text.count(source) == 1 and target not in text,
             'PROFILE_PHOTO_RELEASE_PHASE_REJECTED')
@@ -130,7 +139,8 @@ def switch_profile(content, active):
 def validate_render_change(before, after, storage, active):
     expected = copy.deepcopy(before)
     expected['services']['api'].setdefault('environment', {}).update(storage)
-    expected['services']['api']['environment'].update(feature_values(active))
+    expected['services']['api']['environment'].update(
+        feature_values(active, active and all(key in storage for key in PROFILE_CDN_KEYS)))
     require(after == expected, 'PROFILE_PHOTO_RELEASE_NON_PROFILE_CHANGE_REJECTED')
 
 
@@ -286,15 +296,22 @@ class Host:
 
 def runtime_state(obj):
     env = environment(obj)
-    present = {key for key in PROFILE_KEYS if key in env}
-    if not present:
+    base_present = {key for key in PROFILE_BASE_KEYS if key in env}
+    cdn_present = {key for key in PROFILE_CDN_KEYS if key in env}
+    if not base_present:
         require(env.get('PROFILE_PHOTO_ENABLED', 'false') == 'false'
+                and env.get('PROFILE_PHOTO_CDN_ENABLED', 'false') == 'false'
                 and 'profile_image' not in env.get('KAKAO_LOGIN_SCOPES', 'profile_nickname,account_email'))
         return 'unmounted'
-    require(present == set(PROFILE_KEYS), 'PROFILE_PHOTO_RELEASE_PARTIAL_ENV_REJECTED')
-    if all(env.get(key) == value for key, value in feature_values(True).items()):
+    require(base_present == set(PROFILE_BASE_KEYS)
+            and cdn_present in (set(), set(PROFILE_CDN_KEYS)),
+            'PROFILE_PHOTO_RELEASE_PARTIAL_ENV_REJECTED')
+    cdn_enabled = env.get('PROFILE_PHOTO_CDN_ENABLED', 'false') == 'true'
+    require(not cdn_enabled or cdn_present == set(PROFILE_CDN_KEYS),
+            'PROFILE_PHOTO_RELEASE_PARTIAL_ENV_REJECTED')
+    if all(env.get(key) == value for key, value in feature_values(True, cdn_enabled).items()):
         return 'active'
-    require(all(env.get(key) == value for key, value in feature_values(False).items()),
+    require(all(env.get(key) == value for key, value in feature_values(False, False).items()),
             'PROFILE_PHOTO_RELEASE_UNKNOWN_PHASE')
     return 'disabled'
 
@@ -376,7 +393,8 @@ def main():
             require(state == ('disabled' if active else 'active'), 'PROFILE_PHOTO_RELEASE_PHASE_REJECTED')
             if active:
                 check_policy()
-            replacement = switch_profile(snapshots['compose'], active)
+            cdn_enabled = all(key in storage for key in PROFILE_CDN_KEYS)
+            replacement = switch_profile(snapshots['compose'], active, cdn_enabled)
             validate_render_change(snapshots['render'], host.rendered(replacement), storage, active)
             apply_compose(host, snapshots, commits, storage, replacement, 'active' if active else 'disabled')
             state = 'active' if active else 'disabled'

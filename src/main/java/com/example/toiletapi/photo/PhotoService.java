@@ -12,21 +12,26 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class PhotoService {
-    public static final String NOTICE_VERSION = "profile-photo-us-2026-09-13";
+    public static final String NOTICE_VERSION = "profile-photo-public-default-2026-09-14";
     private final PhotoSettings settings;
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final PhotoStore store;
     private final PhotoMetrics metrics;
+    private final PhotoCdnPurgeRepository purges;
 
     public PhotoService(PhotoSettings settings, JdbcTemplate jdbc, PlatformTransactionManager transactions, PhotoStore store,
-                        PhotoMetrics metrics) {
-        this.settings=settings;this.jdbc=jdbc;this.tx=new TransactionTemplate(transactions);this.store=store;this.metrics=metrics;
+                        PhotoMetrics metrics,PhotoCdnPurgeRepository purges) {
+        this.settings=settings;this.jdbc=jdbc;this.tx=new TransactionTemplate(transactions);this.store=store;this.metrics=metrics;this.purges=purges;
     }
 
     public record State(boolean available, boolean publicPhoto, String imageVersion) { }
+    public record Image(byte[] bytes, String hash) {
+        public boolean notModified() {return bytes==null;}
+    }
     public record Ticket(long userId,long authVersion,long generation) { }
     record Row(boolean publicPhoto,long generation,String key,String hash) { }
+    record AuthorizedImage(String key,String hash) { }
 
     private LocalDateTime now() { return com.example.toiletapi.global.time.KoreanTime.now(); }
     private Row row(long user) {
@@ -55,6 +60,7 @@ public class PhotoService {
         return tx.execute(status->{
             active(user,true);Row current=row(user);
             if(current.key==null) throw new ResponseStatusException(HttpStatus.CONFLICT);
+            if(current.publicPhoto && !publicPhoto) purges.queueKey(current.key);
             jdbc.update("UPDATE profile_photo SET is_public=?,generation=generation+1,updated_at=? WHERE user_id=?",publicPhoto,now(),user);
             return state(user);
         });
@@ -99,43 +105,65 @@ public class PhotoService {
         catch(Exception failure) {metrics.put(false);throw failure;}
         return Boolean.TRUE.equals(tx.execute(status->{
             if(!valid(ticket)) return false;
+            Row previous=row(ticket.userId);
             var objects=jdbc.query("SELECT created_at FROM profile_photo_object WHERE object_key=? FOR UPDATE",
                     (rs,n)->rs.getObject(1,LocalDateTime.class),key);
             if(objects.isEmpty() || objects.getFirst().isBefore(now().minusMinutes(2))) return false;
-            jdbc.update("UPDATE profile_photo SET object_key=?,content_hash=?,source_kind=?,notice_version=?,collected_at=?,updated_at=? WHERE user_id=?",
+            if(previous.publicPhoto && !Objects.equals(previous.key,key)) purges.queueKey(previous.key);
+            jdbc.update("UPDATE profile_photo SET object_key=?,content_hash=?,source_kind=?,notice_version=?,collected_at=?,is_public=TRUE,updated_at=? WHERE user_id=?",
                     key,hash,sourceKind,noticeVersion,collectedAt,now(),ticket.userId);
             return true;
         }));
     }
     /** Called inside the same app_user-locked withdrawal transaction. */
     public void withdraw(long user) {
-        if(settings.enabled()) jdbc.update("DELETE FROM profile_photo WHERE user_id=?",user);
+        if(settings.enabled()) {Row current=row(user);if(current.publicPhoto)purges.queueKey(current.key);jdbc.update("DELETE FROM profile_photo WHERE user_id=?",user);}
     }
     private void clear(long user) {
+        Row current=row(user);if(current.publicPhoto)purges.queueKey(current.key);
         jdbc.update("UPDATE profile_photo SET object_key=NULL,content_hash=NULL,source_kind=NULL,notice_version=NULL,collected_at=NULL,is_public=FALSE,generation=generation+1,updated_at=? WHERE user_id=?",now(),user);
     }
-    private String ownKey(long user,String version) {
+    private AuthorizedImage ownKey(long user,String version) {
         active(user,false);Row r=row(user);
-        return r.key!=null && Objects.equals(r.key,"avatars/"+version+".webp")?r.key:null;
+        return r.key!=null && Objects.equals(r.key,"avatars/"+version+".webp")?new AuthorizedImage(r.key,r.hash):null;
     }
-    public byte[] ownImage(long user,String version) {return read(()->ownKey(user,version));}
-    private String reviewKey(long toilet,long review) {
+    public Image ownImage(long user,String version,String ifNoneMatch) {return read(()->ownKey(user,version),ifNoneMatch);}
+    private AuthorizedImage reviewKey(long toilet,long review) {
         return jdbc.query("""
-                SELECT p.object_key FROM toilet_review r JOIN app_user u ON u.user_id=r.author_user_id
+                SELECT p.object_key,p.content_hash FROM toilet_review r JOIN app_user u ON u.user_id=r.author_user_id
                 JOIN profile_photo p ON p.user_id=u.user_id
                 WHERE r.toilet_id=? AND r.review_id=? AND r.author_detached=FALSE AND u.status='ACTIVE'
                 AND p.is_public=TRUE AND p.object_key IS NOT NULL
-                """,(rs,n)->rs.getString(1),toilet,review).stream().findFirst().orElse(null);
+                """,(rs,n)->new AuthorizedImage(rs.getString(1),rs.getString(2)),toilet,review).stream().findFirst().orElse(null);
     }
-    public byte[] reviewImage(long toilet,long review) {return read(()->reviewKey(toilet,review));}
-    private byte[] read(java.util.function.Supplier<String> authorizedKey) {
+    public Image reviewImage(long toilet,long review) {return read(()->reviewKey(toilet,review),null);}
+    private AuthorizedImage publicKey(String version) {
+        return jdbc.query("""
+                SELECT p.object_key,p.content_hash FROM profile_photo p JOIN app_user u ON u.user_id=p.user_id
+                WHERE p.object_key=? AND p.is_public=TRUE AND u.status='ACTIVE'
+                """,(rs,n)->new AuthorizedImage(rs.getString(1),rs.getString(2)),"avatars/"+version+".webp")
+                .stream().findFirst().orElse(null);
+    }
+    public Image publicImage(String version,String ifNoneMatch) {return read(()->publicKey(version),ifNoneMatch);}
+    private Image read(java.util.function.Supplier<AuthorizedImage> authorization,String ifNoneMatch) {
         if(!settings.enabled()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        String key=authorizedKey.get();if(key==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        AuthorizedImage allowed=authorization.get();if(allowed==null || allowed.hash()==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        if(matches(ifNoneMatch,allowed.hash())) {
+            if(!allowed.equals(authorization.get())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+            return new Image(null,allowed.hash());
+        }
         byte[] image;
-        try {image=store.get(key);metrics.get(true);}
+        try {image=store.get(allowed.key());metrics.get(true);}
         catch(Exception e) {metrics.get(false);throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE);}
-        if(!key.equals(authorizedKey.get())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        return image;
+        AuthorizedImage current=authorization.get();
+        if(!allowed.equals(current)) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        return new Image(image,allowed.hash());
+    }
+    private boolean matches(String request,String hash) {
+        if(request==null) return false;
+        String etag='"'+hash+'"';
+        for(String value:request.split(",")) if("*".equals(value.trim()) || etag.equals(value.trim())) return true;
+        return false;
     }
     public void cleanup() {
         if(!settings.enabled()) return;

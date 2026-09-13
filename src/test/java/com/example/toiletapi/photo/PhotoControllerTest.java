@@ -15,7 +15,8 @@ import org.springframework.http.HttpStatus;
 
 class PhotoControllerTest {
     PhotoService photos=mock(PhotoService.class);PhotoProcessor processor=mock(PhotoProcessor.class);
-    MockMvc mvc=MockMvcBuilders.standaloneSetup(new PhotoController(photos,processor,true))
+    MockMvc mvc=MockMvcBuilders.standaloneSetup(new PhotoController(photos,processor,true,
+            new PhotoCdnSettings(true,"a".repeat(32),"token-token-token-token-token","https://api.geupddong.com")))
             .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver()).addFilters(new PhotoBoundaryFilter()).build();
     @BeforeEach void login() {
         var jwt=Jwt.withTokenValue("test").header("alg","none").subject("1").build();
@@ -37,7 +38,7 @@ class PhotoControllerTest {
         var ticket=new PhotoService.Ticket(1,0,1);
         when(photos.uploadTicket(1)).thenReturn(ticket);when(processor.convert(jpeg)).thenReturn(webp);
         when(photos.saveWithReceipt(eq(ticket),eq(webp),eq("DIRECT_UPLOAD"),eq(PhotoService.NOTICE_VERSION),any())).thenReturn(true);
-        when(photos.state(1)).thenReturn(new PhotoService.State(true,false,"12345678-1234-1234-1234-123456789abc"));
+        when(photos.state(1)).thenReturn(new PhotoService.State(true,true,"12345678-1234-1234-1234-123456789abc"));
         mvc.perform(put("/api/v1/auth/me/photo").header("Origin","https://geupddong.com").contentType(MediaType.IMAGE_JPEG).content(jpeg))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.imageVersion").isNotEmpty());
         when(photos.delete(1)).thenReturn(new PhotoService.State(true,false,null));
@@ -48,12 +49,34 @@ class PhotoControllerTest {
         mvc.perform(put("/api/v1/auth/me/photo").header("Origin","https://geupddong.com").contentType(MediaType.IMAGE_PNG).content(new byte[2*1024*1024+1]))
                 .andExpect(status().isPayloadTooLarge());
     }
-    @Test void publicDeniedResponsesAndImagesAreNeverCached() throws Exception {
+    @Test void legacyReviewPhotoIsNotCachedAndCanonicalPhotoUsesCdnHeadersAndEtag() throws Exception {
         when(photos.reviewImage(2,3)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND));
         mvc.perform(get("/api/v1/toilets/2/reviews/3/photo")).andExpect(status().isNotFound())
                 .andExpect(header().string("Cache-Control","private, no-store")).andExpect(header().string("X-Robots-Tag","noindex, noimageindex"));
-        when(photos.reviewImage(2,4)).thenReturn("RIFFtestWEBP".getBytes());
+        byte[] bytes="RIFFtestWEBP".getBytes();String hash="a".repeat(64);
+        when(photos.reviewImage(2,4)).thenReturn(new PhotoService.Image(bytes,hash));
         mvc.perform(get("/api/v1/toilets/2/reviews/4/photo")).andExpect(status().isOk())
                 .andExpect(content().contentType("image/webp")).andExpect(header().string("CDN-Cache-Control","no-store"));
+        String version="12345678-1234-1234-1234-123456789abc";
+        when(photos.publicImage(version,null)).thenReturn(new PhotoService.Image(bytes,hash));
+        mvc.perform(get("/api/v1/profile-photos/{version}.webp",version)).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control","public, max-age=0, must-revalidate"))
+                .andExpect(header().string("Cloudflare-CDN-Cache-Control","public, max-age=300, must-revalidate"))
+                .andExpect(header().string("Vary","Accept-Encoding"))
+                .andExpect(header().string("ETag",'"'+hash+'"'));
+        when(photos.publicImage(version,'"'+hash+'"')).thenReturn(new PhotoService.Image(null,hash));
+        mvc.perform(get("/api/v1/profile-photos/{version}.webp",version).header("If-None-Match",'"'+hash+'"'))
+                .andExpect(status().isNotModified()).andExpect(content().bytes(new byte[0]));
+    }
+    @Test void ownPhotoIsPrivateBrowserCacheAndSupportsNotModified() throws Exception {
+        String version="12345678-1234-1234-1234-123456789abc",hash="b".repeat(64);
+        when(photos.ownImage(1,version,null)).thenReturn(new PhotoService.Image("RIFFtestWEBP".getBytes(),hash));
+        mvc.perform(get("/api/v1/auth/me/photo/image").param("version",version)).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control",org.hamcrest.Matchers.containsString("private")))
+                .andExpect(header().string("Vary","Cookie, Authorization, Origin"))
+                .andExpect(header().string("Cloudflare-CDN-Cache-Control","no-store"));
+        when(photos.ownImage(1,version,'"'+hash+'"')).thenReturn(new PhotoService.Image(null,hash));
+        mvc.perform(get("/api/v1/auth/me/photo/image").param("version",version).header("If-None-Match",'"'+hash+'"'))
+                .andExpect(status().isNotModified());
     }
 }

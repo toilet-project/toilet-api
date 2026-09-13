@@ -29,8 +29,11 @@ test('candidate rejects absent preflight before touching configuration and does 
 test('API candidate requires the private profile credential file and couples Kakao scope to the feature flag',()=>{
   if(role!=='api') return
   const out=renderLocalDeployment(source,role)
-  assert.ok(out.includes("test \"$profile_photo_names\" = 'PROFILE_PHOTO_R2_ACCESS_KEY_ID,PROFILE_PHOTO_R2_BUCKET,PROFILE_PHOTO_R2_ENDPOINT,PROFILE_PHOTO_R2_SECRET_ACCESS_KEY'"))
+  assert.ok(out.includes("profile_photo_base_names='PROFILE_PHOTO_R2_ACCESS_KEY_ID,PROFILE_PHOTO_R2_BUCKET,PROFILE_PHOTO_R2_ENDPOINT,PROFILE_PHOTO_R2_SECRET_ACCESS_KEY'"))
+  assert.ok(out.includes("profile_photo_cdn_names='PROFILE_PHOTO_CDN_TOKEN,PROFILE_PHOTO_CDN_ZONE_ID,PROFILE_PHOTO_R2_ACCESS_KEY_ID,PROFILE_PHOTO_R2_BUCKET,PROFILE_PHOTO_R2_ENDPOINT,PROFILE_PHOTO_R2_SECRET_ACCESS_KEY'"))
+  assert.ok(out.includes("true:\"$profile_photo_cdn_names\""))
   assert.ok(out.includes("PROFILE_PHOTO_ENABLED=${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}"))
+  assert.ok(out.includes("PROFILE_PHOTO_CDN_ENABLED=${{ vars.PROFILE_PHOTO_CDN_ENABLED || 'false' }}"))
   assert.ok(out.includes("KAKAO_LOGIN_SCOPES=${{ vars.PROFILE_PHOTO_ENABLED == 'true' && 'profile_nickname,account_email,profile_image' || 'profile_nickname,account_email' }}"))
   assert.ok(out.includes('- /home/luha/.config/geupddong/profile-photo.env'))
   assert.ok(out.indexOf('profile_photo_env=/home/luha/.config/geupddong/profile-photo.env')<out.indexOf('mkdir -p ~/toilet-api'))

@@ -12,11 +12,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class PhotoBoundaryFilter extends OncePerRequestFilter {
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         String path=request.getRequestURI();
-        return !path.startsWith("/api/v1/auth/me/photo") && !path.matches("/api/v1/toilets/[^/]+/reviews/[^/]+/photo");
+        return !path.startsWith("/api/v1/auth/me/photo") && !path.matches("/api/v1/toilets/[^/]+/reviews/[^/]+/photo")
+                && !path.matches("/api/v1/profile-photos/[^/]+\\.webp");
     }
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain) throws ServletException,IOException {
+        boolean publicPhoto=request.getRequestURI().matches("/api/v1/profile-photos/[^/]+\\.webp");
         response.setHeader("Cache-Control","private, no-store");response.setHeader("CDN-Cache-Control","no-store");
-        response.setHeader("Cloudflare-CDN-Cache-Control","no-store");response.setHeader("Vary","Cookie, Authorization, Origin");
+        response.setHeader("Cloudflare-CDN-Cache-Control","no-store");
+        response.setHeader("Vary",publicPhoto?"Accept-Encoding":"Cookie, Authorization, Origin");
         response.setHeader("X-Content-Type-Options","nosniff");response.setHeader("X-Robots-Tag","noindex, noimageindex");
         long limit="PUT".equals(request.getMethod())?2L*1024*1024:1024;
         if(request.getContentLengthLong()>limit) {response.setStatus(413);return;}

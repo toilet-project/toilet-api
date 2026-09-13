@@ -148,3 +148,9 @@ profile-photo:
   secret-access-key: ${PROFILE_PHOTO_R2_SECRET_ACCESS_KEY:}
   python: ${PROFILE_PHOTO_PYTHON:python3}
   converter: ${PROFILE_PHOTO_CONVERTER:/app/normalize_profile_photo.py}
+  cdn:
+    enabled: ${PROFILE_PHOTO_CDN_ENABLED:false}
+    zone-id: ${PROFILE_PHOTO_CDN_ZONE_ID:}
+    token: ${PROFILE_PHOTO_CDN_TOKEN:}
+    public-origin: https://api.geupddong.com
+    poll-ms: 1000

@@ -23,17 +23,18 @@ public class ReviewRepository {
     record Guard(LocalDateTime lastCreatedAt, LocalDate date, int count) { }
     record Row(long id, String reviewKey, long toiletId, Long authorId, boolean detached, int satisfaction, int cleanliness,
                boolean paper, int waitMinutes, String comment, long version, LocalDateTime createdAt,
-               LocalDateTime updatedAt, String toiletName, String authorStatus, String displayName) { }
+               LocalDateTime updatedAt, String toiletName, String authorStatus, String displayName, String photoKey) { }
     private static final String SELECT = """
-            SELECT r.*, t.name AS toilet_name, u.status AS author_status, u.display_name
+            SELECT r.*, t.name AS toilet_name, u.status AS author_status, u.display_name, p.object_key AS photo_key
               FROM toilet_review r JOIN toilet t ON t.toilet_id=r.toilet_id
               LEFT JOIN app_user u ON u.user_id=r.author_user_id
+              LEFT JOIN profile_photo p ON p.user_id=r.author_user_id AND p.is_public=TRUE AND p.object_key IS NOT NULL
             """;
     private static final RowMapper<Row> ROW = (rs, n) -> new Row(rs.getLong("review_id"), rs.getString("review_key"), rs.getLong("toilet_id"),
             rs.getObject("author_user_id", Long.class), rs.getBoolean("author_detached"), rs.getInt("satisfaction"),
             rs.getInt("cleanliness"), rs.getBoolean("paper_available"), rs.getInt("wait_minutes"), rs.getString("comment"),
             rs.getLong("version"), rs.getObject("created_at", LocalDateTime.class), rs.getObject("updated_at", LocalDateTime.class),
-            rs.getString("toilet_name"), rs.getString("author_status"), rs.getString("display_name"));
+            rs.getString("toilet_name"), rs.getString("author_status"), rs.getString("display_name"),rs.getString("photo_key"));
 
     Optional<Author> lockAuthor(long id) {
         return jdbc.query("SELECT status,auth_version FROM app_user WHERE user_id=? FOR UPDATE",

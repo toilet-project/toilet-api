@@ -37,7 +37,7 @@ class AccountLifecycleIntegrationTest {
         @Bean com.example.toiletapi.photo.PhotoService photoService(JdbcTemplate jdbc, PlatformTransactionManager manager) {
             return new com.example.toiletapi.photo.PhotoService(new com.example.toiletapi.photo.PhotoSettings(true,null,null,null,null,null,null),
                     jdbc,manager,mock(com.example.toiletapi.photo.PhotoStore.class),
-                    mock(com.example.toiletapi.photo.PhotoMetrics.class));
+                    mock(com.example.toiletapi.photo.PhotoMetrics.class),new com.example.toiletapi.photo.PhotoCdnPurgeRepository(jdbc));
         }
         @Bean AccountLifecycleGate accountLifecycleGate() { return new AccountLifecycleGate(false, true, true); }
         @Bean DataSource dataSource() {
@@ -47,7 +47,8 @@ class AccountLifecycleIntegrationTest {
             new JdbcTemplate(ds).execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY)");
             for (String file : new String[]{"V1__create_auth_data_model.sql", "V2__create_toilet_report_and_coordinate_revision.sql",
                     "V4__create_user_notification.sql", "V5__create_coordinate_quality_review.sql",
-                    "V7__create_policy_consent_model.sql", "V11__account_withdrawal_retention.sql", "V13__social_profile_photos.sql"}) {
+                    "V7__create_policy_consent_model.sql", "V11__account_withdrawal_retention.sql", "V13__social_profile_photos.sql",
+                    "V14__profile_photo_cdn_purge.sql"}) {
                 new ResourceDatabasePopulator(new ClassPathResource("db/migration/" + file)).execute(ds);
             }
             return ds;
