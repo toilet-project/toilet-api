@@ -35,7 +35,9 @@ public class AuthTokenService {
         if (user.getStatus() == com.example.toiletapi.auth.model.UserStatus.WITHDRAWN
                 || user.getStatus() == com.example.toiletapi.auth.model.UserStatus.SUSPENDED) throw RecoveryChallengeStore.expired();
         Instant issuedAt = Instant.now();
-        Instant expiresAt = issuedAt.plus(properties.accessTokenTtl());
+        java.time.Duration accessTtl = roles.contains(Role.ADMIN) && properties.adminAccessTokenTtl() != null
+                ? properties.adminAccessTokenTtl() : properties.accessTokenTtl();
+        Instant expiresAt = issuedAt.plus(accessTtl);
         String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(MacAlgorithm.HS256).type("JWT").build(),
                 JwtClaimsSet.builder().subject(userId.toString()).issuedAt(issuedAt).expiresAt(expiresAt)

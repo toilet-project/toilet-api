@@ -4,5 +4,9 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "auth.jwt")
-public record AuthTokenProperties(String secret, Duration accessTokenTtl, Duration refreshTokenTtl) {
+public record AuthTokenProperties(String secret, Duration accessTokenTtl, Duration adminAccessTokenTtl,
+                                  Duration refreshTokenTtl) {
+    public AuthTokenProperties(String secret, Duration accessTokenTtl, Duration refreshTokenTtl) {
+        this(secret, accessTokenTtl, accessTokenTtl, refreshTokenTtl);
+    }
 }
