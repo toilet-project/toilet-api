@@ -11,7 +11,8 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 class PhotoProcessorTest {
     @Test void actualChildProcessProducesOnlyWebpAndRejectsNonImage() throws Exception {
         String python=System.getProperty("os.name").startsWith("Windows")?"python":"python3";
-        var processor=new PhotoProcessor(new PhotoSettings(true,null,null,null,null,python,Path.of("scripts/normalize_profile_photo.py").toAbsolutePath().toString()));
+        var processor=new PhotoProcessor(new PhotoSettings(true,null,null,null,null,python,Path.of("scripts/normalize_profile_photo.py").toAbsolutePath().toString()),
+                org.mockito.Mockito.mock(PhotoMetrics.class));
         var output=new ByteArrayOutputStream();ImageIO.write(new BufferedImage(400,300,BufferedImage.TYPE_INT_RGB),"png",output);
         byte[] webp=processor.convert(output.toByteArray());assertEquals("WEBP",new String(webp,8,4));
         assertTrue(webp.length<100_000);assertThrows(IllegalStateException.class,()->processor.convert("<html>no image</html>".getBytes()));

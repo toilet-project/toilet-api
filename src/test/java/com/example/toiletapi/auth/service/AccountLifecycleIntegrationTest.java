@@ -36,7 +36,8 @@ class AccountLifecycleIntegrationTest {
     static class Config {
         @Bean com.example.toiletapi.photo.PhotoService photoService(JdbcTemplate jdbc, PlatformTransactionManager manager) {
             return new com.example.toiletapi.photo.PhotoService(new com.example.toiletapi.photo.PhotoSettings(true,null,null,null,null,null,null),
-                    jdbc,manager,mock(com.example.toiletapi.photo.PhotoStore.class));
+                    jdbc,manager,mock(com.example.toiletapi.photo.PhotoStore.class),
+                    mock(com.example.toiletapi.photo.PhotoMetrics.class));
         }
         @Bean AccountLifecycleGate accountLifecycleGate() { return new AccountLifecycleGate(false, true, true); }
         @Bean DataSource dataSource() {

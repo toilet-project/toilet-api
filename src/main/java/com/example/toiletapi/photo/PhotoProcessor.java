@@ -13,10 +13,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class PhotoProcessor {
     private final PhotoSettings settings;
+    private final PhotoMetrics metrics;
     private final Semaphore conversions = new Semaphore(1);
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3))
             .followRedirects(HttpClient.Redirect.NEVER).build();
-    public PhotoProcessor(PhotoSettings settings) { this.settings = settings; }
+    public PhotoProcessor(PhotoSettings settings, PhotoMetrics metrics) { this.settings = settings; this.metrics = metrics; }
     public byte[] process(URI uri) throws Exception {
         for (var address : InetAddress.getAllByName(uri.getHost())) {
             if (address.isAnyLocalAddress() || address.isLoopbackAddress() || address.isLinkLocalAddress()
@@ -31,8 +32,18 @@ public class PhotoProcessor {
         } finally { java.util.Arrays.fill(original,(byte)0); }
     }
     byte[] convert(byte[] original) throws Exception {
-        if (!conversions.tryAcquire()) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS);
-        try { return convertBounded(original); } finally { conversions.release(); }
+        if (!conversions.tryAcquire()) {
+            metrics.conversion(false);
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS);
+        }
+        try {
+            byte[] converted = convertBounded(original);
+            metrics.conversion(true);
+            return converted;
+        } catch (Exception failure) {
+            metrics.conversion(false);
+            throw failure;
+        } finally { conversions.release(); }
     }
     private byte[] convertBounded(byte[] original) throws Exception {
         Process process = new ProcessBuilder(settings.python(),"-I",settings.converter())

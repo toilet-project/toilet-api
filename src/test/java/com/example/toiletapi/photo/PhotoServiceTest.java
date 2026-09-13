@@ -26,7 +26,8 @@ class PhotoServiceTest {
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V13__social_profile_photos.sql")).execute(ds);
         jdbc.update("INSERT INTO app_user VALUES(1,'ACTIVE',0),(2,'ACTIVE',0)");
         jdbc.update("INSERT INTO toilet_review(review_id,toilet_id,author_user_id) VALUES(10,20,1)");
-        store=new MemoryStore();photos=new PhotoService(new PhotoSettings(true,null,null,null,null,null,null),jdbc,manager,store);
+        store=new MemoryStore();photos=new PhotoService(new PhotoSettings(true,null,null,null,null,null,null),jdbc,manager,store,
+                org.mockito.Mockito.mock(PhotoMetrics.class));
     }
     byte[] bytes="RIFFtestWEBPcontent".getBytes(StandardCharsets.US_ASCII);
     void upload(long user) throws Exception {
@@ -90,7 +91,8 @@ class PhotoServiceTest {
         jdbc.update("UPDATE profile_photo_object SET created_at=?",java.sql.Timestamp.valueOf(LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")).minusMinutes(10)));
     }
     @Test void disabledDoesNotQueryUnmigratedDatabase() {
-        var disabled=new PhotoService(new PhotoSettings(false,null,null,null,null,null,null),null,nullManager(),store);
+        var disabled=new PhotoService(new PhotoSettings(false,null,null,null,null,null,null),null,nullManager(),store,
+                org.mockito.Mockito.mock(PhotoMetrics.class));
         assertFalse(disabled.state(1).available());disabled.withdraw(1);disabled.cleanup();assertNull(disabled.signupTicket(1));
     }
     private org.springframework.transaction.PlatformTransactionManager nullManager() {return new DataSourceTransactionManager(new DriverManagerDataSource());}

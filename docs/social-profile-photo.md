@@ -81,6 +81,15 @@ R2 쓰기 전에 객체 키를 사진 객체 대장에 기록한다. 대장에�
 3. `mount-disabled`로 API Compose에 전용 환경 파일과 명시적인 사진 기능 OFF 설정을 추가한다. 공통 유지보수 잠금을 잡고 전체 Compose 렌더가 프로필 사진 환경만 추가하는지 확인한 뒤 API만 재시작한다. 실패하면 기존 Compose로 복구하고 다시 시작한다.
 4. 웹 구현은 사진 빌드 플래그 OFF로 먼저 배포한다. 이 상태에서는 기존 기본 아바타와 안내가 유지된다.
 5. `activate`는 공개 개인정보 처리방침의 버전·시행 시각·미국 보관 내용을 확인하고 합성 WebP의 R2 쓰기·읽기·삭제를 통과한 경우에만 `PROFILE_PHOTO_ENABLED=true`와 Kakao `profile_image` 선택 scope를 함께 적용한다.
+
+## 운영 감시
+
+- 기존 보호된 `/actuator/prometheus` 수집에서 `http.server.requests`의 사진 API URI별 요청량·상태를 확인한다.
+- `profile.photo.conversions{result=success|failure}`는 직접 등록과 신규 Kakao 가입 사진의 변환 결과를 집계한다.
+- `profile.photo.storage.operations{operation=put|get|delete,result=success|failure}`는 API가 시도한 R2 작업 결과를 집계한다.
+- `profile.photo.storage.objects`, `profile.photo.deletion.pending`, `profile.photo.deletion.oldest.seconds`는 매분 DB 대장에서 객체 수와 5분 이상 지난 미참조 객체 적체를 갱신한다. `-1`은 대장 조회 실패이며 `profile.photo.metrics.refresh.failures`가 함께 증가한다.
+- 실제 저장 바이트·Class A/B 요청·egress는 `geupddong-profile-photos-us` 버킷의 Cloudflare R2 Metrics를 기준으로 본다. API는 원본이나 공급자 URL을 저장하지 않으므로 바이트 추적을 위해 별도 개인정보 컬럼을 추가하지 않는다.
+- 변환 실패 또는 R2 실패가 증가하거나 삭제 대기가 0보다 큰 상태로 10분 이상 유지되면 운영 로그와 해당 버킷 상태를 확인한다. 객체 키·회원 ID·공급자 URL은 메트릭 태그나 로그에 넣지 않는다.
 6. 문제가 생기면 웹 사진 기능을 먼저 끄고 API 전환의 `deactivate`를 실행한다. R2 자격증명과 삭제 재시도는 저장된 객체 정리가 끝날 때까지 유지한다.
 
 2026-09-13 기반 배포에서는 운영 API 이미지 `4896da1`을 상태 보존 경로로 적용했다. 계정 기능 `active`, V13 적용, Pillow WebP 지원, 사진 기능 OFF, Kakao 사진 scope 미요청과 공개 health `UP`을 확인했다. 이 결과는 R2 Compose 연결이나 사진 기능 활성화를 의미하지 않는다.
