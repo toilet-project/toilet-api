@@ -17,9 +17,11 @@ public class PhotoService {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final PhotoStore store;
+    private final PhotoMetrics metrics;
 
-    public PhotoService(PhotoSettings settings, JdbcTemplate jdbc, PlatformTransactionManager transactions, PhotoStore store) {
-        this.settings=settings;this.jdbc=jdbc;this.tx=new TransactionTemplate(transactions);this.store=store;
+    public PhotoService(PhotoSettings settings, JdbcTemplate jdbc, PlatformTransactionManager transactions, PhotoStore store,
+                        PhotoMetrics metrics) {
+        this.settings=settings;this.jdbc=jdbc;this.tx=new TransactionTemplate(transactions);this.store=store;this.metrics=metrics;
     }
 
     public record State(boolean available, boolean publicPhoto, String imageVersion) { }
@@ -93,7 +95,8 @@ public class PhotoService {
             throw new IllegalArgumentException("Invalid photo receipt");
         String hash=PhotoSync.hash(bytes),key="avatars/"+java.util.UUID.randomUUID()+".webp";
         tx.executeWithoutResult(status->jdbc.update("INSERT INTO profile_photo_object(object_key,created_at) VALUES(?,?)",key,now()));
-        store.put(key,bytes);
+        try { store.put(key,bytes);metrics.put(true); }
+        catch(Exception failure) {metrics.put(false);throw failure;}
         return Boolean.TRUE.equals(tx.execute(status->{
             if(!valid(ticket)) return false;
             var objects=jdbc.query("SELECT created_at FROM profile_photo_object WHERE object_key=? FOR UPDATE",
@@ -129,7 +132,8 @@ public class PhotoService {
         if(!settings.enabled()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         String key=authorizedKey.get();if(key==null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         byte[] image;
-        try {image=store.get(key);} catch(Exception e) {throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE);}
+        try {image=store.get(key);metrics.get(true);}
+        catch(Exception e) {metrics.get(false);throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE);}
         if(!key.equals(authorizedKey.get())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         return image;
     }
@@ -145,7 +149,9 @@ public class PhotoService {
             try {tx.executeWithoutResult(status->{
                 if(jdbc.query("SELECT object_key FROM profile_photo_object WHERE object_key=? FOR UPDATE",(rs,n)->rs.getString(1),key).isEmpty()) return;
                 if(jdbc.queryForObject("SELECT COUNT(*) FROM profile_photo WHERE object_key=?",Integer.class,key)>0) return;
-                store.delete(key);jdbc.update("DELETE FROM profile_photo_object WHERE object_key=?",key);
+                try {store.delete(key);metrics.delete(true);}
+                catch(Exception failure) {metrics.delete(false);throw failure;}
+                jdbc.update("DELETE FROM profile_photo_object WHERE object_key=?",key);
             });} catch(Exception ignored) {/* Keep for the next retry. */}
         }
     }
