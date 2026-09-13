@@ -71,7 +71,7 @@ public class AuthController {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         return new AuthProfileResponse(jwt.getSubject(), user.getDisplayName(), user.getEmail(), user.getStatus(),
-                jwt.getClaimAsStringList("roles"), policyConsentService.status(userId).consentRequired());
+                jwt.getClaimAsStringList("roles"), policyConsentService.status(userId).consentRequired(), jwt.getExpiresAt());
     }
 
     @DeleteMapping("/me")
@@ -144,5 +144,6 @@ public class AuthController {
     }
 
     public record AuthProfileResponse(String userId, String displayName, String email, UserStatus status,
-                                      List<String> roles, boolean consentRequired) { }
+                                      List<String> roles, boolean consentRequired,
+                                      java.time.Instant accessTokenExpiresAt) { }
 }

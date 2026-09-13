@@ -49,6 +49,21 @@ class AuthTokenServiceTest {
     }
 
     @Test
+    void shouldIssueThirtyMinuteAccessTokenForAdministrators() {
+        AuthTokenProperties adminProperties = new AuthTokenProperties(properties.secret(), Duration.ofMinutes(15),
+                Duration.ofMinutes(30), Duration.ofDays(14));
+        AuthTokenService service = new AuthTokenService(
+                jwtConfig.jwtEncoder(jwtConfig.jwtSecretKey(adminProperties)), mock(RefreshTokenStore.class),
+                adminProperties, users);
+
+        Instant beforeIssue = Instant.now();
+        AuthTokenService.IssuedTokens tokens = service.issue(7L, List.of(Role.USER, Role.ADMIN));
+
+        assertThat(tokens.accessTokenExpiresAt()).isBetween(beforeIssue.plus(Duration.ofMinutes(30)),
+                Instant.now().plus(Duration.ofMinutes(30)));
+    }
+
+    @Test
     void shouldRejectExpiredAccessToken() {
         var secret = jwtConfig.jwtSecretKey(properties);
         JwtEncoder encoder = jwtConfig.jwtEncoder(secret);
