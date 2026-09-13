@@ -24,7 +24,8 @@ import org.springframework.security.oauth2.jwt.JwsHeader;
 class AuthTokenServiceTest {
 
     private final AuthTokenProperties properties = new AuthTokenProperties(
-            Base64.getEncoder().encodeToString(new byte[32]), Duration.ofMinutes(15), Duration.ofDays(14));
+            Base64.getEncoder().encodeToString(new byte[32]), Duration.ofMinutes(15),
+            Duration.ofMinutes(30), Duration.ofDays(14));
     private final JwtConfig jwtConfig = new JwtConfig();
     private final com.example.toiletapi.auth.repository.AppUserRepository users = mock(com.example.toiletapi.auth.repository.AppUserRepository.class);
 

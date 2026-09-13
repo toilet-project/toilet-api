@@ -21,7 +21,7 @@ class WithdrawalSecurityTest {
         var user = AppUser.create("회원", null, false); user.activateAfterConsent();
         when(repo.lockById(1L)).thenReturn(Optional.of(user)); when(repo.findById(1L)).thenReturn(Optional.of(user));
         var config = new JwtConfig();
-        var props = new AuthTokenProperties(Base64.getEncoder().encodeToString(new byte[32]), Duration.ofMinutes(15), Duration.ofDays(14));
+        var props = new AuthTokenProperties(Base64.getEncoder().encodeToString(new byte[32]), Duration.ofMinutes(15), Duration.ofMinutes(30), Duration.ofDays(14));
         var key = config.jwtSecretKey(props);
         var tokens = new AuthTokenService(config.jwtEncoder(key), mock(RefreshTokenStore.class), props, repo);
         var decoder = config.accountAwareJwtDecoder(key, repo);
