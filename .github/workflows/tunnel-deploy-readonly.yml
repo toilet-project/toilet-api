@@ -163,6 +163,11 @@ jobs:
               }
               emit('rollout.same_active_phase', all(values.get(k) == v for values in (api_values, batch_values)
                                                      for k, v in active.items()))
+              emit('postdeploy.api_commit',
+                   api_obj.get('Config', {}).get('Image', '').endswith(':4896da10e243210750a387a8cca4cb9f0a7c2670'))
+              emit('postdeploy.photo_feature_off', api_values.get('PROFILE_PHOTO_ENABLED', 'false') == 'false')
+              kakao_scopes = api_values.get('KAKAO_LOGIN_SCOPES', 'profile_nickname, account_email')
+              emit('postdeploy.kakao_photo_scope_off', 'profile_image' not in kakao_scopes.split(','))
               host_lock = (Path(MAINTENANCE_ROOT) / '.maintenance.lock').stat()
               expected_lock = f'{host_lock.st_dev}:{host_lock.st_ino}:600:1000:1:0'
               for role in ('api', 'batch'):
@@ -182,6 +187,17 @@ jobs:
                   env={**os.environ, 'MYSQL_PWD': api_values['SPRING_DB_PASSWORD']},
                   capture_output=True, text=True, timeout=30, check=False)
               emit('rollout.mysql_readonly', mysql.returncode == 0 and mysql.stdout.strip().isdigit())
+              schema = subprocess.run(
+                  ['docker', 'exec', '-e', 'MYSQL_PWD', 'toilet-mysql', 'mysql',
+                   '-u', api_values['SPRING_DB_USERNAME'], '--database=toilet_db', '--batch',
+                   '--skip-column-names', '-e',
+                   "SET SESSION MAX_EXECUTION_TIME=10000; START TRANSACTION READ ONLY; "
+                   "SELECT COUNT(*) FROM flyway_schema_history WHERE version='13' AND success=1; "
+                   "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() "
+                   "AND table_name IN ('profile_photo','profile_photo_object'); ROLLBACK;"],
+                  env={**os.environ, 'MYSQL_PWD': api_values['SPRING_DB_PASSWORD']},
+                  capture_output=True, text=True, timeout=30, check=False)
+              emit('postdeploy.v13_applied', schema.returncode == 0 and schema.stdout.splitlines() == ['1', '2'])
               redis = subprocess.run(
                   ['docker', 'exec', '-e', 'REDISCLI_AUTH', 'toilet-redis', 'redis-cli', 'PING'],
                   env={**os.environ, 'REDISCLI_AUTH': api_values['REDIS_PASSWORD']},
@@ -215,6 +231,12 @@ jobs:
                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                           timeout=20, check=False)
               emit('rollout.next_image_present', next_image.returncode == 0)
+
+              pillow = subprocess.run(
+                  ['docker', 'exec', '--user', '1000:1000', 'toilet-api', 'python3', '-c',
+                   "from PIL import features; raise SystemExit(0 if features.check('webp') else 1)"],
+                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20, check=False)
+              emit('postdeploy.pillow_webp', pillow.returncode == 0)
 
               resume = subprocess.run(
                   ['/home/luha/.local/bin/account-resume-readonly', '--read-only',
