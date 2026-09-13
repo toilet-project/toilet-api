@@ -66,6 +66,7 @@ jobs:
           import re
           import stat
           import subprocess
+          from datetime import datetime, timezone
 
           PAUSED = {
               'ACCOUNT_LIFECYCLE_MAINTENANCE': 'true',
@@ -109,6 +110,7 @@ jobs:
                   and mounts[0].get('Source') == root and mounts[0].get('RW') is True
 
           print('MAINTENANCE_DIAGNOSIS_V1')
+          objects = {}
           for role in ('api', 'batch'):
               inspected = subprocess.run(
                   ['docker', 'inspect', 'toilet-' + role], capture_output=True, check=False,
@@ -121,6 +123,7 @@ jobs:
               if len(items) != 1:
                   continue
               obj = items[0]
+              objects[role] = obj
               values = {}
               duplicate = False
               for entry in obj.get('Config', {}).get('Env', []):
@@ -141,6 +144,87 @@ jobs:
               emit_commit(role, obj.get('Config', {}).get('Image'))
               for key, expected in PAUSED.items():
                   emit(f'{role}.paused.{key}', values.get(key) == expected)
+
+          try:
+              api_obj = objects['api']
+              batch_obj = objects['batch']
+              api_values = dict(entry.split('=', 1) for entry in api_obj['Config']['Env'])
+              batch_values = dict(entry.split('=', 1) for entry in batch_obj['Config']['Env'])
+              active = {
+                  'ACCOUNT_LIFECYCLE_MAINTENANCE': 'false',
+                  'ACCOUNT_RETENTION_ENABLED': 'true',
+                  'ACCOUNT_ERASURE_ENABLED': 'true',
+                  'ERASURE_LEDGER_ENABLED': 'true',
+                  'ERASURE_LEDGER_CATALOGUE_ENABLED': 'true',
+                  'ERASURE_CHECKPOINT_ENABLED': 'true',
+                  'ERASURE_LEDGER_LOCAL_ACCEPTANCE_VERIFIED': 'true',
+                  'ERASURE_RETIREMENT_WRITE_ENABLED': 'false',
+                  'ERASURE_HISTORY_COMPATIBILITY_VERIFIED': 'false',
+              }
+              emit('rollout.same_active_phase', all(values.get(k) == v for values in (api_values, batch_values)
+                                                     for k, v in active.items()))
+              host_lock = (Path(MAINTENANCE_ROOT) / '.maintenance.lock').stat()
+              expected_lock = f'{host_lock.st_dev}:{host_lock.st_ino}:600:1000:1:0'
+              for role in ('api', 'batch'):
+                  actual_lock = subprocess.run(
+                      ['docker', 'exec', '--user', '1000:1000', 'toilet-' + role, 'stat',
+                       '-c', '%d:%i:%a:%u:%h:%s', MAINTENANCE_ROOT + '/.maintenance.lock'],
+                      capture_output=True, text=True, timeout=20, check=False)
+                  emit(f'rollout.{role}_lock_identity', actual_lock.returncode == 0
+                       and actual_lock.stdout.strip() == expected_lock)
+
+              mysql = subprocess.run(
+                  ['docker', 'exec', '-e', 'MYSQL_PWD', 'toilet-mysql', 'mysql',
+                   '-u', api_values['SPRING_DB_USERNAME'], '--database=toilet_db', '--batch',
+                   '--skip-column-names', '-e',
+                   'SET SESSION MAX_EXECUTION_TIME=10000; START TRANSACTION READ ONLY; '
+                   'SELECT COUNT(*) FROM account_withdrawal; ROLLBACK;'],
+                  env={**os.environ, 'MYSQL_PWD': api_values['SPRING_DB_PASSWORD']},
+                  capture_output=True, text=True, timeout=30, check=False)
+              emit('rollout.mysql_readonly', mysql.returncode == 0 and mysql.stdout.strip().isdigit())
+              redis = subprocess.run(
+                  ['docker', 'exec', '-e', 'REDISCLI_AUTH', 'toilet-redis', 'redis-cli', 'PING'],
+                  env={**os.environ, 'REDISCLI_AUTH': api_values['REDIS_PASSWORD']},
+                  capture_output=True, text=True, timeout=20, check=False)
+              emit('rollout.redis_ping', redis.returncode == 0 and redis.stdout.strip() == 'PONG')
+
+              receipts = []
+              for path in Path('/home/luha/.local/state/geupddong-backup-restore/receipts').glob('checked-*.json'):
+                  receipts.append(json.loads(path.read_text(encoding='utf-8')))
+              latest = max(receipts, key=lambda item: item['checkedAt'])
+              checked = datetime.fromisoformat(latest['checkedAt'].replace('Z', '+00:00'))
+              age = (datetime.now(timezone.utc) - checked).total_seconds()
+              emit('rollout.restore_receipt_fresh', checked.tzinfo is not None and 0 <= age <= 86400)
+
+              api_root = Path('/home/luha/toilet-api')
+              compose = api_root / 'compose.yaml'
+              for label, path, private in (
+                  ('compose', compose, False), ('base_env', api_root / '.env', True),
+                  ('account_env', api_root / '.account-lifecycle.env', True)):
+                  info = path.lstat()
+                  secure = stat.S_ISREG(info.st_mode) and info.st_uid == 1000 and info.st_nlink == 1
+                  secure = secure and (stat.S_IMODE(info.st_mode) == 0o600 if private
+                                       else info.st_gid == 1000 and not (info.st_mode & 0o002))
+                  emit(f'rollout.{label}_secure', secure and info.st_size <= 1024 * 1024)
+              compose_text = compose.read_text(encoding='utf-8')
+              old_tag = api_obj['Config']['Image']
+              emit('rollout.compose_image_matches',
+                   len(re.findall(r'(?m)^\s*image: ' + re.escape(old_tag) + r'\s*$', compose_text)) == 1)
+              next_tag = old_tag.rsplit(':', 1)[0] + ':4896da10e243210750a387a8cca4cb9f0a7c2670'
+              next_image = subprocess.run(['docker', 'image', 'inspect', next_tag],
+                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                          timeout=20, check=False)
+              emit('rollout.next_image_present', next_image.returncode == 0)
+
+              resume = subprocess.run(
+                  ['/home/luha/.local/bin/account-resume-readonly', '--read-only',
+                   '--api-phase', 'active', '--batch-phase', 'active'],
+                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=90, check=False)
+              emit('rollout.active_inventory', resume.returncode == 0)
+          except Exception:
+              emit('rollout.extended_checks_completed', False)
+          else:
+              emit('rollout.extended_checks_completed', True)
 
           try:
               root_info = Path(MAINTENANCE_ROOT).lstat()
