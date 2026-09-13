@@ -72,6 +72,19 @@ R2 쓰기 전에 객체 키를 사진 객체 대장에 기록한다. 대장에�
 - API 이미지와 개인정보 처리방침을 먼저 배포한 뒤 서버에서 `PROFILE_PHOTO_ENABLED=true`와 Kakao `KAKAO_LOGIN_SCOPES=profile_nickname,account_email,profile_image`를 함께 적용한다.
 - 실제 신규 카카오 계정의 선택 동의·비동의, 직접 등록·교체·삭제, 공개 리뷰 표시·비공개 차단, 탈퇴·R2 삭제를 검증한다. 마지막에 웹 사진 기능을 켜고 모바일 인수를 마친다.
 
+## 운영 전환 절차
+
+계정 탈퇴·복구·정기 파기가 이미 활성화된 운영 환경에서는 준비 상태 전용 `deploy.yml`을 사용하지 않는다. 이 워크플로는 계정 기능이 중지된 상태만 허용하므로 현재 운영에서는 의도적으로 비활성 상태를 유지한다.
+
+1. 검토된 이미지는 `account-preserving-rollout.yml`로 교체한다. 이 경로는 API 이미지 한 항목만 바꾸고 계정 기능의 `active` 상태, 대장 설정, 일반 환경 파일과 배치 컨테이너를 보존한다.
+2. `profile-photo-preserving-transition.yml`의 `check`로 현재 이미지 커밋, API·배치의 활성 계정 상태와 미국 R2 전용 환경 파일을 읽기 전용으로 확인한다.
+3. `mount-disabled`로 API Compose에 전용 환경 파일과 명시적인 사진 기능 OFF 설정을 추가한다. 공통 유지보수 잠금을 잡고 전체 Compose 렌더가 프로필 사진 환경만 추가하는지 확인한 뒤 API만 재시작한다. 실패하면 기존 Compose로 복구하고 다시 시작한다.
+4. 웹 구현은 사진 빌드 플래그 OFF로 먼저 배포한다. 이 상태에서는 기존 기본 아바타와 안내가 유지된다.
+5. `activate`는 공개 개인정보 처리방침의 버전·시행 시각·미국 보관 내용을 확인하고 합성 WebP의 R2 쓰기·읽기·삭제를 통과한 경우에만 `PROFILE_PHOTO_ENABLED=true`와 Kakao `profile_image` 선택 scope를 함께 적용한다.
+6. 문제가 생기면 웹 사진 기능을 먼저 끄고 API 전환의 `deactivate`를 실행한다. R2 자격증명과 삭제 재시도는 저장된 객체 정리가 끝날 때까지 유지한다.
+
+2026-09-13 기반 배포에서는 운영 API 이미지 `4896da1`을 상태 보존 경로로 적용했다. 계정 기능 `active`, V13 적용, Pillow WebP 지원, 사진 기능 OFF, Kakao 사진 scope 미요청과 공개 health `UP`을 확인했다. 이 결과는 R2 Compose 연결이나 사진 기능 활성화를 의미하지 않는다.
+
 `docker compose config` 전체에는 비밀값이 포함될 수 있으므로 로그나 PR에 붙이지 않는다. 이 문서 기록은 배포 승인이나 운영 플래그 변경으로 해석하지 않는다.
 
 참고: [Kakao 사용자 정보](https://developers.kakao.com/docs/ko/kakaologin/rest-api), [Kakao 개인정보 국외이전](https://developers.kakao.com/docs/ko/kakaologin/prerequisite#transfer-of-personal-data), [R2 데이터 위치](https://developers.cloudflare.com/r2/reference/data-location/), [Cloudflare DPA](https://www.cloudflare.com/cloudflare-customer-dpa/), [R2 요금](https://developers.cloudflare.com/r2/pricing/).
