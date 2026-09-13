@@ -15,7 +15,7 @@ class PhotoContainerMySqlTest extends PhotoServiceTest {
         var ds=new DriverManagerDataSource(MYSQL.getJdbcUrl(),MYSQL.getUsername(),MYSQL.getPassword());
         var fixture=new JdbcTemplate(ds);
         // This container is exclusive to this test; never use a service database here.
-        for(String table:new String[]{"profile_photo","profile_photo_object","toilet_review","app_user"})
+        for(String table:new String[]{"profile_photo_cdn_purge","profile_photo","profile_photo_object","toilet_review","app_user"})
             fixture.execute("DROP TABLE IF EXISTS "+table);
         setup(ds);
     }
