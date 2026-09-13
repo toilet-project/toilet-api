@@ -121,7 +121,13 @@ jobs:
             test -f "$profile_photo_env"
             test "$(stat -c '%a:%u:%g' "$profile_photo_env")" = "600:$(id -u):$(id -g)"
             profile_photo_names=$(sed -n 's/^\([A-Z0-9_]*\)=.*$/\1/p' "$profile_photo_env" | sort | paste -sd, -)
-            test "$profile_photo_names" = 'PROFILE_PHOTO_R2_ACCESS_KEY_ID,PROFILE_PHOTO_R2_BUCKET,PROFILE_PHOTO_R2_ENDPOINT,PROFILE_PHOTO_R2_SECRET_ACCESS_KEY'
+            profile_photo_base_names='PROFILE_PHOTO_R2_ACCESS_KEY_ID,PROFILE_PHOTO_R2_BUCKET,PROFILE_PHOTO_R2_ENDPOINT,PROFILE_PHOTO_R2_SECRET_ACCESS_KEY'
+            profile_photo_cdn_names='PROFILE_PHOTO_CDN_TOKEN,PROFILE_PHOTO_CDN_ZONE_ID,PROFILE_PHOTO_R2_ACCESS_KEY_ID,PROFILE_PHOTO_R2_BUCKET,PROFILE_PHOTO_R2_ENDPOINT,PROFILE_PHOTO_R2_SECRET_ACCESS_KEY'
+            profile_photo_cdn_enabled='${{ vars.PROFILE_PHOTO_CDN_ENABLED || 'false' }}'
+            case "$profile_photo_cdn_enabled:$profile_photo_names" in
+              false:"$profile_photo_base_names"|false:"$profile_photo_cdn_names"|true:"$profile_photo_cdn_names") ;;
+              *) exit 1 ;;
+            esac
             mkdir -p ~/toilet-api
             cd ~/toilet-api
 
@@ -145,6 +151,7 @@ jobs:
             KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
             KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
             PROFILE_PHOTO_ENABLED=${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}
+            PROFILE_PHOTO_CDN_ENABLED=${{ vars.PROFILE_PHOTO_CDN_ENABLED || 'false' }}
             KAKAO_LOGIN_SCOPES=${{ vars.PROFILE_PHOTO_ENABLED == 'true' && 'profile_nickname,account_email,profile_image' || 'profile_nickname,account_email' }}
             REDIS_HOST=redis
             REDIS_PORT=6379

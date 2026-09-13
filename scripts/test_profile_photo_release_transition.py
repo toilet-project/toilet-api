@@ -26,8 +26,10 @@ class ProfilePhotoReleaseTransitionTest(unittest.TestCase):
         text = result.decode()
         self.assertEqual(text.count(release.PROFILE_ENV_TEXT), 1)
         self.assertEqual(text.count('PROFILE_PHOTO_ENABLED:'), 1)
+        self.assertEqual(text.count('PROFILE_PHOTO_CDN_ENABLED:'), 1)
         self.assertEqual(text.count('KAKAO_LOGIN_SCOPES:'), 1)
         self.assertIn("PROFILE_PHOTO_ENABLED: 'false'", text)
+        self.assertIn("PROFILE_PHOTO_CDN_ENABLED: 'false'", text)
         self.assertLess(text.index('.account-lifecycle.env'), text.index(release.PROFILE_ENV_TEXT))
         self.assertLess(text.index(release.PROFILE_ENV_TEXT), text.index('.review.env'))
         with self.assertRaisesRegex(ValueError, 'ALREADY_MOUNTED'):
@@ -42,11 +44,24 @@ class ProfilePhotoReleaseTransitionTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'PHASE_REJECTED'):
             release.switch_profile(active, True)
 
-    def test_storage_is_exact_us_bucket_only(self):
+    def test_switch_enables_cdn_only_with_complete_cdn_storage(self):
+        disabled = release.inject_profile(self.compose())
+        active = release.switch_profile(disabled, True, True)
+        self.assertIn("PROFILE_PHOTO_CDN_ENABLED: 'true'", active.decode())
+        self.assertEqual(release.switch_profile(active, False, True), disabled)
+
+    def test_storage_accepts_base_or_complete_cdn_credentials(self):
         content = ''.join(key + '=' + value + '\n' for key, value in self.storage().items()).encode()
         self.assertEqual(release.parse_storage(content), self.storage())
+        with_cdn = self.storage() | {
+            'PROFILE_PHOTO_CDN_ZONE_ID': 'a' * 32,
+            'PROFILE_PHOTO_CDN_TOKEN': 'synthetic-cdn-token',
+        }
+        cdn_content = ''.join(key + '=' + value + '\n' for key, value in with_cdn.items()).encode()
+        self.assertEqual(release.parse_storage(cdn_content), with_cdn)
         for changed in (
             content + b'EXTRA=value\n',
+            content + b'PROFILE_PHOTO_CDN_ZONE_ID=' + b'a' * 32 + b'\n',
             content.replace(b'.us.r2.', b'.r2.'),
             content.replace(b'geupddong-profile-photos-us', b'other'),
         ):
@@ -58,7 +73,7 @@ class ProfilePhotoReleaseTransitionTest(unittest.TestCase):
                                'redis': {'image': 'redis'}}}
         after = copy.deepcopy(before)
         after['services']['api']['environment'].update(self.storage())
-        after['services']['api']['environment'].update(release.feature_values(False))
+        after['services']['api']['environment'].update(release.feature_values(False, False))
         release.validate_render_change(before, after, self.storage(), False)
         changed = copy.deepcopy(after)
         changed['services']['redis']['image'] = 'other'

@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import org.springframework.stereotype.Component;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.ObjectProvider;
 
 /** Signup-only import. URLs stay in bounded volatile memory, never in Redis/DB/logs. */
 @Component
@@ -14,6 +15,7 @@ public class PhotoSync implements AutoCloseable {
     private final PhotoSettings settings;
     private final PhotoService photos;
     private final PhotoProcessor processor;
+    private final ObjectProvider<PhotoCdnClient> cdn;
     private final Map<Long, Candidate> candidates = new HashMap<>();
     private record Candidate(PhotoSource source, Instant expires, LocalDateTime collectedAt) { }
     private final java.util.concurrent.atomic.AtomicBoolean cleaning = new java.util.concurrent.atomic.AtomicBoolean();
@@ -21,8 +23,8 @@ public class PhotoSync implements AutoCloseable {
             new ArrayBlockingQueue<>(32), r -> { var t = new Thread(r, "profile-photo"); t.setDaemon(true); return t; },
             new ThreadPoolExecutor.AbortPolicy());
 
-    public PhotoSync(PhotoSettings settings, PhotoService photos, PhotoProcessor processor) {
-        this.settings = settings; this.photos = photos; this.processor = processor;
+    public PhotoSync(PhotoSettings settings, PhotoService photos, PhotoProcessor processor,ObjectProvider<PhotoCdnClient> cdn) {
+        this.settings = settings; this.photos = photos; this.processor = processor;this.cdn=cdn;
     }
 
     // Called only for an account created by this OAuth callback, never existing/recovered users.
@@ -51,7 +53,11 @@ public class PhotoSync implements AutoCloseable {
                     if (!Instant.now().isBefore(candidate.expires())) return;
                     byte[] image = processor.process(candidate.source().uri());
                     try {
-                        photos.saveWithReceipt(ticket, image, "KAKAO_SIGNUP", PhotoService.NOTICE_VERSION, candidate.collectedAt());
+                        if(photos.saveWithReceipt(ticket, image, "KAKAO_SIGNUP", PhotoService.NOTICE_VERSION, candidate.collectedAt())) {
+                            PhotoService.State state=photos.state(user);
+                            PhotoCdnClient client=cdn.getIfAvailable();
+                            if(client!=null && state.publicPhoto() && state.imageVersion()!=null) try{client.warm(state.imageVersion());}catch(Exception ignored){}
+                        }
                     } finally { Arrays.fill(image, (byte) 0); }
                 } catch (Exception ignored) {
                     // No later-login retry. The user may upload a photo from My Page.

@@ -15,10 +15,15 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 @Configuration
 @EnableScheduling
-@EnableConfigurationProperties(PhotoSettings.class)
+@EnableConfigurationProperties({PhotoSettings.class,PhotoCdnSettings.class})
 public class PhotoConfiguration {
     @Bean(destroyMethod="close") PhotoS3Store photoStore(PhotoSettings settings) {
         return new PhotoS3Store(settings);
+    }
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="profile-photo.cdn.enabled",havingValue="true")
+    PhotoCdnClient photoCdnClient(PhotoCdnSettings settings) {
+        return new PhotoCdnClient(settings,java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build());
     }
 
     static class PhotoS3Store implements PhotoStore, AutoCloseable {

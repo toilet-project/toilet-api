@@ -38,6 +38,9 @@ class ReviewDatabaseTest {
         String ddl=new ClassPathResource("db/migration/V12__create_location_reviews.sql").getContentAsString(StandardCharsets.UTF_8);
         if(h2)ddl=ddl.replace("CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci","").replace("BOOLEAN","TINYINT");
         new ResourceDatabasePopulator(new ByteArrayResource(ddl.getBytes(StandardCharsets.UTF_8))).execute(ds);
+        String photoDdl=new ClassPathResource("db/migration/V13__social_profile_photos.sql").getContentAsString(StandardCharsets.UTF_8);
+        if(h2)photoDdl=photoDdl.replace("BOOLEAN","TINYINT");
+        new ResourceDatabasePopulator(new ByteArrayResource(photoDdl.getBytes(StandardCharsets.UTF_8))).execute(ds);
         jdbc.update("INSERT INTO app_user(user_id,status,display_name) VALUES(1,'ACTIVE','작성자 하나'),(2,'ACTIVE','작성자 둘')");
         jdbc.update("INSERT INTO toilet VALUES(1,'합성 화장실',36.3,127.3),(2,'좌표 없는 화장실',NULL,NULL)");
         for(long id=3;id<=20;id++)jdbc.update("INSERT INTO toilet VALUES(?,'다른 합성 화장실',36.3,127.3)",id);
@@ -83,6 +86,17 @@ class ReviewDatabaseTest {
         failure("REVIEW_NOT_FOUND",()->service.edit(author,id(first),new Edit(1L,5,5,true,0,"수정")));
         assertEquals(2,call(()->service.summary(1)).count());
         failure("REVIEW_ALREADY_EXISTS",()->service.create(author,input("해제로 제한 우회"),UUID.randomUUID().toString()));
+    }
+    @Test void publicReviewReturnsOnlyAnOpaquePublicPhotoVersion() {
+        String version="12345678-1234-1234-1234-123456789abc",key="avatars/"+version+".webp";
+        jdbc.update("INSERT INTO profile_photo_object(object_key,created_at) VALUES(?,?)",key,LocalDateTime.now());
+        jdbc.update("INSERT INTO profile_photo(user_id,is_public,object_key,content_hash,updated_at) VALUES(1,TRUE,?,?,?)",
+                key,"a".repeat(64),LocalDateTime.now());
+        Item review=create("사진 계약");
+        assertEquals(version,call(()->service.publicPage(1,null,10)).items().getFirst().authorPhotoVersion());
+        jdbc.update("UPDATE profile_photo SET is_public=FALSE WHERE user_id=1");
+        assertNull(call(()->service.publicPage(1,null,10)).items().getFirst().authorPhotoVersion());
+        assertFalse(review.toString().contains(key));
     }
     @Test void unlinkProtectionRunsOnlyAfterOwnerVersionDeadlineAndAcknowledgementChecks() {
         var protection=mock(ReviewUnlinkProtection.class);
