@@ -99,6 +99,10 @@ jobs:
           def emit(name, value):
               print(f'{name}={str(bool(value)).lower()}')
 
+          def emit_commit(role, image):
+              match = re.fullmatch(r'[^\s@:]+(?:/[^\s@:]+)*:([a-f0-9]{40})', image or '')
+              print(f'{role}.commit={match.group(1) if match else "unrecognized"}')
+
           def mount_ok(obj, root):
               mounts = [m for m in obj.get('Mounts', []) if m.get('Destination') == root]
               return len(mounts) == 1 and mounts[0].get('Type') == 'bind' \
@@ -134,6 +138,7 @@ jobs:
                    values.get('ERASURE_MAINTENANCE_LOCK_ENABLED') == 'true'
                    and values.get('ERASURE_MAINTENANCE_DIRECTORY') == MAINTENANCE_ROOT)
               emit(f'{role}.image_sha256', bool(re.fullmatch(r'sha256:[a-f0-9]{64}', obj.get('Image', ''))))
+              emit_commit(role, obj.get('Config', {}).get('Image'))
               for key, expected in PAUSED.items():
                   emit(f'{role}.paused.{key}', values.get(key) == expected)
 
