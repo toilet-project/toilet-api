@@ -18,7 +18,8 @@ public class PhotoBoundaryFilter extends OncePerRequestFilter {
         response.setHeader("Cache-Control","private, no-store");response.setHeader("CDN-Cache-Control","no-store");
         response.setHeader("Cloudflare-CDN-Cache-Control","no-store");response.setHeader("Vary","Cookie, Authorization, Origin");
         response.setHeader("X-Content-Type-Options","nosniff");response.setHeader("X-Robots-Tag","noindex, noimageindex");
-        if(request.getContentLengthLong()>1024) {response.setStatus(413);return;}
+        long limit="PUT".equals(request.getMethod())?2L*1024*1024:1024;
+        if(request.getContentLengthLong()>limit) {response.setStatus(413);return;}
         chain.doFilter(request,response);
     }
 }

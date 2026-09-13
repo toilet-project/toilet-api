@@ -3,6 +3,7 @@ package com.example.toiletapi.photo;
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.*;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.*;
 import org.springframework.core.io.ClassPathResource;
@@ -13,8 +14,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 class PhotoServiceTest {
-    JdbcTemplate jdbc;PhotoService photos;TransactionTemplate tx;
-    MemoryStore store;
+    JdbcTemplate jdbc;PhotoService photos;TransactionTemplate tx;MemoryStore store;
     @BeforeEach void setup() {
         var ds=new DriverManagerDataSource("jdbc:h2:mem:photos_"+UUID.randomUUID()+";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000","sa","");
         setup(ds);
@@ -29,63 +29,69 @@ class PhotoServiceTest {
         store=new MemoryStore();photos=new PhotoService(new PhotoSettings(true,null,null,null,null,null,null),jdbc,manager,store);
     }
     byte[] bytes="RIFFtestWEBPcontent".getBytes(StandardCharsets.US_ASCII);
-    void upload(long user) {photos.update(user,true,false);photos.save(photos.ticket(user,"source"),bytes,"hash","source");}
-    @Test void privateDefaultAndOwnership() {
-        assertFalse(photos.state(1).useSocial());assertFalse(photos.state(1).publicPhoto());
+    void upload(long user) throws Exception {
+        assertTrue(photos.saveWithReceipt(photos.uploadTicket(user),bytes,"DIRECT_UPLOAD",PhotoService.NOTICE_VERSION,LocalDateTime.now()));
+    }
+    @Test void privateDefaultOwnershipVisibilityAndDelete() throws Exception {
+        assertNull(photos.state(1).imageVersion());assertFalse(photos.state(1).publicPhoto());
         upload(1);String version=photos.state(1).imageVersion();
         assertArrayEquals(bytes,photos.ownImage(1,version));
         assertThrows(ResponseStatusException.class,()->photos.ownImage(2,version));
         assertThrows(ResponseStatusException.class,()->photos.reviewImage(20,10));
-        photos.update(1,true,true);assertArrayEquals(bytes,photos.reviewImage(20,10));
-        photos.update(1,true,false);assertThrows(ResponseStatusException.class,()->photos.reviewImage(20,10));
+        photos.visibility(1,true);assertArrayEquals(bytes,photos.reviewImage(20,10));
+        photos.visibility(1,false);assertThrows(ResponseStatusException.class,()->photos.reviewImage(20,10));
         assertArrayEquals(bytes,photos.ownImage(1,version));
+        photos.delete(1);assertNull(photos.state(1).imageVersion());
     }
-    @Test void revokeDuringStorageReadAndDetachedReview() {
-        upload(1);photos.update(1,true,true);
-        store.onRead=()->photos.update(1,true,false);
+    @Test void revokeDuringStorageReadAndDetachedReview() throws Exception {
+        upload(1);photos.visibility(1,true);
+        store.onRead=()->photos.visibility(1,false);
         assertThrows(ResponseStatusException.class,()->photos.reviewImage(20,10));
-        store.onRead=()->{};photos.update(1,true,true);
+        store.onRead=()->{};photos.visibility(1,true);
         jdbc.update("UPDATE toilet_review SET author_detached=TRUE WHERE review_id=10");
         assertThrows(ResponseStatusException.class,()->photos.reviewImage(20,10));
     }
-    @Test void pendingUploadCannotUndoWithdrawalOrPreferenceChange() {
-        photos.update(1,true,true);var ticket=photos.ticket(1,"source");
-        photos.update(1,false,false);photos.update(1,true,false);
-        photos.save(ticket,bytes,"hash","source");assertNull(photos.state(1).imageVersion());
-        var next=photos.ticket(1,"new");
+    @Test void pendingUploadCannotUndoDeleteWithdrawalOrNewerUpload() throws Exception {
+        var old=photos.uploadTicket(1);photos.delete(1);
+        assertFalse(photos.saveWithReceipt(old,bytes,"DIRECT_UPLOAD",PhotoService.NOTICE_VERSION,LocalDateTime.now()));
+        assertNull(photos.state(1).imageVersion());
+        var withdrawn=photos.uploadTicket(1);
         tx.executeWithoutResult(s->{jdbc.update("UPDATE app_user SET status='WITHDRAWN',auth_version=1 WHERE user_id=1");photos.withdraw(1);});
         jdbc.update("UPDATE app_user SET status='ACTIVE' WHERE user_id=1");
-        photos.update(1,true,true);photos.save(next,bytes,"hash","new");assertNull(photos.state(1).imageVersion());
+        assertFalse(photos.saveWithReceipt(withdrawn,bytes,"DIRECT_UPLOAD",PhotoService.NOTICE_VERSION,LocalDateTime.now()));
+        var first=photos.uploadTicket(1);var newer=photos.uploadTicket(1);
+        assertFalse(photos.saveWithReceipt(first,bytes,"DIRECT_UPLOAD",PhotoService.NOTICE_VERSION,LocalDateTime.now()));
+        assertTrue(photos.saveWithReceipt(newer,bytes,"DIRECT_UPLOAD",PhotoService.NOTICE_VERSION,LocalDateTime.now()));
     }
-    @Test void batchDeletionCascadesAndFailedStorageDeletionRemainsRetryable() {
-        upload(1);assertEquals(1,store.images.size());
-        ageObjects();
-        // Use the same deletion boundary as API, batch and erasure replay.
+    @Test void signupImportRunsOnlyForUntouchedFirstActivation() throws Exception {
+        var signup=photos.signupTicket(1);assertNotNull(signup);assertNull(photos.signupTicket(1));
+        assertTrue(photos.saveWithReceipt(signup,bytes,"KAKAO_SIGNUP",PhotoService.NOTICE_VERSION,LocalDateTime.now()));
+        assertFalse(photos.state(1).publicPhoto());
+        var manual=photos.uploadTicket(2);assertNull(photos.signupTicket(2));
+        assertTrue(photos.saveWithReceipt(manual,bytes,"DIRECT_UPLOAD",PhotoService.NOTICE_VERSION,LocalDateTime.now()));
+    }
+    @Test void batchDeletionCascadesAndFailedStorageDeletionRemainsRetryable() throws Exception {
+        upload(1);assertEquals(1,store.images.size());ageObjects();
         jdbc.update("DELETE FROM app_user WHERE user_id=1");
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM profile_photo",Integer.class));
         store.failDelete=true;photos.cleanup();assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM profile_photo_object",Integer.class));
         store.failDelete=false;photos.cleanup();assertTrue(store.images.isEmpty());
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM profile_photo_object",Integer.class));
     }
-    @Test void absentPhotoClearsAndHashDeduplicates() {
-        upload(1);assertNull(photos.ticket(1,"source"));
-        var ticket=photos.ticket(1,"changed-source");assertTrue(photos.unchanged(ticket,"hash","changed-source"));
-        assertEquals(1,store.images.size());photos.absent(photos.ticket(1,"absent"));
-        assertNull(photos.state(1).imageVersion());assertNull(photos.ticket(1,"absent"));
-    }
     @Test void failedAndStalePutsCannotBecomeVisible() {
-        photos.update(1,true,true);var ticket=photos.ticket(1,"s");store.failPut=true;
-        assertThrows(IllegalStateException.class,()->photos.save(ticket,bytes,"h","s"));
+        var ticket=photos.uploadTicket(1);store.failPut=true;
+        assertThrows(IllegalStateException.class,()->photos.saveWithReceipt(ticket,bytes,"DIRECT_UPLOAD",PhotoService.NOTICE_VERSION,LocalDateTime.now()));
         assertNull(photos.state(1).imageVersion());assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM profile_photo_object",Integer.class));
         store.failPut=false;store.onPut=this::ageObjects;
-        photos.save(ticket,bytes,"h","s");assertNull(photos.state(1).imageVersion());
+        assertDoesNotThrow(()->assertFalse(photos.saveWithReceipt(ticket,bytes,"DIRECT_UPLOAD",PhotoService.NOTICE_VERSION,LocalDateTime.now())));
+        assertNull(photos.state(1).imageVersion());
     }
     private void ageObjects() {
-        jdbc.update("UPDATE profile_photo_object SET created_at=?", java.sql.Timestamp.valueOf(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")).minusMinutes(10)));
+        jdbc.update("UPDATE profile_photo_object SET created_at=?",java.sql.Timestamp.valueOf(LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")).minusMinutes(10)));
     }
     @Test void disabledDoesNotQueryUnmigratedDatabase() {
         var disabled=new PhotoService(new PhotoSettings(false,null,null,null,null,null,null),null,nullManager(),store);
-        assertFalse(disabled.state(1).available());disabled.withdraw(1);disabled.cleanup();assertNull(disabled.ticket(1,"s"));
+        assertFalse(disabled.state(1).available());disabled.withdraw(1);disabled.cleanup();assertNull(disabled.signupTicket(1));
     }
     private org.springframework.transaction.PlatformTransactionManager nullManager() {return new DataSourceTransactionManager(new DriverManagerDataSource());}
     static class MemoryStore implements PhotoStore {

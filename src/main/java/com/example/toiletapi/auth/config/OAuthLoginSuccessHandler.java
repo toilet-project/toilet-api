@@ -47,7 +47,10 @@ public class OAuthLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHand
             return;
         }
         AuthController.writeCookies(response, tokenService.issue(user.userId(), user.roles()));
-        if (!user.consentRequired()) photos.login(user.userId(), oauth.getAuthorizedClientRegistrationId(), oauth.getPrincipal().getAttributes());
+        if (user.newAccount()) {
+            photos.stageSignup(user.userId(), oauth.getAuthorizedClientRegistrationId(), oauth.getPrincipal().getAttributes());
+            if (!user.consentRequired()) photos.completeSignup(user.userId());
+        }
         String targetUrl;
         if (user.consentRequired()) {
             String returnTarget = OAuthReturnTargets.ADMIN.equals(returnUrl) ? "admin" : null;

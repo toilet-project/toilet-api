@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class PhotoProcessor {
     private final PhotoSettings settings;
+    private final Semaphore conversions = new Semaphore(1);
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3))
             .followRedirects(HttpClient.Redirect.NEVER).build();
     public PhotoProcessor(PhotoSettings settings) { this.settings = settings; }
@@ -30,6 +31,10 @@ public class PhotoProcessor {
         } finally { java.util.Arrays.fill(original,(byte)0); }
     }
     byte[] convert(byte[] original) throws Exception {
+        if (!conversions.tryAcquire()) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS);
+        try { return convertBounded(original); } finally { conversions.release(); }
+    }
+    private byte[] convertBounded(byte[] original) throws Exception {
         Process process = new ProcessBuilder(settings.python(),"-I",settings.converter())
                 .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         try (var tasks = Executors.newVirtualThreadPerTaskExecutor()) {

@@ -42,9 +42,9 @@ public class OAuthLoginService {
     @Transactional
     public LoginUser login(String registrationId, OAuth2User oauthUser) {
         Profile profile = Profile.from(registrationId, oauthUser.getAttributes());
-        UserSocialAccount socialAccount = socialAccountRepository
-                .findByProviderAndProviderSubjectHash(profile.provider(), sha256(profile.subject()))
-                .orElseGet(() -> link(profile));
+        var existing = socialAccountRepository.findByProviderAndProviderSubjectHash(profile.provider(), sha256(profile.subject()));
+        boolean newAccount = existing.isEmpty();
+        UserSocialAccount socialAccount = existing.orElseGet(() -> link(profile));
         // Serialize OAuth against erasure/withdrawal; no profile writes or roles before this check.
         var user = userRepository.lockById(socialAccount.getUser().getId())
                 .orElseThrow(() -> new IllegalStateException("계정 상태가 변경되었습니다. 다시 로그인해 주세요."));
@@ -58,6 +58,7 @@ public class OAuthLoginService {
             }
             if (!erasure.eraseIfDue(user.getId(), now)) throw new IllegalStateException("탈퇴 계정 확인이 필요합니다.");
             socialAccount = link(profile);
+            newAccount = true;
         } else if (user.getStatus() == com.example.toiletapi.auth.model.UserStatus.SUSPENDED) {
             throw new IllegalStateException("이용이 제한된 계정입니다.");
         }
@@ -66,7 +67,7 @@ public class OAuthLoginService {
         socialAccount.recordLogin(profile.email());
         List<Role> roles = List.copyOf(rolePolicyService.ensureInitialRoles(socialAccount.getUser()));
         return new LoginUser(socialAccount.getUser().getId(), roles,
-                policyConsentService.status(socialAccount.getUser().getId()).consentRequired());
+                policyConsentService.status(socialAccount.getUser().getId()).consentRequired(), null, newAccount);
     }
 
     private UserSocialAccount link(Profile profile) {
@@ -102,7 +103,8 @@ public class OAuthLoginService {
         }
     }
 
-    public record LoginUser(Long userId, List<Role> roles, boolean consentRequired, String recoveryKey) {
-        public LoginUser(Long userId, List<Role> roles, boolean consentRequired) { this(userId, roles, consentRequired, null); }
+    public record LoginUser(Long userId, List<Role> roles, boolean consentRequired, String recoveryKey, boolean newAccount) {
+        public LoginUser(Long userId, List<Role> roles, boolean consentRequired) { this(userId, roles, consentRequired, null, false); }
+        public LoginUser(Long userId, List<Role> roles, boolean consentRequired, String recoveryKey) { this(userId, roles, consentRequired, recoveryKey, false); }
     }
 }

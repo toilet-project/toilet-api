@@ -29,11 +29,11 @@ public class PhotoConfiguration {
             if (!settings.enabled()) { client = null; return; }
             URI endpoint = URI.create(settings.endpoint());
             if (!"https".equals(endpoint.getScheme()) || endpoint.getHost() == null
-                    || !endpoint.getHost().matches("[a-f0-9]{32}(?:\\.(?:eu|us))?\\.r2\\.cloudflarestorage\\.com")
+                    || !endpoint.getHost().matches("[a-f0-9]{32}\\.us\\.r2\\.cloudflarestorage\\.com")
                     || endpoint.getUserInfo() != null || endpoint.getPort() != -1
                     || endpoint.getQuery() != null || endpoint.getFragment() != null
                     || !(endpoint.getPath().isEmpty() || endpoint.getPath().equals("/"))
-                    || bucket == null || !bucket.matches("[a-z0-9][a-z0-9-]{1,61}[a-z0-9]"))
+                    || !"geupddong-profile-photos-us".equals(bucket))
                 throw new IllegalStateException("Invalid profile photo storage configuration");
             client = S3Client.builder().endpointOverride(endpoint).region(Region.of("auto"))
                     .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(settings.accessKeyId(),settings.secretAccessKey())))

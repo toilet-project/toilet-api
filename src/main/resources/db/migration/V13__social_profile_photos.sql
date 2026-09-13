@@ -6,13 +6,13 @@ CREATE TABLE profile_photo_object (
 );
 CREATE TABLE profile_photo (
     user_id BIGINT NOT NULL PRIMARY KEY,
-    use_social BOOLEAN NOT NULL DEFAULT FALSE,
     is_public BOOLEAN NOT NULL DEFAULT FALSE,
     generation BIGINT NOT NULL DEFAULT 0,
     object_key VARCHAR(100) NULL,
     content_hash CHAR(64) NULL,
-    source_hash CHAR(64) NULL,
-    checked_at DATETIME(6) NULL,
+    source_kind VARCHAR(24) NULL,
+    notice_version VARCHAR(40) NULL,
+    collected_at DATETIME(6) NULL,
     updated_at DATETIME(6) NOT NULL,
     CONSTRAINT fk_photo_user FOREIGN KEY (user_id) REFERENCES app_user(user_id) ON DELETE CASCADE,
     CONSTRAINT fk_photo_object FOREIGN KEY (object_key) REFERENCES profile_photo_object(object_key),

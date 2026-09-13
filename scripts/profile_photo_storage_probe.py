@@ -8,8 +8,8 @@ def run():
     env=dict(line.split('=',1) for line in target.read_text().splitlines() if '=' in line)
     host=urllib.parse.urlsplit(env['PROFILE_PHOTO_R2_ENDPOINT']).hostname
     import re
-    assert host and re.fullmatch(r'[a-f0-9]{32}\.r2\.cloudflarestorage\.com',host)
-    bucket='geupddong-profile-photos'
+    assert host and re.fullmatch(r'[a-f0-9]{32}\.us\.r2\.cloudflarestorage\.com',host)
+    bucket='geupddong-profile-photos-us'
     assert env['PROFILE_PHOTO_R2_ENDPOINT']=='https://'+host and env['PROFILE_PHOTO_R2_BUCKET']==bucket
     access,secret=env['PROFILE_PHOTO_R2_ACCESS_KEY_ID'],env['PROFILE_PHOTO_R2_SECRET_ACCESS_KEY']
     sha=lambda value:hashlib.sha256(value).hexdigest()
