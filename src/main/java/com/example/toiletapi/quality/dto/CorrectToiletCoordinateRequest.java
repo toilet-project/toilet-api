@@ -21,4 +21,9 @@ public record CorrectToiletCoordinateRequest(
                                           String roadAddress, String note) {
         this(latitude, longitude, roadAddress, note, null, null, null);
     }
+
+    public CorrectToiletCoordinateRequest(BigDecimal latitude, BigDecimal longitude,
+                                          String roadAddress, String note, Long displayGroupId) {
+        this(latitude, longitude, roadAddress, note, displayGroupId, null, null);
+    }
 }
