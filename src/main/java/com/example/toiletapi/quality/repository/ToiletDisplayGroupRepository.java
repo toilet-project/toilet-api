@@ -59,6 +59,15 @@ public class ToiletDisplayGroupRepository {
         return count != null && count == 1;
     }
 
+    public List<Long> memberIds(Long groupId) {
+        return jdbc.queryForList("""
+                SELECT toilet_id
+                  FROM toilet_display_group_member
+                 WHERE group_id = :groupId
+                 ORDER BY sort_order ASC, toilet_id ASC
+                """, new MapSqlParameterSource("groupId", groupId), Long.class);
+    }
+
     public Long create(String displayName, BigDecimal latitude, BigDecimal longitude, Long adminId) {
         var keyHolder = new GeneratedKeyHolder();
         jdbc.getJdbcOperations().update(connection -> {
