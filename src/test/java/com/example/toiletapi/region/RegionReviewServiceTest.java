@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.web.server.ResponseStatusException;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -66,7 +67,7 @@ class RegionReviewServiceTest {
 
     @Test void districtConfirmationUsesCanonicalRegionAndWritesAudit() {
         var region = new RegionValue("경기도","41","용인시 수지구","41465","용인시","수지구");
-        doReturn(java.util.List.of(region)).when(jdbc).query(contains("FROM toilet_region WHERE"),
+        doReturn(java.util.List.of(region)).when(jdbc).query(contains("FROM region_sigungu_reference WHERE"),
                 any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class), any(RowMapper.class));
         when(jdbc.update(contains("INSERT INTO toilet_region_override"),
                 any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class))).thenReturn(1);
@@ -78,6 +79,8 @@ class RegionReviewServiceTest {
         assertEquals("지도 위치 확인", result.note());
         verify(jdbc).update(contains("INSERT INTO toilet_region_override"),
                 any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class));
+        verify(jdbc).update(contains("INSERT INTO toilet_region_decision"),
+                any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class));
         verify(audit).record(9L, AuditAction.TOILET_REGION_CONFIRMED, "TOILET", 1L,
                 java.util.Map.of("sigunguCode","41465","regionName","경기도 용인시 수지구"));
     }
@@ -86,5 +89,33 @@ class RegionReviewServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.options("a".repeat(51),20));
         assertThrows(IllegalArgumentException.class, () -> service.options("수원",51));
         verifyNoInteractions(jdbc);
+    }
+
+    @Test void regionOptionSearchUsesTheOfficialReferenceAndCombinedDisplayName() {
+        doReturn(java.util.List.of()).when(jdbc).query(anyString(), any(SqlParameterSource.class), any(RowMapper.class));
+
+        service.options(" 서울특별시   동대문구 ", 20);
+
+        var sql = org.mockito.ArgumentCaptor.forClass(String.class);
+        var params = org.mockito.ArgumentCaptor.forClass(SqlParameterSource.class);
+        verify(jdbc).query(sql.capture(), params.capture(), any(RowMapper.class));
+        assertTrue(sql.getValue().contains("FROM region_sigungu_reference"));
+        assertTrue(sql.getValue().contains("display_name LIKE"));
+        assertEquals("%서울특별시 동대문구%", params.getValue().getValue("keyword"));
+        assertEquals("%서울특별시동대문구%", params.getValue().getValue("compactKeyword"));
+    }
+
+    @Test void reviewQueueReadsTheNarrowAssignmentAndCanonicalReference() {
+        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(0L);
+        doReturn(java.util.List.of()).when(jdbc).query(anyString(), any(SqlParameterSource.class), any(RowMapper.class));
+
+        service.search(Filter.REVIEW, "", 0, 20);
+
+        var sql = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(jdbc).query(sql.capture(), any(SqlParameterSource.class), any(RowMapper.class));
+        assertTrue(sql.getValue().contains("LEFT JOIN toilet_region_assignment a"));
+        assertTrue(sql.getValue().contains("LEFT JOIN region_sigungu_reference ar"));
+        assertTrue(sql.getValue().contains("a.source_revision <> t.region_revision"));
+        assertFalse(sql.getValue().contains("LEFT JOIN toilet_region r"));
     }
 }

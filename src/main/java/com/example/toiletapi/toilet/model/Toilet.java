@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -112,12 +113,23 @@ public class Toilet {
     @Column(name = "data_source", length = 20)
     private String dataSource;
 
+    @Column(name = "region_revision", nullable = false)
+    private Long regionRevision = 1L;
+
     public void applyAdminConfirmedCoordinates(BigDecimal latitude, BigDecimal longitude, String roadAddress, String jibunAddress) {
+        if (!sameCoordinate(this.latitude, latitude) || !sameCoordinate(this.longitude, longitude)
+                || !Objects.equals(this.roadAddress, roadAddress) || !Objects.equals(this.jibunAddress, jibunAddress)) {
+            this.regionRevision = (this.regionRevision == null ? 1L : this.regionRevision) + 1L;
+        }
         this.latitude = latitude;
         this.longitude = longitude;
         this.roadAddress = roadAddress;
         this.jibunAddress = jibunAddress;
         this.coordinateSource = "ADMIN_CONFIRMED";
+    }
+
+    private static boolean sameCoordinate(BigDecimal left, BigDecimal right) {
+        return left == null ? right == null : right != null && left.compareTo(right) == 0;
     }
 
     public void applyReportedOpenTime(String openTime) {

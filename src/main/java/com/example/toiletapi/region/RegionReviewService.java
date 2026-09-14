@@ -31,31 +31,30 @@ import static com.example.toiletapi.region.RegionReviewModels.*;
 public class RegionReviewService {
     // A confirmation is current only while the exact reviewed source remains unchanged.
     static final String EFFECTIVE_STATUS = """
-            CASE WHEN o.toilet_id IS NOT NULL THEN 'VERIFIED'
+            CASE WHEN d.toilet_id IS NOT NULL THEN 'VERIFIED'
                  WHEN t.latitude IS NULL OR t.longitude IS NULL THEN 'NO_COORDINATE'
-                 WHEN r.toilet_id IS NULL THEN 'UNASSESSED'
-                 WHEN NOT (t.latitude <=> r.source_latitude AND t.longitude <=> r.source_longitude
-                       AND BINARY t.road_address <=> BINARY r.source_road_address
-                       AND BINARY t.jibun_address <=> BINARY r.source_jibun_address) THEN 'STALE'
-                 WHEN r.status = 'VERIFIED' AND NOT (t.latitude <=> r.evaluated_latitude
-                       AND t.longitude <=> r.evaluated_longitude) THEN 'STALE'
-                 ELSE r.status END
+                 WHEN a.toilet_id IS NULL THEN 'UNASSESSED'
+                 WHEN a.source_revision <> t.region_revision THEN 'STALE'
+                 WHEN a.status = 'VERIFIED' AND NOT (t.latitude <=> a.evaluated_latitude
+                       AND t.longitude <=> a.evaluated_longitude) THEN 'STALE'
+                 ELSE a.status END
             """;
     private static final String JOIN = """
              FROM toilet t
-             LEFT JOIN toilet_region r ON r.toilet_id=t.toilet_id
-             LEFT JOIN toilet_region_override o ON o.toilet_id=t.toilet_id
-               AND t.latitude <=> o.source_latitude AND t.longitude <=> o.source_longitude
-               AND BINARY t.road_address <=> BINARY o.source_road_address
-               AND BINARY t.jibun_address <=> BINARY o.source_jibun_address
+             LEFT JOIN toilet_region_assignment a ON a.toilet_id=t.toilet_id
+             LEFT JOIN toilet_region_decision d ON d.toilet_id=t.toilet_id
+               AND d.source_revision=t.region_revision
+             LEFT JOIN region_sigungu_reference ar ON ar.sigungu_code=a.sigungu_code
+             LEFT JOIN region_sigungu_reference dr ON dr.sigungu_code=d.sigungu_code
+             LEFT JOIN toilet_region_assessment_history ah ON ah.assessment_id=a.assessment_id
             """;
     private static final String COLUMNS = """
             t.toilet_id, t.name, t.mng_no, t.latitude, t.longitude, t.road_address, t.jibun_address,
-            r.status AS assessment_status, COALESCE(o.note,r.reason) AS reason,
-            COALESCE(o.sido_name,r.sido_name) AS sido_name, COALESCE(o.sido_code,r.sido_code) AS sido_code,
-            COALESCE(o.sigungu_name,r.sigungu_name) AS sigungu_name, COALESCE(o.sigungu_code,r.sigungu_code) AS sigungu_code,
-            COALESCE(o.city_name,r.city_name) AS city_name, COALESCE(o.district_name,r.district_name) AS district_name,
-            COALESCE(o.confirmed_at,r.checked_at) AS checked_at,
+            a.status AS assessment_status, COALESCE(d.note,a.reason) AS reason,
+            COALESCE(dr.sido_name,ar.sido_name) AS sido_name, COALESCE(dr.sido_code,ar.sido_code) AS sido_code,
+            COALESCE(dr.sigungu_name,ar.sigungu_name) AS sigungu_name, COALESCE(d.sigungu_code,a.sigungu_code) AS sigungu_code,
+            COALESCE(dr.city_name,ar.city_name) AS city_name, COALESCE(dr.district_name,ar.district_name) AS district_name,
+            COALESCE(d.confirmed_at,a.checked_at) AS checked_at,
             """ + EFFECTIVE_STATUS + " AS effective_status ";
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
     private final NamedParameterJdbcTemplate jdbc;
@@ -81,19 +80,22 @@ public class RegionReviewService {
         }
         Long total = jdbc.queryForObject("SELECT COUNT(*)" + JOIN + where, params, Long.class);
         var items = jdbc.query("SELECT " + COLUMNS + JOIN + where
-                + " ORDER BY COALESCE(o.confirmed_at,r.checked_at) ASC, t.toilet_id ASC LIMIT :limit OFFSET :offset",
+                + " ORDER BY COALESCE(d.confirmed_at,a.checked_at) ASC, t.toilet_id ASC LIMIT :limit OFFSET :offset",
                 params, (rs, n) -> item(rs));
         return page(items, page, size, total);
     }
 
     public Detail detail(long id) {
         var rows = jdbc.query("SELECT " + COLUMNS + """
-                , r.source_latitude, r.source_longitude, r.source_road_address, r.source_jibun_address,
-                  r.evaluated_latitude, r.evaluated_longitude, r.result_json, t.data_source,
-                  o.sido_name AS confirmed_sido_name, o.sido_code AS confirmed_sido_code,
-                  o.sigungu_name AS confirmed_sigungu_name, o.sigungu_code AS confirmed_sigungu_code,
-                  o.city_name AS confirmed_city_name, o.district_name AS confirmed_district_name,
-                  o.note AS confirmed_note, o.confirmed_at
+                , CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(ah.result_json,'$.source.latitude')),'null') AS DECIMAL(10,7)) AS source_latitude,
+                  CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(ah.result_json,'$.source.longitude')),'null') AS DECIMAL(10,7)) AS source_longitude,
+                  NULLIF(JSON_UNQUOTE(JSON_EXTRACT(ah.result_json,'$.source.roadAddress')),'null') AS source_road_address,
+                  NULLIF(JSON_UNQUOTE(JSON_EXTRACT(ah.result_json,'$.source.jibunAddress')),'null') AS source_jibun_address,
+                  a.evaluated_latitude, a.evaluated_longitude, ah.result_json, t.data_source,
+                  dr.sido_name AS confirmed_sido_name, dr.sido_code AS confirmed_sido_code,
+                  dr.sigungu_name AS confirmed_sigungu_name, d.sigungu_code AS confirmed_sigungu_code,
+                  dr.city_name AS confirmed_city_name, dr.district_name AS confirmed_district_name,
+                  d.note AS confirmed_note, d.confirmed_at
                 """ + JOIN + " WHERE t.toilet_id=:id", new MapSqlParameterSource("id", id), (rs, n) -> new Detail(
                 item(rs), new Location(rs.getBigDecimal("source_latitude"), rs.getBigDecimal("source_longitude"),
                 rs.getString("source_road_address"), rs.getString("source_jibun_address")),
@@ -104,19 +106,22 @@ public class RegionReviewService {
     }
 
     public List<RegionOption> options(String keyword, int limit) {
-        String term = keyword == null ? "" : keyword.trim();
+        String term = keyword == null ? "" : keyword.trim().replaceAll("\\s+", " ");
         if (term.length() > 50) throw new IllegalArgumentException("지역 검색어는 50자 이하로 입력해 주세요.");
         if (limit < 1 || limit > 50) throw new IllegalArgumentException("지역 검색 결과는 1~50개까지 요청할 수 있습니다.");
         var params = new MapSqlParameterSource("limit", limit);
-        String where = " WHERE sigungu_code IS NOT NULL AND sido_name IS NOT NULL ";
+        String where = " WHERE is_active=1 ";
         if (!term.isEmpty()) {
             params.addValue("keyword", "%" + escapeLike(term) + "%");
-            where += " AND (sido_name LIKE :keyword ESCAPE '!' OR sigungu_name LIKE :keyword ESCAPE '!') ";
+            params.addValue("compactKeyword", "%" + escapeLike(term.replace(" ", "")) + "%");
+            where += " AND (display_name LIKE :keyword ESCAPE '!'"
+                    + " OR REPLACE(display_name,' ','') LIKE :compactKeyword ESCAPE '!'"
+                    + " OR sigungu_code LIKE :keyword ESCAPE '!') ";
         }
         return jdbc.query("""
-                SELECT DISTINCT sido_name,sido_code,sigungu_name,sigungu_code,city_name,district_name
-                FROM toilet_region
-                """ + where + " ORDER BY sido_name,sigungu_name LIMIT :limit", params,
+                SELECT sido_name,sido_code,sigungu_name,sigungu_code,city_name,district_name
+                FROM region_sigungu_reference
+                """ + where + " ORDER BY sido_code,sigungu_code LIMIT :limit", params,
                 (rs, n) -> new RegionOption(region(rs, "")));
     }
 
@@ -139,8 +144,7 @@ public class RegionReviewService {
         requireUnchanged(toilet, request.expectedLocation());
         var matches = jdbc.query("""
                 SELECT sido_name,sido_code,sigungu_name,sigungu_code,city_name,district_name
-                FROM toilet_region WHERE sigungu_code=:code AND sido_name IS NOT NULL
-                ORDER BY checked_at DESC LIMIT 1
+                FROM region_sigungu_reference WHERE sigungu_code=:code AND is_active=1
                 """, new MapSqlParameterSource("code", request.sigunguCode()), (rs, n) -> region(rs, ""));
         if (matches.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "선택한 시·군·구를 확인할 수 없습니다.");
         RegionValue choice = matches.getFirst();
@@ -152,6 +156,7 @@ public class RegionReviewService {
                 .addValue("note", request.note().trim()).addValue("latitude", toilet.getLatitude())
                 .addValue("longitude", toilet.getLongitude()).addValue("roadAddress", toilet.getRoadAddress())
                 .addValue("jibunAddress", toilet.getJibunAddress()).addValue("adminId", adminId)
+                .addValue("sourceRevision", toilet.getRegionRevision() == null ? 1L : toilet.getRegionRevision())
                 .addValue("confirmedAt", confirmedAt.toLocalDateTime());
         jdbc.update("""
                 INSERT INTO toilet_region_override
@@ -165,6 +170,14 @@ public class RegionReviewService {
                   source_longitude=VALUES(source_longitude),source_road_address=VALUES(source_road_address),
                   source_jibun_address=VALUES(source_jibun_address),confirmed_by_user_id=VALUES(confirmed_by_user_id),
                   confirmed_at=VALUES(confirmed_at)
+                """, values);
+        jdbc.update("""
+                INSERT INTO toilet_region_decision
+                    (toilet_id,sigungu_code,note,source_revision,confirmed_by_user_id,confirmed_at)
+                VALUES (:id,:sigunguCode,:note,:sourceRevision,:adminId,:confirmedAt)
+                ON DUPLICATE KEY UPDATE sigungu_code=VALUES(sigungu_code),note=VALUES(note),
+                    source_revision=VALUES(source_revision),confirmed_by_user_id=VALUES(confirmed_by_user_id),
+                    confirmed_at=VALUES(confirmed_at)
                 """, values);
         audit.record(adminId, AuditAction.TOILET_REGION_CONFIRMED, "TOILET", id,
                 Map.of("sigunguCode", choice.sigunguCode(), "regionName", displayName(choice)));
