@@ -29,6 +29,7 @@ public class OAuthLoginRedirectController {
         if (request.getSession(false) != null) request.getSession(false).removeAttribute(RETURN_URL_SESSION_ATTRIBUTE);
         switch (returnTo) {
             case "admin" -> request.getSession(true).setAttribute(RETURN_URL_SESSION_ATTRIBUTE, OAuthReturnTargets.ADMIN);
+            case "adminPreview" -> request.getSession(true).setAttribute(RETURN_URL_SESSION_ATTRIBUTE, OAuthReturnTargets.ADMIN_PREVIEW);
             case "preview" -> request.getSession(true).setAttribute(RETURN_URL_SESSION_ATTRIBUTE, OAuthReturnTargets.PREVIEW);
             case "home" -> { }
             default -> { response.sendError(HttpServletResponse.SC_BAD_REQUEST); return; }

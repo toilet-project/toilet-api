@@ -65,6 +65,10 @@ class OAuthSessionCookieIntegrationTest {
         assertCancelledFlow("kakao", "preview", OAuthReturnTargets.PREVIEW);
     }
 
+    @Test void controllerCreatedSessionKeepsAdminPreviewTargetThroughCancelledCallback() throws Exception {
+        assertCancelledFlow("google", "adminPreview", OAuthReturnTargets.ADMIN_PREVIEW);
+    }
+
     @Test void incorrectStateDoesNotAuthenticate() throws Exception {
         var start = get("/oauth2/authorization/google", null, true);
         var failure = get("/login/oauth2/code/google?error=access_denied&state=invalid-fixture-state",

@@ -32,6 +32,15 @@ class PreviewOAuthTest {
         assertNull(request.getSession().getAttribute(OAuthReturnTargets.SESSION_ATTRIBUTE));
     }
 
+    @Test void adminPreviewStartUsesExactAllowlistedPath() throws Exception {
+        var controller=new OAuthLoginRedirectController();
+        var request=new MockHttpServletRequest();
+        var response=new MockHttpServletResponse();
+        controller.login("google","adminPreview",request,response);
+        assertEquals("/oauth2/authorization/google",response.getRedirectedUrl());
+        assertEquals(OAuthReturnTargets.ADMIN_PREVIEW,request.getSession().getAttribute(OAuthReturnTargets.SESSION_ATTRIBUTE));
+    }
+
     @Test void externalTargetsAndUnknownProvidersRejected() throws Exception {
         var controller=new OAuthLoginRedirectController();
         for(String target:List.of("https://evil.example","//evil.example","preview.evil","PREVIEW")) {
@@ -50,6 +59,10 @@ class PreviewOAuthTest {
     }
     @Test void previewSignupConsentStaysOnPreview() throws Exception {
         assertSuccess(OAuthReturnTargets.PREVIEW,true,OAuthReturnTargets.PREVIEW+"/?login=success&consent=required");
+    }
+    @Test void existingAdminPreviewUserReturnsToAdminPreview() throws Exception {
+        assertSuccess(OAuthReturnTargets.ADMIN_PREVIEW,false,OAuthReturnTargets.ADMIN_PREVIEW+"/?login=success");
+        assertSuccess(OAuthReturnTargets.ADMIN_PREVIEW,true,OAuthReturnTargets.ADMIN_PREVIEW+"/?login=success&consent=required");
     }
     @Test void existingHomeAndAdminBehaviorRetained() throws Exception {
         assertSuccess(null,false,home+"/?login=success");
@@ -73,7 +86,8 @@ class PreviewOAuthTest {
         verifyNoInteractions(photos);
     }
     @Test void failureReturnsSafelyAndConsumesTarget() throws Exception {
-        for(String target:List.of(OAuthReturnTargets.PREVIEW,OAuthReturnTargets.ADMIN,"https://evil.example")) {
+        for(String target:List.of(OAuthReturnTargets.PREVIEW,OAuthReturnTargets.ADMIN,
+                OAuthReturnTargets.ADMIN_PREVIEW,"https://evil.example")) {
             var request=new MockHttpServletRequest();
             request.getSession().setAttribute(OAuthReturnTargets.SESSION_ATTRIBUTE,target);
             var response=new MockHttpServletResponse();
