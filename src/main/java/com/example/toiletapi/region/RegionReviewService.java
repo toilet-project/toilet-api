@@ -104,19 +104,22 @@ public class RegionReviewService {
     }
 
     public List<RegionOption> options(String keyword, int limit) {
-        String term = keyword == null ? "" : keyword.trim();
+        String term = keyword == null ? "" : keyword.trim().replaceAll("\\s+", " ");
         if (term.length() > 50) throw new IllegalArgumentException("지역 검색어는 50자 이하로 입력해 주세요.");
         if (limit < 1 || limit > 50) throw new IllegalArgumentException("지역 검색 결과는 1~50개까지 요청할 수 있습니다.");
         var params = new MapSqlParameterSource("limit", limit);
-        String where = " WHERE sigungu_code IS NOT NULL AND sido_name IS NOT NULL ";
+        String where = " WHERE is_active=1 ";
         if (!term.isEmpty()) {
             params.addValue("keyword", "%" + escapeLike(term) + "%");
-            where += " AND (sido_name LIKE :keyword ESCAPE '!' OR sigungu_name LIKE :keyword ESCAPE '!') ";
+            params.addValue("compactKeyword", "%" + escapeLike(term.replace(" ", "")) + "%");
+            where += " AND (display_name LIKE :keyword ESCAPE '!'"
+                    + " OR REPLACE(display_name,' ','') LIKE :compactKeyword ESCAPE '!'"
+                    + " OR sigungu_code LIKE :keyword ESCAPE '!') ";
         }
         return jdbc.query("""
-                SELECT DISTINCT sido_name,sido_code,sigungu_name,sigungu_code,city_name,district_name
-                FROM toilet_region
-                """ + where + " ORDER BY sido_name,sigungu_name LIMIT :limit", params,
+                SELECT sido_name,sido_code,sigungu_name,sigungu_code,city_name,district_name
+                FROM region_sigungu_reference
+                """ + where + " ORDER BY sido_code,sigungu_code LIMIT :limit", params,
                 (rs, n) -> new RegionOption(region(rs, "")));
     }
 
@@ -139,8 +142,7 @@ public class RegionReviewService {
         requireUnchanged(toilet, request.expectedLocation());
         var matches = jdbc.query("""
                 SELECT sido_name,sido_code,sigungu_name,sigungu_code,city_name,district_name
-                FROM toilet_region WHERE sigungu_code=:code AND sido_name IS NOT NULL
-                ORDER BY checked_at DESC LIMIT 1
+                FROM region_sigungu_reference WHERE sigungu_code=:code AND is_active=1
                 """, new MapSqlParameterSource("code", request.sigunguCode()), (rs, n) -> region(rs, ""));
         if (matches.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "선택한 시·군·구를 확인할 수 없습니다.");
         RegionValue choice = matches.getFirst();
