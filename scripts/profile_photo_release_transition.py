@@ -87,6 +87,16 @@ def feature_values(active, cdn_enabled=False):
 
 
 def parse_storage(content):
+    values = parse_storage_values(content)
+    endpoint = values['PROFILE_PHOTO_R2_ENDPOINT']
+    require(re.fullmatch(r'https://[a-f0-9]{32}\.us\.r2\.cloudflarestorage\.com', endpoint),
+            'PROFILE_PHOTO_STORAGE_ENDPOINT_REJECTED')
+    require(values['PROFILE_PHOTO_R2_BUCKET'] == 'geupddong-profile-photos-us',
+            'PROFILE_PHOTO_STORAGE_BUCKET_REJECTED')
+    return values
+
+
+def parse_storage_values(content):
     values = {}
     for line in content.decode('utf-8').splitlines():
         if not line or line.lstrip().startswith('#'):
@@ -96,12 +106,30 @@ def parse_storage(content):
         values[match[1]] = match[2]
     require(set(values) in (set(PROFILE_BASE_KEYS), set(PROFILE_KEYS)),
             'PROFILE_PHOTO_STORAGE_ENV_REJECTED')
-    endpoint = values['PROFILE_PHOTO_R2_ENDPOINT']
-    require(re.fullmatch(r'https://[a-f0-9]{32}\.us\.r2\.cloudflarestorage\.com', endpoint),
-            'PROFILE_PHOTO_STORAGE_ENDPOINT_REJECTED')
-    require(values['PROFILE_PHOTO_R2_BUCKET'] == 'geupddong-profile-photos-us',
-            'PROFILE_PHOTO_STORAGE_BUCKET_REJECTED')
     return values
+
+
+def parse_legacy_storage(content):
+    values = parse_storage_values(content)
+    endpoint = values['PROFILE_PHOTO_R2_ENDPOINT']
+    require(re.fullmatch(r'https://[a-f0-9]{32}\.r2\.cloudflarestorage\.com', endpoint),
+            'PROFILE_PHOTO_APAC_ROLLBACK_ENDPOINT_REJECTED')
+    require(values['PROFILE_PHOTO_R2_BUCKET'] == 'geupddong-profile-photos',
+            'PROFILE_PHOTO_APAC_ROLLBACK_BUCKET_REJECTED')
+    return values
+
+
+def select_legacy_rollbacks(paths, current, reader):
+    candidates = []
+    for path in paths:
+        if path == current:
+            continue
+        try:
+            parse_legacy_storage(reader(path))
+        except (OSError, UnicodeError, ValueError):
+            continue
+        candidates.append(path)
+    return sorted(candidates)
 
 
 def inject_profile(content):
@@ -144,14 +172,40 @@ def validate_render_change(before, after, storage, active):
     require(after == expected, 'PROFILE_PHOTO_RELEASE_NON_PROFILE_CHANGE_REJECTED')
 
 
-def read_owned(path, private=False):
+def read_owned(path, private=False, owner=1000):
     require(path.resolve(strict=True) == path)
     info = path.lstat()
-    require(stat.S_ISREG(info.st_mode) and info.st_uid == 1000 and info.st_nlink == 1)
+    require(stat.S_ISREG(info.st_mode) and info.st_uid == owner and info.st_nlink == 1)
     require(stat.S_IMODE(info.st_mode) == 0o600 if private
-            else info.st_gid == 1000 and not (info.st_mode & 0o002))
+            else info.st_gid == owner and not (info.st_mode & 0o002))
     require(info.st_size <= 1024 * 1024)
     return path.read_bytes()
+
+
+def legacy_rollback_files(directory=PROFILE_ENV.parent, current=PROFILE_ENV):
+    require(directory.resolve(strict=True) == directory)
+    info = directory.stat()
+    require(stat.S_ISDIR(info.st_mode) and info.st_uid == 1000 and info.st_gid == 1000
+            and not (info.st_mode & 0o022), 'PROFILE_PHOTO_APAC_ROLLBACK_DIRECTORY_REJECTED')
+    return select_legacy_rollbacks(directory.iterdir(), current,
+                                   lambda path: read_owned(path, True))
+
+
+def retire_legacy_rollback(current_content):
+    candidates = legacy_rollback_files()
+    require(len(candidates) == 1, 'PROFILE_PHOTO_APAC_ROLLBACK_COUNT_REJECTED')
+    target = candidates[0]
+    parse_legacy_storage(read_owned(target, True))
+    os.unlink(target)
+    descriptor = os.open(PROFILE_ENV.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    require(read_owned(PROFILE_ENV, True) == current_content,
+            'PROFILE_PHOTO_APAC_ROLLBACK_CURRENT_CHANGED')
+    require(not target.exists() and not legacy_rollback_files(),
+            'PROFILE_PHOTO_APAC_ROLLBACK_DELETE_REJECTED')
 
 
 def atomic_replace(path, content):
@@ -357,16 +411,23 @@ def apply_compose(host, snapshots, commits, storage, replacement, target_state):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--operation', choices=('check', 'mount-disabled', 'activate', 'deactivate'), required=True)
+    parser.add_argument('--operation', choices=('check', 'mount-disabled', 'activate', 'deactivate',
+                                               'inspect-apac-rollback', 'retire-apac-rollback'),
+                        required=True)
     parser.add_argument('--api-commit', required=True)
     parser.add_argument('--batch-commit', required=True)
     parser.add_argument('--apply-approved', action='store_true')
     parser.add_argument('--deployment-freeze-confirmed', action='store_true')
+    parser.add_argument('--apac-cloud-resources-deleted-confirmed', action='store_true')
     args = parser.parse_args()
     require(os.geteuid() == 1000 and sys.platform.startswith('linux'))
     require(all(re.fullmatch(r'[a-f0-9]{40}', value or '') for value in (args.api_commit, args.batch_commit)))
+    read_only = args.operation in ('check', 'inspect-apac-rollback')
     require(not args.apply_approved or args.deployment_freeze_confirmed)
-    require((args.operation == 'check') == (not args.apply_approved))
+    require(read_only == (not args.apply_approved))
+    require(args.operation != 'retire-apac-rollback'
+            or args.apac_cloud_resources_deleted_confirmed,
+            'PROFILE_PHOTO_APAC_CLOUD_CLEANUP_UNCONFIRMED')
     host = Host()
     commits = {'api': args.api_commit, 'batch': args.batch_commit}
     storage = host.storage()
@@ -379,6 +440,7 @@ def main():
             'base_env': read_owned(ROOT / '.env', True),
             'account_env': read_owned(ROOT / '.account-lifecycle.env', True),
         }
+        legacy_before = len(legacy_rollback_files()) if 'apac-rollback' in args.operation else None
         if args.operation == 'check' and state == 'unmounted':
             candidate = inject_profile(snapshots['compose'])
             validate_render_change(snapshots['render'], host.rendered(candidate), storage, False)
@@ -398,10 +460,18 @@ def main():
             validate_render_change(snapshots['render'], host.rendered(replacement), storage, active)
             apply_compose(host, snapshots, commits, storage, replacement, 'active' if active else 'disabled')
             state = 'active' if active else 'disabled'
+        elif args.operation == 'inspect-apac-rollback':
+            pass
+        elif args.operation == 'retire-apac-rollback':
+            require(state == 'active', 'PROFILE_PHOTO_APAC_ROLLBACK_STATE_REJECTED')
+            retire_legacy_rollback(read_owned(PROFILE_ENV, True))
+        legacy_after = len(legacy_rollback_files()) if 'apac-rollback' in args.operation else None
     print(json.dumps({'outcome': 'PROFILE_PHOTO_RELEASE_' +
-                      ('CHECKED' if args.operation == 'check' else 'APPLIED'),
+                      ('CHECKED' if read_only else 'APPLIED'),
                       'profilePhotoState': state, 'accountStatePreserved': True,
-                      'directDatabaseWrites': False, 'operation': args.operation}))
+                      'directDatabaseWrites': False, 'operation': args.operation,
+                      'legacyRollbackFilesBefore': legacy_before,
+                      'legacyRollbackFilesAfter': legacy_after}))
 
 
 if __name__ == '__main__':

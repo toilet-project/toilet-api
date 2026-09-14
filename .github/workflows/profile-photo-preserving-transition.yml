@@ -13,10 +13,14 @@ on:
       operation:
         description: Explicit profile-photo-only transition
         type: choice
-        options: [check, mount-disabled, activate, deactivate]
+        options: [check, mount-disabled, activate, deactivate, inspect-apac-rollback, retire-apac-rollback]
         default: check
       deployment_freeze_confirmed:
         description: Operator confirmed no other deployment or manual configuration change
+        type: boolean
+        default: false
+      apac_cloud_resources_deleted_confirmed:
+        description: Operator confirmed the obsolete APAC bucket and token are deleted
         type: boolean
         default: false
 permissions:
@@ -46,13 +50,15 @@ jobs:
           BATCH_COMMIT: ${{ inputs.batch_commit }}
           OPERATION: ${{ inputs.operation }}
           FREEZE: ${{ inputs.deployment_freeze_confirmed }}
+          APAC_CLOUD_DELETED: ${{ inputs.apac_cloud_resources_deleted_confirmed }}
         run: |
           set -euo pipefail
           [[ "$API_COMMIT" =~ ^[a-f0-9]{40}$ ]]
           [[ "$BATCH_COMMIT" =~ ^[a-f0-9]{40}$ ]]
           case "$OPERATION" in
-            check) ;;
+            check|inspect-apac-rollback) ;;
             mount-disabled|activate|deactivate) test "$FREEZE" = true ;;
+            retire-apac-rollback) test "$FREEZE" = true; test "$APAC_CLOUD_DELETED" = true ;;
             *) exit 1 ;;
           esac
           python3 -B -m unittest scripts.test_profile_photo_release_transition
@@ -80,6 +86,7 @@ jobs:
           BATCH_COMMIT: ${{ inputs.batch_commit }}
           OPERATION: ${{ inputs.operation }}
           FREEZE: ${{ inputs.deployment_freeze_confirmed }}
+          APAC_CLOUD_DELETED: ${{ inputs.apac_cloud_resources_deleted_confirmed }}
         run: |
           set -euo pipefail
           umask 077
@@ -106,9 +113,13 @@ jobs:
             echo 'PROFILE_PHOTO_STORAGE_SYNTHETIC_PASS'
           fi
           remote="python3 -B - --operation $OPERATION --api-commit $API_COMMIT --batch-commit $BATCH_COMMIT"
-          if test "$OPERATION" != check; then
+          if test "$OPERATION" != check && test "$OPERATION" != inspect-apac-rollback; then
             test "$FREEZE" = true
             remote="$remote --apply-approved --deployment-freeze-confirmed"
+          fi
+          if test "$OPERATION" = retire-apac-rollback; then
+            test "$APAC_CLOUD_DELETED" = true
+            remote="$remote --apac-cloud-resources-deleted-confirmed"
           fi
           timeout 10m ssh "${ssh_args[@]}" "$remote" < scripts/profile_photo_release_transition.py
       - name: Remove runner-only credentials

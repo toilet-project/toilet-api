@@ -68,6 +68,33 @@ class ProfilePhotoReleaseTransitionTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 release.parse_storage(changed)
 
+    def test_legacy_storage_accepts_only_original_apac_bucket(self):
+        legacy = self.storage() | {
+            'PROFILE_PHOTO_R2_ENDPOINT': 'https://' + 'a' * 32 + '.r2.cloudflarestorage.com',
+            'PROFILE_PHOTO_R2_BUCKET': 'geupddong-profile-photos',
+        }
+        content = ''.join(key + '=' + value + '\n' for key, value in legacy.items()).encode()
+        self.assertEqual(release.parse_legacy_storage(content), legacy)
+        for changed in (
+            content.replace(b'.r2.', b'.us.r2.'),
+            content.replace(b'geupddong-profile-photos\n', b'geupddong-profile-photos-us\n'),
+            content + b'EXTRA=value\n',
+        ):
+            with self.assertRaises(ValueError):
+                release.parse_legacy_storage(changed)
+
+    def test_legacy_selection_excludes_current_and_unrelated_files(self):
+        current = Path('/config/profile-photo.env')
+        legacy = Path('/config/profile-photo.apac-rollback.env')
+        unrelated = Path('/config/other.env')
+        values = self.storage() | {
+            'PROFILE_PHOTO_R2_ENDPOINT': 'https://' + 'a' * 32 + '.r2.cloudflarestorage.com',
+            'PROFILE_PHOTO_R2_BUCKET': 'geupddong-profile-photos',
+        }
+        legacy_content = ''.join(key + '=' + value + '\n' for key, value in values.items()).encode()
+        contents = {current: legacy_content, legacy: legacy_content, unrelated: b'OTHER=value\n'}
+        self.assertEqual(release.select_legacy_rollbacks(contents, current, contents.__getitem__), [legacy])
+
     def test_render_rejects_non_profile_change(self):
         before = {'services': {'api': {'image': 'api', 'environment': {'ACCOUNT_ERASURE_ENABLED': 'true'}},
                                'redis': {'image': 'redis'}}}
@@ -87,7 +114,9 @@ class ProfilePhotoReleaseTransitionTest(unittest.TestCase):
         self.assertNotRegex(workflow, r'(?m)^  (push|pull_request|schedule):')
         for value in ("github.ref == 'refs/heads/main'", 'vars.PROFILE_PHOTO_RELEASE_APPROVED_SHA == github.sha',
                       'vars.PROFILE_PHOTO_RELEASE_API_COMMIT', 'vars.PROFILE_PHOTO_RELEASE_BATCH_COMMIT',
-                      '--deployment-freeze-confirmed', 'StrictHostKeyChecking=yes', '--apply-synthetic'):
+                      '--deployment-freeze-confirmed', '--apac-cloud-resources-deleted-confirmed',
+                      'inspect-apac-rollback', 'retire-apac-rollback',
+                      'StrictHostKeyChecking=yes', '--apply-synthetic'):
             self.assertIn(value, workflow)
 
 
