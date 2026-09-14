@@ -11,6 +11,7 @@ import com.example.toiletapi.auth.model.Role;
 import com.example.toiletapi.auth.repository.AppUserRepository;
 import com.example.toiletapi.auth.service.*;
 import com.example.toiletapi.global.config.CorsConfig;
+import com.example.toiletapi.photo.PhotoService;
 import com.example.toiletapi.policy.service.PolicyConsentService;
 import jakarta.servlet.http.Cookie;
 import java.time.*;
@@ -48,6 +49,7 @@ class StaleCookieAuthenticationTest {
     @MockitoBean AccountErasureService erasure;
     @MockitoBean RecoveryChallengeStore challenges;
     @MockitoBean AccountRecoveryService recovery;
+    @MockitoBean PhotoService photos;
     private Cookie stale() { return new Cookie("geupddong_access", "fixture-revoked"); }
 
     @BeforeEach void invalidAccess() {
