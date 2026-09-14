@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 public final class OAuthReturnTargets {
     public static final String SESSION_ATTRIBUTE = "oauth.login.return-url";
     public static final String ADMIN = "https://admin.geupddong.com";
+    public static final String ADMIN_PREVIEW = ADMIN + "/preview";
     public static final String PREVIEW = "https://preview.geupddong.com";
     private OAuthReturnTargets() { }
 
@@ -13,6 +14,8 @@ public final class OAuthReturnTargets {
         var session = request.getSession(false);
         Object target = session == null ? null : session.getAttribute(SESSION_ATTRIBUTE);
         if (session != null) session.removeAttribute(SESSION_ATTRIBUTE);
-        return ADMIN.equals(target) ? ADMIN : PREVIEW.equals(target) ? PREVIEW : home;
+        if (ADMIN.equals(target)) return ADMIN;
+        if (ADMIN_PREVIEW.equals(target)) return ADMIN_PREVIEW;
+        return PREVIEW.equals(target) ? PREVIEW : home;
     }
 }

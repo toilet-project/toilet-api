@@ -53,14 +53,18 @@ public class OAuthLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHand
         }
         String targetUrl;
         if (user.consentRequired()) {
-            String returnTarget = OAuthReturnTargets.ADMIN.equals(returnUrl) ? "admin" : null;
-            String consentBase = OAuthReturnTargets.PREVIEW.equals(returnUrl) ? returnUrl : frontendBaseUrl;
-            targetUrl = UriComponentsBuilder.fromUriString(consentBase)
-                    .path("/")
-                    .queryParam("login", "success")
-                    .queryParam("consent", "required")
-                    .queryParamIfPresent("returnTo", Optional.ofNullable(returnTarget))
-                    .build().encode().toUriString();
+            if (OAuthReturnTargets.ADMIN_PREVIEW.equals(returnUrl)) {
+                targetUrl = returnUrl + "/?login=success&consent=required";
+            } else {
+                String returnTarget = OAuthReturnTargets.ADMIN.equals(returnUrl) ? "admin" : null;
+                String consentBase = OAuthReturnTargets.PREVIEW.equals(returnUrl) ? returnUrl : frontendBaseUrl;
+                targetUrl = UriComponentsBuilder.fromUriString(consentBase)
+                        .path("/")
+                        .queryParam("login", "success")
+                        .queryParam("consent", "required")
+                        .queryParamIfPresent("returnTo", Optional.ofNullable(returnTarget))
+                        .build().encode().toUriString();
+            }
         } else {
             targetUrl = OAuthReturnTargets.ADMIN.equals(returnUrl) ? returnUrl : returnUrl + "/?login=success";
         }
