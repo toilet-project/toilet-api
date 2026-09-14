@@ -16,7 +16,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 
-/** Exercise the shipped V8 view and actual Spring Data native projection, not a mock. */
+/** Exercise the shipped region views and actual Spring Data native projection, not a mock. */
 @Testcontainers
 class ToiletRegionMySqlTest {
     @Container static MySQLContainer mysql = new MySQLContainer("mysql:8.0");
@@ -29,8 +29,11 @@ class ToiletRegionMySqlTest {
         var dataSource = new DriverManagerDataSource(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword());
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY, latitude DECIMAL(10,7), longitude DECIMAL(10,7), road_address VARCHAR(255), jibun_address VARCHAR(255))");
+        jdbc.execute("CREATE TABLE app_user (user_id BIGINT PRIMARY KEY)");
+        jdbc.update("INSERT INTO app_user VALUES (9)");
         try (var connection = dataSource.getConnection()) {
             ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V8__create_toilet_region.sql"));
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V16__create_toilet_region_override.sql"));
         }
         factory = new LocalContainerEntityManagerFactoryBean();
         factory.setDataSource(dataSource);
@@ -48,6 +51,7 @@ class ToiletRegionMySqlTest {
     }
 
     @BeforeEach void fixture() {
+        jdbc.update("DELETE FROM toilet_region_override");
         jdbc.update("DELETE FROM toilet_region");
         jdbc.update("DELETE FROM toilet");
         jdbc.update("INSERT INTO toilet VALUES (1,36.8,127.1,'Road A',NULL)");
@@ -104,5 +108,29 @@ class ToiletRegionMySqlTest {
         assertNull(region.getCityName());
         assertNull(region.getDistrictName());
         assertNull(region.getSigunguName());
+    }
+
+    @Test void currentManualDecisionWinsOverUnverifiedAutomaticResult() {
+        jdbc.update("UPDATE toilet_region SET status='MISMATCH'");
+        jdbc.update("""
+                INSERT INTO toilet_region_override
+                (toilet_id,sido_name,sido_code,sigungu_name,sigungu_code,city_name,district_name,note,
+                 source_latitude,source_longitude,source_road_address,source_jibun_address,confirmed_by_user_id)
+                VALUES (1,'경기도','41','평택시','41220',NULL,NULL,'관할 확인',36.8,127.1,'Road A',NULL,9)
+                """);
+        var region = repository.findCurrentRegion(1L).orElseThrow();
+        assertEquals("평택시", region.getSigunguName());
+        assertEquals("41220", region.getSigunguCode());
+    }
+
+    @Test void sourceChangeExpiresManualDecisionImmediately() {
+        jdbc.update("""
+                INSERT INTO toilet_region_override
+                (toilet_id,sido_name,sido_code,sigungu_name,sigungu_code,note,
+                 source_latitude,source_longitude,source_road_address,source_jibun_address,confirmed_by_user_id)
+                VALUES (1,'경기도','41','평택시','41220','관할 확인',36.8,127.1,'Road A',NULL,9)
+                """);
+        jdbc.update("UPDATE toilet SET road_address='Road B'");
+        assertTrue(repository.findCurrentRegion(1L).isEmpty());
     }
 }

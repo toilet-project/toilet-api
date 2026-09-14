@@ -17,9 +17,18 @@ public final class RegionReviewModels {
                        String sigunguName, String sigunguCode, String cityName, String districtName,
                        OffsetDateTime checkedAt) {}
     public record Detail(Item toilet, Location assessedSource, BigDecimal evaluatedLatitude,
-                         BigDecimal evaluatedLongitude, String evidenceJson) {}
+                         BigDecimal evaluatedLongitude, String evidenceJson, String dataSource,
+                         Confirmation confirmation) {}
     public record History(long assessmentId, String status, String reason, String algorithmVersion,
                           OffsetDateTime checkedAt, String evidenceJson) {}
+    public record RegionValue(String sidoName, String sidoCode, String sigunguName, String sigunguCode,
+                              String cityName, String districtName) {}
+    public record RegionOption(RegionValue region) {}
+    public record Confirmation(RegionValue region, String note, OffsetDateTime confirmedAt) {}
+    public record RegionConfirmation(
+            @NotBlank @Pattern(regexp = "\\d{5}") String sigunguCode,
+            @NotBlank @Size(max = 500) String note,
+            @NotNull @Valid Location expectedLocation) {}
     public record Correction(
             @NotNull @DecimalMin("-90") @DecimalMax("90") BigDecimal latitude,
             @NotNull @DecimalMin("-180") @DecimalMax("180") BigDecimal longitude,
