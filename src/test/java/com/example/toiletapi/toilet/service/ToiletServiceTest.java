@@ -10,12 +10,14 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
+import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
 import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import com.example.toiletapi.toilet.repository.ToiletRegionProjection;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +63,9 @@ class ToiletServiceTest {
     @Mock
     private ToiletRepository toiletRepository;
 
+    @Mock
+    private ToiletDisplayGroupRepository displayGroupRepository;
+
     @InjectMocks
     private ToiletService toiletService;
 
@@ -73,12 +78,36 @@ class ToiletServiceTest {
         when(toiletRepository.findByLatitudeBetweenAndLongitudeBetween(
                 southLat, northLat, westLng, eastLng
         )).thenReturn(List.of());
+        when(displayGroupRepository.assignmentsFor(List.of())).thenReturn(Map.of());
 
         assertTrue(toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, 3, false).toilets().isEmpty());
 
         verify(toiletRepository).findByLatitudeBetweenAndLongitudeBetween(
                 southLat, northLat, westLng, eastLng
         );
+    }
+
+    @Test
+    void shouldIncludeAdministratorDisplayGroupOnMapMarkers() {
+        BigDecimal southLat = new BigDecimal("37.4900");
+        BigDecimal northLat = new BigDecimal("37.5100");
+        BigDecimal westLng = new BigDecimal("127.0100");
+        BigDecimal eastLng = new BigDecimal("127.0300");
+        Toilet toilet = mock(Toilet.class);
+        when(toilet.getId()).thenReturn(101L);
+        when(toilet.getName()).thenReturn("문화원 1층");
+        when(toilet.getToiletType()).thenReturn("공중화장실");
+        when(toilet.getLatitude()).thenReturn(new BigDecimal("37.5000"));
+        when(toilet.getLongitude()).thenReturn(new BigDecimal("127.0200"));
+        when(toiletRepository.findByLatitudeBetweenAndLongitudeBetween(southLat, northLat, westLng, eastLng))
+                .thenReturn(List.of(toilet));
+        when(displayGroupRepository.assignmentsFor(List.of(101L))).thenReturn(Map.of(101L,
+                new ToiletDisplayGroupRepository.Assignment(7L, "XXX문화원")));
+
+        var result = toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, 3, false);
+
+        assertEquals(7L, result.toilets().getFirst().displayGroupId());
+        assertEquals("XXX문화원", result.toilets().getFirst().displayGroupName());
     }
 
     @Test

@@ -57,7 +57,7 @@ class ToiletControllerTest {
         when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean()))
                 .thenReturn(ToiletMapSearchResponse.markers(
                         3,
-                        List.of(new ToiletMapResponse(101L, "강남역 공중화장실", "공중화장실", 37.4979, 127.0276))
+                        List.of(new ToiletMapResponse(101L, "강남역 공중화장실", "공중화장실", 37.4979, 127.0276, null, null))
                 ));
 
         mockMvc.perform(get("/api/v1/toilets")
