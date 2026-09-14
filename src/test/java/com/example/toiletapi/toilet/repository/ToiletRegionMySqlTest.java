@@ -33,7 +33,10 @@ class ToiletRegionMySqlTest {
         jdbc.update("INSERT INTO app_user VALUES (9)");
         try (var connection = dataSource.getConnection()) {
             ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V8__create_toilet_region.sql"));
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V10__create_toilet_region_assessment_history.sql"));
             ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V16__create_toilet_region_override.sql"));
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V17__create_sigungu_reference.sql"));
+            ScriptUtils.executeSqlScript(connection, new ClassPathResource("db/migration/V18__normalize_toilet_region_assignment.sql"));
         }
         factory = new LocalContainerEntityManagerFactoryBean();
         factory.setDataSource(dataSource);
@@ -54,7 +57,7 @@ class ToiletRegionMySqlTest {
         jdbc.update("DELETE FROM toilet_region_override");
         jdbc.update("DELETE FROM toilet_region");
         jdbc.update("DELETE FROM toilet");
-        jdbc.update("INSERT INTO toilet VALUES (1,36.8,127.1,'Road A',NULL)");
+        jdbc.update("INSERT INTO toilet (toilet_id,latitude,longitude,road_address,jibun_address) VALUES (1,36.8,127.1,'Road A',NULL)");
         jdbc.update("""
                 INSERT INTO toilet_region (toilet_id,sido_name,sido_code,sigungu_name,sigungu_code,
                     city_name,district_name,region_source,status,reason,source_hash,
@@ -101,7 +104,7 @@ class ToiletRegionMySqlTest {
 
     @Test void nullAddressAndSejongHierarchyAreNotInvented() {
         jdbc.update("UPDATE toilet SET road_address=NULL");
-        jdbc.update("UPDATE toilet_region SET source_road_address=NULL,sido_name='세종특별자치시',sido_code='36',sigungu_name=NULL,sigungu_code=NULL,city_name=NULL,district_name=NULL");
+        jdbc.update("UPDATE toilet_region SET source_road_address=NULL,sido_name='세종특별자치시',sido_code='36',sigungu_name=NULL,sigungu_code='36110',city_name=NULL,district_name=NULL");
         var region = repository.findCurrentRegion(1L).orElseThrow();
         assertEquals("세종특별자치시", region.getSidoName());
         assertEquals("36", region.getSidoCode());

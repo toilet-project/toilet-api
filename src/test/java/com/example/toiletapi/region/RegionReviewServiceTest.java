@@ -102,4 +102,18 @@ class RegionReviewServiceTest {
         assertEquals("%서울특별시 동대문구%", params.getValue().getValue("keyword"));
         assertEquals("%서울특별시동대문구%", params.getValue().getValue("compactKeyword"));
     }
+
+    @Test void reviewQueueReadsTheNarrowAssignmentAndCanonicalReference() {
+        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(0L);
+        doReturn(java.util.List.of()).when(jdbc).query(anyString(), any(SqlParameterSource.class), any(RowMapper.class));
+
+        service.search(Filter.REVIEW, "", 0, 20);
+
+        var sql = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(jdbc).query(sql.capture(), any(SqlParameterSource.class), any(RowMapper.class));
+        assertTrue(sql.getValue().contains("LEFT JOIN toilet_region_assignment a"));
+        assertTrue(sql.getValue().contains("LEFT JOIN region_sigungu_reference ar"));
+        assertTrue(sql.getValue().contains("a.source_revision <> t.region_revision"));
+        assertFalse(sql.getValue().contains("LEFT JOIN toilet_region r"));
+    }
 }
