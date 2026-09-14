@@ -76,7 +76,8 @@ public class AuthController {
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         PhotoService.State profilePhoto = user.getStatus() == UserStatus.ACTIVE ? photos.state(userId) : null;
         return new AuthProfileResponse(jwt.getSubject(), user.getDisplayName(), user.getEmail(), user.getStatus(),
-                jwt.getClaimAsStringList("roles"), policyConsentService.status(userId).consentRequired(), profilePhoto);
+                jwt.getClaimAsStringList("roles"), policyConsentService.status(userId).consentRequired(),
+                profilePhoto, jwt.getExpiresAt());
     }
 
     @DeleteMapping("/me")
@@ -149,5 +150,6 @@ public class AuthController {
     }
 
     public record AuthProfileResponse(String userId, String displayName, String email, UserStatus status,
-                                      List<String> roles, boolean consentRequired, PhotoService.State profilePhoto) { }
+                                      List<String> roles, boolean consentRequired, PhotoService.State profilePhoto,
+                                      java.time.Instant accessTokenExpiresAt) { }
 }

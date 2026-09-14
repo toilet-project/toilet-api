@@ -22,6 +22,7 @@ import com.example.toiletapi.auth.service.RefreshTokenStore;
 import com.example.toiletapi.auth.service.UserRolePolicyService;
 import com.example.toiletapi.auth.service.AccountService;
 import com.example.toiletapi.policy.service.PolicyConsentService;
+import com.example.toiletapi.policy.dto.PolicyConsentStatusResponse;
 import com.example.toiletapi.global.config.CorsConfig;
 import java.time.Duration;
 import java.time.Instant;
@@ -144,6 +145,26 @@ class AuthControllerTest {
 
         verify(tokenService).revoke("old-refresh-token");
         verify(tokenService).issue(eq(7L), anyList());
+    }
+
+    @Test
+    void profileIncludesTheCurrentAccessTokenExpiration() throws Exception {
+        Instant expiresAt = Instant.parse("2026-09-13T13:30:00Z");
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("profile-expiration-test")
+                .header("alg", "HS256").subject("7").claim("roles", java.util.List.of("ADMIN"))
+                .issuedAt(Instant.parse("2026-09-13T13:00:00Z")).expiresAt(expiresAt).build();
+        when(jwtDecoder.decode("profile-expiration-test")).thenReturn(jwt);
+        AppUser user = org.mockito.Mockito.mock(AppUser.class);
+        when(user.getDisplayName()).thenReturn("운영자");
+        when(user.getEmail()).thenReturn("admin@geupddong.com");
+        when(user.getStatus()).thenReturn(com.example.toiletapi.auth.model.UserStatus.ACTIVE);
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+        when(policyConsentService.status(7L)).thenReturn(new PolicyConsentStatusResponse(false, java.util.List.of(), java.util.List.of()));
+
+        mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer profile-expiration-test"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.accessTokenExpiresAt")
+                        .value("2026-09-13T13:30:00Z"));
     }
 
     @Test

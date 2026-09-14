@@ -24,7 +24,8 @@ import org.springframework.security.oauth2.jwt.JwsHeader;
 class AuthTokenServiceTest {
 
     private final AuthTokenProperties properties = new AuthTokenProperties(
-            Base64.getEncoder().encodeToString(new byte[32]), Duration.ofMinutes(15), Duration.ofDays(14));
+            Base64.getEncoder().encodeToString(new byte[32]), Duration.ofMinutes(15),
+            Duration.ofMinutes(30), Duration.ofDays(14));
     private final JwtConfig jwtConfig = new JwtConfig();
     private final com.example.toiletapi.auth.repository.AppUserRepository users = mock(com.example.toiletapi.auth.repository.AppUserRepository.class);
 
@@ -46,6 +47,21 @@ class AuthTokenServiceTest {
         assertThat(tokens.accessTokenExpiresAt()).isAfter(Instant.now());
         verify(refreshTokenStore).save(org.mockito.ArgumentMatchers.eq(7L),
                 org.mockito.ArgumentMatchers.eq(tokens.refreshToken()), org.mockito.ArgumentMatchers.eq(Duration.ofDays(14)));
+    }
+
+    @Test
+    void shouldIssueThirtyMinuteAccessTokenForAdministrators() {
+        AuthTokenProperties adminProperties = new AuthTokenProperties(properties.secret(), Duration.ofMinutes(15),
+                Duration.ofMinutes(30), Duration.ofDays(14));
+        AuthTokenService service = new AuthTokenService(
+                jwtConfig.jwtEncoder(jwtConfig.jwtSecretKey(adminProperties)), mock(RefreshTokenStore.class),
+                adminProperties, users);
+
+        Instant beforeIssue = Instant.now();
+        AuthTokenService.IssuedTokens tokens = service.issue(7L, List.of(Role.USER, Role.ADMIN));
+
+        assertThat(tokens.accessTokenExpiresAt()).isBetween(beforeIssue.plus(Duration.ofMinutes(30)),
+                Instant.now().plus(Duration.ofMinutes(30)));
     }
 
     @Test

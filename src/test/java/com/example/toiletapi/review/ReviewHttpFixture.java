@@ -122,7 +122,7 @@ public class ReviewHttpFixture {
         @Bean PlatformTransactionManager transactionManager(EntityManagerFactory emf){return new JpaTransactionManager(emf);}
         @Bean AuthTokenProperties authTokenProperties(){
             byte[] bytes=new byte[32];new java.security.SecureRandom().nextBytes(bytes);
-            return new AuthTokenProperties(Base64.getEncoder().encodeToString(bytes),Duration.ofHours(1),Duration.ofHours(1));
+            return new AuthTokenProperties(Base64.getEncoder().encodeToString(bytes),Duration.ofHours(1),Duration.ofHours(1),Duration.ofHours(1));
         }
         @Bean ClientRegistrationRepository clientRegistrationRepository(){
             return new InMemoryClientRegistrationRepository(ClientRegistration.withRegistrationId("fixture")
