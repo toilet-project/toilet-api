@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +15,7 @@ import com.example.toiletapi.geocoding.CoordinateAddress;
 import com.example.toiletapi.geocoding.CoordinateAddressResolver;
 import com.example.toiletapi.geocoding.AddressLookupException;
 import com.example.toiletapi.quality.dto.CorrectToiletCoordinateRequest;
+import com.example.toiletapi.quality.dto.CreateMapDisplayGroupRequest;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupResponse;
 import com.example.toiletapi.quality.dto.SaveToiletDisplayGroupRequest;
 import com.example.toiletapi.quality.model.CoordinateQualityStatus;
@@ -110,48 +112,104 @@ class CoordinateQualityServiceTest {
     }
 
     @Test
-    void correctsToMarkerCoordinateAndCreatesNamedDisplayGroup() {
+    void createsDisplayGroupByMovingCurrentToiletToMarkerCoordinates() {
         Long adminId = 7L;
         Long toiletId = 101L;
-        BigDecimal latitude = new BigDecimal("36.3663613");
-        BigDecimal longitude = new BigDecimal("127.3148032");
+        BigDecimal currentLatitude = new BigDecimal("37.5000000");
+        BigDecimal currentLongitude = new BigDecimal("127.1000000");
+        BigDecimal latitude = new BigDecimal("37.5454041");
+        BigDecimal longitude = new BigDecimal("127.2239403");
         when(toiletRepository.findByIdForUpdate(toiletId)).thenReturn(Optional.of(toilet));
-        when(toilet.getLatitude()).thenReturn(new BigDecimal("36.3660000"), latitude);
-        when(toilet.getLongitude()).thenReturn(new BigDecimal("127.3140000"), longitude);
-        when(toilet.getRoadAddress()).thenReturn("기존 주소", "대전광역시 유성구 노은로 101");
+        when(toilet.getLatitude()).thenReturn(currentLatitude);
+        when(toilet.getLongitude()).thenReturn(currentLongitude);
+        when(toilet.getRoadAddress()).thenReturn("기존 주소");
         when(addressResolver.resolve(latitude, longitude)).thenReturn(new CoordinateAddress(
-                latitude, longitude, "대전광역시 유성구 노은로 101", "지번 주소"));
+                latitude, longitude, "경기도 하남시 미사대로 750", "지번 주소"));
+        when(displayGroupRepository.matchingToiletIds(List.of(202L, 203L), latitude, longitude))
+                .thenReturn(List.of(202L, 203L));
         when(displayGroupRepository.matchingToiletIds(List.of(toiletId, 202L, 203L), latitude, longitude))
                 .thenReturn(List.of(toiletId, 202L, 203L));
         when(displayGroupRepository.create("XXX문화원", latitude, longitude, adminId)).thenReturn(41L);
 
-        service.correctToilet(adminId, toiletId, new CorrectToiletCoordinateRequest(
-                latitude, longitude, null, "지도 확인", null, " XXX문화원 ", List.of(toiletId, 202L, 203L)));
+        var result = service.createMapDisplayGroup(adminId, toiletId, new CreateMapDisplayGroupRequest(
+                CreateMapDisplayGroupRequest.Direction.CURRENT_TO_MARKER, " XXX문화원 ",
+                currentLatitude, currentLongitude, latitude, longitude, List.of(202L, 203L), "지도 확인"));
 
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(toiletId, 202L, 203L), result.toiletIds());
+        verify(toilet).applyAdminConfirmedCoordinates(latitude, longitude, "경기도 하남시 미사대로 750", "지번 주소");
         verify(toiletRepository).flush();
         verify(displayGroupRepository).create("XXX문화원", latitude, longitude, adminId);
         verify(displayGroupRepository).replaceMembers(41L, List.of(toiletId, 202L, 203L));
-        verify(displayGroupRepository, never()).removeToilet(toiletId);
+        verify(revisionRepository).saveAll(anyList());
         verify(auditLogService).record(eq(adminId), eq(AuditAction.TOILET_DISPLAY_GROUP_SAVED),
                 eq("TOILET_DISPLAY_GROUP"), eq(41L), any(Map.class));
     }
 
     @Test
-    void rejectsNewDisplayGroupThatOmitsCorrectedToilet() {
-        Long toiletId = 101L;
-        BigDecimal latitude = new BigDecimal("36.3663613");
-        BigDecimal longitude = new BigDecimal("127.3148032");
-        when(toiletRepository.findByIdForUpdate(toiletId)).thenReturn(Optional.of(toilet));
-        when(toilet.getLatitude()).thenReturn(new BigDecimal("36.3660000"));
-        when(toilet.getLongitude()).thenReturn(new BigDecimal("127.3140000"));
-        when(toilet.getRoadAddress()).thenReturn("기존 주소");
-        when(addressResolver.resolve(latitude, longitude)).thenReturn(new CoordinateAddress(
-                latitude, longitude, "대전광역시 유성구 노은로 101", "지번 주소"));
+    void createsDisplayGroupByMovingMarkerToiletsToCurrentCoordinates() {
+        Long adminId = 7L;
+        Long currentToiletId = 101L;
+        BigDecimal currentLatitude = new BigDecimal("37.5000000");
+        BigDecimal currentLongitude = new BigDecimal("127.1000000");
+        BigDecimal markerLatitude = new BigDecimal("37.5454041");
+        BigDecimal markerLongitude = new BigDecimal("127.2239403");
+        Toilet markerToilet1 = mock(Toilet.class);
+        Toilet markerToilet2 = mock(Toilet.class);
+        when(toiletRepository.findByIdForUpdate(currentToiletId)).thenReturn(Optional.of(toilet));
+        when(toiletRepository.findByIdForUpdate(202L)).thenReturn(Optional.of(markerToilet1));
+        when(toiletRepository.findByIdForUpdate(203L)).thenReturn(Optional.of(markerToilet2));
+        when(toilet.getLatitude()).thenReturn(currentLatitude);
+        when(toilet.getLongitude()).thenReturn(currentLongitude);
+        when(markerToilet1.getLatitude()).thenReturn(markerLatitude);
+        when(markerToilet1.getLongitude()).thenReturn(markerLongitude);
+        when(markerToilet2.getLatitude()).thenReturn(markerLatitude);
+        when(markerToilet2.getLongitude()).thenReturn(markerLongitude);
+        when(addressResolver.resolve(currentLatitude, currentLongitude)).thenReturn(new CoordinateAddress(
+                currentLatitude, currentLongitude, "서울특별시 강동구 상일로 10", "지번 주소"));
+        when(displayGroupRepository.matchingToiletIds(List.of(202L, 203L), markerLatitude, markerLongitude))
+                .thenReturn(List.of(202L, 203L));
+        when(displayGroupRepository.matchingToiletIds(
+                List.of(currentToiletId, 202L, 203L), currentLatitude, currentLongitude))
+                .thenReturn(List.of(currentToiletId, 202L, 203L));
+        when(displayGroupRepository.create("XXX문화원", currentLatitude, currentLongitude, adminId)).thenReturn(42L);
+
+        var result = service.createMapDisplayGroup(adminId, currentToiletId, new CreateMapDisplayGroupRequest(
+                CreateMapDisplayGroupRequest.Direction.MARKERS_TO_CURRENT, "XXX문화원",
+                currentLatitude, currentLongitude, markerLatitude, markerLongitude,
+                List.of(202L, 203L), "거리뷰 확인"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(currentToiletId, 202L, 203L), result.toiletIds());
+        verify(markerToilet1).applyAdminConfirmedCoordinates(currentLatitude, currentLongitude,
+                "서울특별시 강동구 상일로 10", "지번 주소");
+        verify(markerToilet2).applyAdminConfirmedCoordinates(currentLatitude, currentLongitude,
+                "서울특별시 강동구 상일로 10", "지번 주소");
+        verify(toilet, never()).applyAdminConfirmedCoordinates(any(), any(), any(), any());
+        verify(displayGroupRepository).replaceMembers(42L, List.of(currentToiletId, 202L, 203L));
+        verify(revisionRepository).saveAll(anyList());
+    }
+
+    @Test
+    void rejectsMarkerSelectionThatDoesNotMatchClickedCoordinates() {
+        Long currentToiletId = 101L;
+        BigDecimal currentLatitude = new BigDecimal("37.5000000");
+        BigDecimal currentLongitude = new BigDecimal("127.1000000");
+        BigDecimal markerLatitude = new BigDecimal("37.5454041");
+        BigDecimal markerLongitude = new BigDecimal("127.2239403");
+        when(toiletRepository.findByIdForUpdate(currentToiletId)).thenReturn(Optional.of(toilet));
+        when(toilet.getLatitude()).thenReturn(currentLatitude);
+        when(toilet.getLongitude()).thenReturn(currentLongitude);
+        when(addressResolver.resolve(markerLatitude, markerLongitude)).thenReturn(new CoordinateAddress(
+                markerLatitude, markerLongitude, "경기도 하남시 미사대로 750", "지번 주소"));
+        when(displayGroupRepository.matchingToiletIds(List.of(202L, 203L), markerLatitude, markerLongitude))
+                .thenReturn(List.of(202L));
 
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
-                () -> service.correctToilet(7L, toiletId, new CorrectToiletCoordinateRequest(
-                        latitude, longitude, null, "지도 확인", null, "XXX문화원", List.of(202L, 203L))));
+                () -> service.createMapDisplayGroup(7L, currentToiletId, new CreateMapDisplayGroupRequest(
+                        CreateMapDisplayGroupRequest.Direction.CURRENT_TO_MARKER, "XXX문화원",
+                        currentLatitude, currentLongitude, markerLatitude, markerLongitude,
+                        List.of(202L, 203L), "지도 확인")));
 
+        verify(toilet, never()).applyAdminConfirmedCoordinates(any(), any(), any(), any());
         verify(displayGroupRepository, never()).create(anyString(), any(), any(), any());
         verify(displayGroupRepository, never()).replaceMembers(any(), anyList());
     }
