@@ -1,6 +1,8 @@
 package com.example.toiletapi.region;
 
 import com.example.toiletapi.quality.service.CoordinateQualityService;
+import com.example.toiletapi.auth.service.AuditLogService;
+import com.example.toiletapi.auth.model.AuditAction;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal;
@@ -8,6 +10,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.web.server.ResponseStatusException;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -17,8 +20,9 @@ class RegionReviewServiceTest {
     NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
     ToiletRepository toilets = mock(ToiletRepository.class);
     CoordinateQualityService corrections = mock(CoordinateQualityService.class);
+    AuditLogService audit = mock(AuditLogService.class);
     Toilet toilet = mock(Toilet.class);
-    RegionReviewService service = new RegionReviewService(jdbc, toilets, corrections);
+    RegionReviewService service = new RegionReviewService(jdbc, toilets, corrections, audit);
     @BeforeEach void setup() { when(toilets.findByIdForUpdate(1L)).thenReturn(Optional.of(toilet)); }
 
     @Test void missingCoordinatesCanBeSetWithUnchangedNullSnapshot() {
@@ -49,6 +53,38 @@ class RegionReviewServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.search(Filter.REVIEW,"",0,101));
         assertThrows(IllegalArgumentException.class, () -> service.search(Filter.REVIEW,"a".repeat(101),0,20));
         assertThrows(IllegalArgumentException.class, () -> service.history(1,-1,10));
+        verifyNoInteractions(jdbc);
+    }
+
+    @Test void districtConfirmationRejectsAChangedSourceBeforeLookup() {
+        when(toilet.getRoadAddress()).thenReturn("새 주소");
+        var request = new RegionConfirmation("41170", "지도 확인", new Location(null,null,"이전 주소",null));
+        var error = assertThrows(ResponseStatusException.class, () -> service.confirmDistrict(9,1,request));
+        assertEquals(409, error.getStatusCode().value());
+        verifyNoInteractions(jdbc, audit);
+    }
+
+    @Test void districtConfirmationUsesCanonicalRegionAndWritesAudit() {
+        var region = new RegionValue("경기도","41","용인시 수지구","41465","용인시","수지구");
+        doReturn(java.util.List.of(region)).when(jdbc).query(contains("FROM toilet_region WHERE"),
+                any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class), any(RowMapper.class));
+        when(jdbc.update(contains("INSERT INTO toilet_region_override"),
+                any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class))).thenReturn(1);
+
+        var result = service.confirmDistrict(9,1,
+                new RegionConfirmation("41465", " 지도 위치 확인 ", new Location(null,null,null,null)));
+
+        assertEquals("용인시 수지구", result.region().sigunguName());
+        assertEquals("지도 위치 확인", result.note());
+        verify(jdbc).update(contains("INSERT INTO toilet_region_override"),
+                any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class));
+        verify(audit).record(9L, AuditAction.TOILET_REGION_CONFIRMED, "TOILET", 1L,
+                java.util.Map.of("sigunguCode","41465","regionName","경기도 용인시 수지구"));
+    }
+
+    @Test void regionOptionInputIsBoundedBeforeSql() {
+        assertThrows(IllegalArgumentException.class, () -> service.options("a".repeat(51),20));
+        assertThrows(IllegalArgumentException.class, () -> service.options("수원",51));
         verifyNoInteractions(jdbc);
     }
 }
