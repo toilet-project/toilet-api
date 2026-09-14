@@ -11,9 +11,12 @@ import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupPageResponse;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupResponse;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateToiletResponse;
 import com.example.toiletapi.quality.dto.ReviewCoordinateGroupRequest;
+import com.example.toiletapi.quality.dto.SaveToiletDisplayGroupRequest;
+import com.example.toiletapi.quality.dto.ToiletDisplayGroupResponse;
 import com.example.toiletapi.quality.model.CoordinateQualityReview;
 import com.example.toiletapi.quality.model.CoordinateQualityStatus;
 import com.example.toiletapi.quality.repository.CoordinateQualityReviewRepository;
+import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
 import com.example.toiletapi.report.model.CoordinateRevision;
 import com.example.toiletapi.report.model.ReportStatus;
 import com.example.toiletapi.report.repository.CoordinateRevisionRepository;
@@ -21,6 +24,7 @@ import com.example.toiletapi.report.repository.ToiletReportRepository;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -71,6 +75,7 @@ public class CoordinateQualityService {
     private final CoordinateRevisionRepository revisionRepository;
     private final AuditLogService auditLogService;
     private final CoordinateAddressResolver addressResolver;
+    private final ToiletDisplayGroupRepository displayGroupRepository;
 
     @Transactional(readOnly = true)
     public DuplicateCoordinateGroupPageResponse search(String keyword, CoordinateQualityStatus status, int page, int size) {
@@ -99,15 +104,20 @@ public class CoordinateQualityService {
         MapSqlParameterSource coordinates = new MapSqlParameterSource()
                 .addValue("latitude", group.latitude()).addValue("longitude", group.longitude());
         List<DuplicateCoordinateToiletResponse> toilets = jdbc.query("""
-                SELECT toilet_id, mng_no, name, toilet_type, road_address, jibun_address,
-                       latitude, longitude, coordinate_source
-                  FROM toilet
-                 WHERE latitude = :latitude AND longitude = :longitude
-                 ORDER BY name ASC, toilet_id ASC
+                SELECT t.toilet_id, t.mng_no, t.name, t.toilet_type, t.road_address, t.jibun_address,
+                       t.latitude, t.longitude, t.coordinate_source, g.group_id AS display_group_id,
+                       g.display_name AS display_group_name
+                  FROM toilet t
+                  LEFT JOIN toilet_display_group_member m ON m.toilet_id = t.toilet_id
+                  LEFT JOIN toilet_display_group g ON g.group_id = m.group_id
+                    AND g.latitude = t.latitude AND g.longitude = t.longitude
+                 WHERE t.latitude = :latitude AND t.longitude = :longitude
+                 ORDER BY COALESCE(g.display_name, t.name) ASC, m.sort_order ASC, t.toilet_id ASC
                 """, coordinates, (rs, rowNumber) -> new DuplicateCoordinateToiletResponse(
                 rs.getLong("toilet_id"), rs.getString("mng_no"), rs.getString("name"),
                 rs.getString("toilet_type"), rs.getString("road_address"), rs.getString("jibun_address"),
-                rs.getBigDecimal("latitude"), rs.getBigDecimal("longitude"), rs.getString("coordinate_source")));
+                rs.getBigDecimal("latitude"), rs.getBigDecimal("longitude"), rs.getString("coordinate_source"),
+                rs.getObject("display_group_id", Long.class), rs.getString("display_group_name")));
         List<Long> toiletIds = toilets.stream().map(DuplicateCoordinateToiletResponse::id).toList();
         Map<Long, String> names = toilets.stream().collect(java.util.stream.Collectors.toMap(
                 DuplicateCoordinateToiletResponse::id, item -> Objects.toString(item.name(), "이름 없는 화장실")));
@@ -142,10 +152,49 @@ public class CoordinateQualityService {
         CoordinateRevision revision = CoordinateRevision.createAdminDirect(toiletId, toilet.getLatitude(), toilet.getLongitude(),
                 toilet.getRoadAddress(), toilet.getJibunAddress(), address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress(), adminId);
         toilet.applyAdminConfirmedCoordinates(address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress());
+        displayGroupRepository.removeToilet(toiletId);
         revisionRepository.save(revision);
         auditLogService.record(adminId, AuditAction.TOILET_COORDINATE_CORRECTED, "TOILET", toiletId,
                 Map.of("source", "ADMIN_DIRECT", "reviewNote", Objects.toString(trim(request.note()), "")));
         return toiletResponse(toilet);
+    }
+
+    public ToiletDisplayGroupResponse saveDisplayGroup(Long adminId, String groupKey, SaveToiletDisplayGroupRequest request) {
+        DuplicateCoordinateGroupResponse coordinateGroup = findGroup(groupKey);
+        List<Long> toiletIds = request.toiletIds() == null ? List.of() : request.toiletIds().stream()
+                .filter(Objects::nonNull).distinct().toList();
+        if (toiletIds.size() < 2 || toiletIds.size() != request.toiletIds().size()) {
+            throw new IllegalArgumentException("서로 다른 화장실을 두 개 이상 선택해 주세요.");
+        }
+        List<Long> matchingIds = displayGroupRepository.matchingToiletIds(toiletIds,
+                coordinateGroup.latitude(), coordinateGroup.longitude());
+        if (!new LinkedHashSet<>(matchingIds).equals(new LinkedHashSet<>(toiletIds))) {
+            throw new IllegalArgumentException("현재 중복 좌표 그룹에 속한 화장실만 묶을 수 있습니다.");
+        }
+
+        String displayName = trim(request.displayName());
+        if (displayName == null) throw new IllegalArgumentException("지도에 표시할 이름을 입력해 주세요.");
+        Long displayGroupId = request.displayGroupId();
+        if (displayGroupId == null) {
+            displayGroupId = displayGroupRepository.create(displayName, coordinateGroup.latitude(),
+                    coordinateGroup.longitude(), adminId);
+        } else {
+            if (!displayGroupRepository.belongsToCoordinates(displayGroupId,
+                    coordinateGroup.latitude(), coordinateGroup.longitude())) {
+                throw new IllegalArgumentException("현재 좌표에 속한 지도 노출 그룹을 찾을 수 없습니다.");
+            }
+            displayGroupRepository.update(displayGroupId, displayName, adminId);
+        }
+        displayGroupRepository.replaceMembers(displayGroupId, toiletIds);
+        auditLogService.record(adminId, AuditAction.TOILET_DISPLAY_GROUP_SAVED, "TOILET_DISPLAY_GROUP",
+                displayGroupId, Map.of("displayName", displayName, "memberCount", toiletIds.size(), "groupKey", groupKey));
+        return new ToiletDisplayGroupResponse(displayGroupId, displayName, toiletIds);
+    }
+
+    public void deleteDisplayGroup(Long adminId, Long displayGroupId) {
+        displayGroupRepository.delete(displayGroupId);
+        auditLogService.record(adminId, AuditAction.TOILET_DISPLAY_GROUP_DELETED, "TOILET_DISPLAY_GROUP",
+                displayGroupId, Map.of());
     }
 
     private DuplicateCoordinateGroupResponse findGroup(String groupKey) {
@@ -185,7 +234,7 @@ public class CoordinateQualityService {
     private DuplicateCoordinateToiletResponse toiletResponse(Toilet toilet) {
         return new DuplicateCoordinateToiletResponse(toilet.getId(), toilet.getManagementNumber(), toilet.getName(),
                 toilet.getToiletType(), toilet.getRoadAddress(), toilet.getJibunAddress(), toilet.getLatitude(),
-                toilet.getLongitude(), toilet.getCoordinateSource());
+                toilet.getLongitude(), toilet.getCoordinateSource(), null, null);
     }
 
     private CoordinateQualityRevisionResponse revisionResponse(CoordinateRevision revision) {

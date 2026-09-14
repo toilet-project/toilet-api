@@ -6,16 +6,21 @@ import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupPageResponse;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupResponse;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateToiletResponse;
 import com.example.toiletapi.quality.dto.ReviewCoordinateGroupRequest;
+import com.example.toiletapi.quality.dto.SaveToiletDisplayGroupRequest;
+import com.example.toiletapi.quality.dto.ToiletDisplayGroupResponse;
 import com.example.toiletapi.quality.model.CoordinateQualityStatus;
 import com.example.toiletapi.quality.service.CoordinateQualityService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -53,6 +58,20 @@ public class AdminCoordinateQualityController {
                                                       @Valid @RequestBody CorrectToiletCoordinateRequest request,
                                                       @AuthenticationPrincipal Jwt jwt) {
         return service.correctToilet(userId(jwt), toiletId, request);
+    }
+
+    @PutMapping("/duplicate-coordinates/{groupKey}/display-group")
+    public ToiletDisplayGroupResponse saveDisplayGroup(@PathVariable String groupKey,
+                                                        @Valid @RequestBody SaveToiletDisplayGroupRequest request,
+                                                        @AuthenticationPrincipal Jwt jwt) {
+        return service.saveDisplayGroup(userId(jwt), groupKey, request);
+    }
+
+    @DeleteMapping("/display-groups/{displayGroupId}")
+    public ResponseEntity<Void> deleteDisplayGroup(@PathVariable Long displayGroupId,
+                                                    @AuthenticationPrincipal Jwt jwt) {
+        service.deleteDisplayGroup(userId(jwt), displayGroupId);
+        return ResponseEntity.noContent().build();
     }
 
     private Long userId(Jwt jwt) {

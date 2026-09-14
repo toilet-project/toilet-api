@@ -11,6 +11,8 @@ public record DuplicateCoordinateToiletResponse(
         String jibunAddress,
         BigDecimal latitude,
         BigDecimal longitude,
-        String coordinateSource
+        String coordinateSource,
+        Long displayGroupId,
+        String displayGroupName
 ) {
 }

@@ -10,13 +10,17 @@ import com.example.toiletapi.toilet.model.Toilet;
  * @param toiletType 화장실 구분
  * @param latitude 위도
  * @param longitude 경도
+ * @param displayGroupId 관리자가 지정한 지도 노출 그룹 식별자
+ * @param displayGroupName 지도에 표시할 그룹 이름
  */
 public record ToiletMapResponse(
         Long id,
         String name,
         String toiletType,
         double latitude,
-        double longitude
+        double longitude,
+        Long displayGroupId,
+        String displayGroupName
 ) {
 
     /**
@@ -26,12 +30,18 @@ public record ToiletMapResponse(
      * @return 지도 조회 응답
      */
     public static ToiletMapResponse from(Toilet toilet) {
+        return from(toilet, null, null);
+    }
+
+    public static ToiletMapResponse from(Toilet toilet, Long displayGroupId, String displayGroupName) {
         return new ToiletMapResponse(
                 toilet.getId(),
                 toilet.getName(),
                 toilet.getToiletType(),
                 toilet.getLatitude().doubleValue(),
-                toilet.getLongitude().doubleValue()
+                toilet.getLongitude().doubleValue(),
+                displayGroupId,
+                displayGroupName
         );
     }
 }

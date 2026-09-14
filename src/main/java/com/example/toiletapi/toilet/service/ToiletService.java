@@ -6,6 +6,7 @@ import com.example.toiletapi.toilet.dto.ToiletRegionResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
+import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal;
 import java.util.List;
@@ -26,6 +27,7 @@ public class ToiletService {
     private static final int CLUSTER_MIN_ZOOM_LEVEL = 10;
 
     private final ToiletRepository toiletRepository;
+    private final ToiletDisplayGroupRepository displayGroupRepository;
 
     /**
      * 지도 화면의 경계 안에 있는 화장실 마커 정보를 조회합니다.
@@ -62,11 +64,15 @@ public class ToiletService {
             return ToiletMapSearchResponse.clusters(mapLevel, clusters);
         }
 
-        List<ToiletMapResponse> markers = toiletRepository.findByLatitudeBetweenAndLongitudeBetween(
-                        southLat, northLat, westLng, eastLng
-                )
+        var toilets = toiletRepository.findByLatitudeBetweenAndLongitudeBetween(southLat, northLat, westLng, eastLng);
+        var displayGroups = displayGroupRepository.assignmentsFor(toilets.stream().map(toilet -> toilet.getId()).toList());
+        List<ToiletMapResponse> markers = toilets
                 .stream()
-                .map(ToiletMapResponse::from)
+                .map(toilet -> {
+                    var assignment = displayGroups.get(toilet.getId());
+                    return assignment == null ? ToiletMapResponse.from(toilet)
+                            : ToiletMapResponse.from(toilet, assignment.groupId(), assignment.displayName());
+                })
                 .toList();
 
         return ToiletMapSearchResponse.markers(mapLevel, markers);
