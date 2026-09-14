@@ -1,6 +1,7 @@
 package com.example.toiletapi.quality.controller;
 
 import com.example.toiletapi.quality.dto.CorrectToiletCoordinateRequest;
+import com.example.toiletapi.quality.dto.CreateMapDisplayGroupRequest;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupDetailResponse;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupPageResponse;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupResponse;
@@ -58,6 +59,13 @@ public class AdminCoordinateQualityController {
                                                       @Valid @RequestBody CorrectToiletCoordinateRequest request,
                                                       @AuthenticationPrincipal Jwt jwt) {
         return service.correctToilet(userId(jwt), toiletId, request);
+    }
+
+    @PostMapping("/toilets/{toiletId}/display-group")
+    public ToiletDisplayGroupResponse createMapDisplayGroup(@PathVariable Long toiletId,
+                                                             @Valid @RequestBody CreateMapDisplayGroupRequest request,
+                                                             @AuthenticationPrincipal Jwt jwt) {
+        return service.createMapDisplayGroup(userId(jwt), toiletId, request);
     }
 
     @PutMapping("/duplicate-coordinates/{groupKey}/display-group")

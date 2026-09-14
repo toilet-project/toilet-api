@@ -2,10 +2,12 @@ package com.example.toiletapi.quality.service;
 
 import com.example.toiletapi.auth.model.AuditAction;
 import com.example.toiletapi.auth.service.AuditLogService;
+import com.example.toiletapi.geocoding.CoordinateAddress;
 import com.example.toiletapi.geocoding.CoordinateAddressResolver;
 import com.example.toiletapi.quality.dto.CoordinateQualityReportResponse;
 import com.example.toiletapi.quality.dto.CoordinateQualityRevisionResponse;
 import com.example.toiletapi.quality.dto.CorrectToiletCoordinateRequest;
+import com.example.toiletapi.quality.dto.CreateMapDisplayGroupRequest;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupDetailResponse;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupPageResponse;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupResponse;
@@ -24,6 +26,7 @@ import com.example.toiletapi.report.repository.ToiletReportRepository;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -152,18 +155,10 @@ public class CoordinateQualityService {
         CoordinateRevision revision = CoordinateRevision.createAdminDirect(toiletId, toilet.getLatitude(), toilet.getLongitude(),
                 toilet.getRoadAddress(), toilet.getJibunAddress(), address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress(), adminId);
         toilet.applyAdminConfirmedCoordinates(address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress());
-        String newDisplayGroupName = trim(request.displayGroupName());
-        boolean creatingDisplayGroup = newDisplayGroupName != null || request.displayGroupToiletIds() != null;
-        if (request.displayGroupId() != null && creatingDisplayGroup) {
-            throw new IllegalArgumentException("기존 그룹 편입과 새 그룹 생성을 동시에 선택할 수 없습니다.");
-        }
-        if (request.displayGroupId() == null && !creatingDisplayGroup) {
+        if (request.displayGroupId() == null) {
             displayGroupRepository.removeToilet(toiletId);
-        } else if (request.displayGroupId() != null) {
-            joinCoordinateDisplayGroup(adminId, toiletId, address.latitude(), address.longitude(), request.displayGroupId());
         } else {
-            createCoordinateDisplayGroup(adminId, toiletId, address.latitude(), address.longitude(),
-                    newDisplayGroupName, request.displayGroupToiletIds());
+            joinCoordinateDisplayGroup(adminId, toiletId, address.latitude(), address.longitude(), request.displayGroupId());
         }
         revisionRepository.save(revision);
         auditLogService.record(adminId, AuditAction.TOILET_COORDINATE_CORRECTED, "TOILET", toiletId,
@@ -191,27 +186,95 @@ public class CoordinateQualityService {
                         "coordinateCorrectionToiletId", toiletId));
     }
 
-    private void createCoordinateDisplayGroup(Long adminId, Long toiletId, BigDecimal latitude, BigDecimal longitude,
-                                              String displayName, List<Long> requestedToiletIds) {
+    public ToiletDisplayGroupResponse createMapDisplayGroup(Long adminId, Long currentToiletId,
+                                                             CreateMapDisplayGroupRequest request) {
+        String displayName = trim(request.displayName());
         if (displayName == null) throw new IllegalArgumentException("지도에 표시할 그룹 이름을 입력해 주세요.");
-        List<Long> toiletIds = requestedToiletIds == null ? List.of() : requestedToiletIds.stream()
+        List<Long> markerToiletIds = request.markerToiletIds() == null ? List.of() : request.markerToiletIds().stream()
                 .filter(Objects::nonNull).distinct().toList();
-        if (toiletIds.size() < 2 || toiletIds.size() != requestedToiletIds.size()) {
-            throw new IllegalArgumentException("서로 다른 화장실을 두 개 이상 선택해 주세요.");
+        if (markerToiletIds.isEmpty() || markerToiletIds.size() != request.markerToiletIds().size()) {
+            throw new IllegalArgumentException("서로 다른 마커 화장실을 한 개 이상 선택해 주세요.");
         }
-        if (!toiletIds.contains(toiletId)) {
-            throw new IllegalArgumentException("좌표 보정 중인 화장실을 새 그룹에 포함해 주세요.");
+        if (markerToiletIds.contains(currentToiletId)) {
+            throw new IllegalArgumentException("좌표 보정 중인 화장실은 마커 목록에서 다시 선택할 수 없습니다.");
         }
+
+        BigDecimal requestedTargetLatitude = request.direction() == CreateMapDisplayGroupRequest.Direction.CURRENT_TO_MARKER
+                ? request.markerLatitude() : request.currentLatitude();
+        BigDecimal requestedTargetLongitude = request.direction() == CreateMapDisplayGroupRequest.Direction.CURRENT_TO_MARKER
+                ? request.markerLongitude() : request.currentLongitude();
+        var target = addressResolver.resolve(requestedTargetLatitude, requestedTargetLongitude);
+
+        Toilet currentToilet = toiletRepository.findByIdForUpdate(currentToiletId)
+                .orElseThrow(() -> new IllegalArgumentException("좌표 보정 중인 화장실을 찾을 수 없습니다."));
+        if (!sameCoordinates(currentToilet, request.currentLatitude(), request.currentLongitude())) {
+            throw new IllegalArgumentException("좌표 보정 중인 화장실의 위치가 변경되었습니다. 목록을 새로고침해 주세요.");
+        }
+        List<Long> sourceMarkerIds = displayGroupRepository.matchingToiletIds(markerToiletIds,
+                request.markerLatitude(), request.markerLongitude());
+        if (!new LinkedHashSet<>(sourceMarkerIds).equals(new LinkedHashSet<>(markerToiletIds))) {
+            throw new IllegalArgumentException("선택한 마커 위치에 등록된 화장실만 그룹으로 만들 수 있습니다.");
+        }
+
+        List<CoordinateRevision> revisions = new ArrayList<>();
+        List<Long> movedToiletIds = new ArrayList<>();
+        BigDecimal targetLatitude;
+        BigDecimal targetLongitude;
+        if (request.direction() == CreateMapDisplayGroupRequest.Direction.CURRENT_TO_MARKER) {
+            revisions.add(coordinateRevision(currentToilet, currentToiletId, target, adminId));
+            currentToilet.applyAdminConfirmedCoordinates(target.latitude(), target.longitude(),
+                    target.roadAddress(), target.jibunAddress());
+            movedToiletIds.add(currentToiletId);
+            targetLatitude = target.latitude();
+            targetLongitude = target.longitude();
+        } else {
+            for (Long markerToiletId : markerToiletIds) {
+                Toilet markerToilet = toiletRepository.findByIdForUpdate(markerToiletId)
+                        .orElseThrow(() -> new IllegalArgumentException("선택한 마커 화장실을 찾을 수 없습니다."));
+                revisions.add(coordinateRevision(markerToilet, markerToiletId, target, adminId));
+                markerToilet.applyAdminConfirmedCoordinates(target.latitude(), target.longitude(),
+                        target.roadAddress(), target.jibunAddress());
+                movedToiletIds.add(markerToiletId);
+            }
+            targetLatitude = target.latitude();
+            targetLongitude = target.longitude();
+        }
+
         toiletRepository.flush();
-        List<Long> matchingIds = displayGroupRepository.matchingToiletIds(toiletIds, latitude, longitude);
-        if (!new LinkedHashSet<>(matchingIds).equals(new LinkedHashSet<>(toiletIds))) {
-            throw new IllegalArgumentException("선택한 좌표에 등록된 화장실만 새 그룹으로 만들 수 있습니다.");
+        List<Long> finalToiletIds = new ArrayList<>();
+        finalToiletIds.add(currentToiletId);
+        finalToiletIds.addAll(markerToiletIds);
+        List<Long> matchingTargetIds = displayGroupRepository.matchingToiletIds(
+                finalToiletIds, targetLatitude, targetLongitude);
+        if (!new LinkedHashSet<>(matchingTargetIds).equals(new LinkedHashSet<>(finalToiletIds))) {
+            throw new IllegalArgumentException("선택한 방향으로 좌표를 통일하지 못했습니다.");
         }
-        Long displayGroupId = displayGroupRepository.create(displayName, latitude, longitude, adminId);
-        displayGroupRepository.replaceMembers(displayGroupId, toiletIds);
+
+        Long displayGroupId = displayGroupRepository.create(displayName, targetLatitude, targetLongitude, adminId);
+        displayGroupRepository.replaceMembers(displayGroupId, finalToiletIds);
+        revisionRepository.saveAll(revisions);
+        movedToiletIds.forEach(toiletId -> auditLogService.record(adminId,
+                AuditAction.TOILET_COORDINATE_CORRECTED, "TOILET", toiletId,
+                Map.of("source", "ADMIN_MAP_GROUP", "direction", request.direction().name(),
+                        "reviewNote", Objects.toString(trim(request.note()), ""))));
         auditLogService.record(adminId, AuditAction.TOILET_DISPLAY_GROUP_SAVED, "TOILET_DISPLAY_GROUP",
-                displayGroupId, Map.of("displayName", displayName, "memberCount", toiletIds.size(),
-                        "coordinateCorrectionToiletId", toiletId));
+                displayGroupId, Map.of("displayName", displayName, "memberCount", finalToiletIds.size(),
+                        "direction", request.direction().name(), "currentToiletId", currentToiletId));
+        return new ToiletDisplayGroupResponse(displayGroupId, displayName, finalToiletIds);
+    }
+
+    private CoordinateRevision coordinateRevision(Toilet toilet, Long toiletId,
+                                                  CoordinateAddress target,
+                                                  Long adminId) {
+        return CoordinateRevision.createAdminDirect(toiletId, toilet.getLatitude(), toilet.getLongitude(),
+                toilet.getRoadAddress(), toilet.getJibunAddress(), target.latitude(), target.longitude(),
+                target.roadAddress(), target.jibunAddress(), adminId);
+    }
+
+    private boolean sameCoordinates(Toilet toilet, BigDecimal latitude, BigDecimal longitude) {
+        return toilet.getLatitude() != null && toilet.getLongitude() != null
+                && toilet.getLatitude().compareTo(latitude) == 0
+                && toilet.getLongitude().compareTo(longitude) == 0;
     }
 
     public ToiletDisplayGroupResponse saveDisplayGroup(Long adminId, String groupKey, SaveToiletDisplayGroupRequest request) {
