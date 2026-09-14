@@ -1,23 +1,11 @@
--- Keep source toilet data, the current regional decision, and assessment evidence separate.
--- The legacy tables remain writable during the compatibility window so API/batch rollbacks stay safe.
+-- Separate canonical region names, current assignments, manual decisions and append-only evidence.
+-- region_revision is maintained by the API and batch whenever a source coordinate/address changes.
 
 ALTER TABLE toilet
     ADD COLUMN region_revision BIGINT NOT NULL DEFAULT 1;
 
-CREATE TRIGGER toilet_region_revision_update
-BEFORE UPDATE ON toilet
-FOR EACH ROW
-SET NEW.region_revision = IF(
-    NEW.latitude <=> OLD.latitude
-    AND NEW.longitude <=> OLD.longitude
-    AND BINARY NEW.road_address <=> BINARY OLD.road_address
-    AND BINARY NEW.jibun_address <=> BINARY OLD.jibun_address,
-    OLD.region_revision,
-    OLD.region_revision + 1
-);
-
--- Preserve a legacy code that disappeared from the current MOIS list. It remains readable for
--- historical decisions but is inactive and therefore cannot be selected for a new confirmation.
+-- Preserve a historical code that is absent from the current MOIS list. It stays readable but
+-- inactive, so a new administrator confirmation still requires an active canonical code.
 INSERT IGNORE INTO region_sigungu_reference
     (sigungu_code,sido_code,sido_name,sigungu_name,city_name,district_name,display_name,
      is_active,source_name,source_checked_on)
@@ -32,8 +20,8 @@ FROM toilet_region r
 WHERE r.sigungu_code REGEXP '^[0-9]{5}$'
 GROUP BY r.sigungu_code;
 
--- V8 rows created before append-only history existed are copied once so the current assignment
--- can point at evidence rather than carrying a second result_json payload.
+-- V8 rows created before append-only history existed are copied once. The new assignment points
+-- at evidence instead of carrying another result_json payload.
 INSERT INTO toilet_region_assessment_history
     (toilet_id,source_hash,algorithm_version,status,reason,result_json,checked_epoch_millis,checked_at)
 SELECT r.toilet_id,r.source_hash,'legacy-current-v1',r.status,r.reason,r.result_json,
@@ -115,105 +103,6 @@ SELECT o.toilet_id,o.sigungu_code,o.note,
        o.confirmed_by_user_id,o.confirmed_at
 FROM toilet_region_override o
 JOIN toilet t ON t.toilet_id=o.toilet_id;
-
--- Compatibility sync: the currently deployed batch and API may still write the legacy tables.
-CREATE TRIGGER normalize_toilet_region_insert
-AFTER INSERT ON toilet_region
-FOR EACH ROW
-INSERT INTO toilet_region_assignment
-    (toilet_id,sigungu_code,legal_dong_code,administrative_dong_code,region_source,status,reason,
-     source_hash,source_revision,evaluated_latitude,evaluated_longitude,assessment_id,checked_at)
-SELECT NEW.toilet_id,NEW.sigungu_code,NEW.legal_dong_code,NEW.administrative_dong_code,
-       NEW.region_source,NEW.status,NEW.reason,NEW.source_hash,
-       IF(t.latitude <=> NEW.source_latitude
-          AND t.longitude <=> NEW.source_longitude
-          AND BINARY t.road_address <=> BINARY NEW.source_road_address
-          AND BINARY t.jibun_address <=> BINARY NEW.source_jibun_address
-          AND (NEW.status <> 'VERIFIED'
-               OR (t.latitude <=> NEW.evaluated_latitude AND t.longitude <=> NEW.evaluated_longitude)),
-          t.region_revision,0),
-       NEW.evaluated_latitude,NEW.evaluated_longitude,
-       (SELECT h.assessment_id FROM toilet_region_assessment_history h
-        WHERE h.toilet_id=NEW.toilet_id AND h.source_hash=NEW.source_hash
-        ORDER BY h.checked_at DESC,h.assessment_id DESC LIMIT 1),NEW.checked_at
-FROM toilet t WHERE t.toilet_id=NEW.toilet_id
-ON DUPLICATE KEY UPDATE
-    sigungu_code=VALUES(sigungu_code),legal_dong_code=VALUES(legal_dong_code),
-    administrative_dong_code=VALUES(administrative_dong_code),region_source=VALUES(region_source),
-    status=VALUES(status),reason=VALUES(reason),source_hash=VALUES(source_hash),
-    source_revision=VALUES(source_revision),evaluated_latitude=VALUES(evaluated_latitude),
-    evaluated_longitude=VALUES(evaluated_longitude),assessment_id=VALUES(assessment_id),
-    checked_at=VALUES(checked_at);
-
-CREATE TRIGGER normalize_toilet_region_update
-AFTER UPDATE ON toilet_region
-FOR EACH ROW
-INSERT INTO toilet_region_assignment
-    (toilet_id,sigungu_code,legal_dong_code,administrative_dong_code,region_source,status,reason,
-     source_hash,source_revision,evaluated_latitude,evaluated_longitude,assessment_id,checked_at)
-SELECT NEW.toilet_id,NEW.sigungu_code,NEW.legal_dong_code,NEW.administrative_dong_code,
-       NEW.region_source,NEW.status,NEW.reason,NEW.source_hash,
-       IF(t.latitude <=> NEW.source_latitude
-          AND t.longitude <=> NEW.source_longitude
-          AND BINARY t.road_address <=> BINARY NEW.source_road_address
-          AND BINARY t.jibun_address <=> BINARY NEW.source_jibun_address
-          AND (NEW.status <> 'VERIFIED'
-               OR (t.latitude <=> NEW.evaluated_latitude AND t.longitude <=> NEW.evaluated_longitude)),
-          t.region_revision,0),
-       NEW.evaluated_latitude,NEW.evaluated_longitude,
-       (SELECT h.assessment_id FROM toilet_region_assessment_history h
-        WHERE h.toilet_id=NEW.toilet_id AND h.source_hash=NEW.source_hash
-        ORDER BY h.checked_at DESC,h.assessment_id DESC LIMIT 1),NEW.checked_at
-FROM toilet t WHERE t.toilet_id=NEW.toilet_id
-ON DUPLICATE KEY UPDATE
-    sigungu_code=VALUES(sigungu_code),legal_dong_code=VALUES(legal_dong_code),
-    administrative_dong_code=VALUES(administrative_dong_code),region_source=VALUES(region_source),
-    status=VALUES(status),reason=VALUES(reason),source_hash=VALUES(source_hash),
-    source_revision=VALUES(source_revision),evaluated_latitude=VALUES(evaluated_latitude),
-    evaluated_longitude=VALUES(evaluated_longitude),assessment_id=VALUES(assessment_id),
-    checked_at=VALUES(checked_at);
-
-CREATE TRIGGER normalize_toilet_region_delete
-AFTER DELETE ON toilet_region
-FOR EACH ROW
-DELETE FROM toilet_region_assignment WHERE toilet_id=OLD.toilet_id;
-
-CREATE TRIGGER normalize_region_override_insert
-AFTER INSERT ON toilet_region_override
-FOR EACH ROW
-INSERT INTO toilet_region_decision
-    (toilet_id,sigungu_code,note,source_revision,confirmed_by_user_id,confirmed_at)
-SELECT NEW.toilet_id,NEW.sigungu_code,NEW.note,
-       IF(t.latitude <=> NEW.source_latitude
-          AND t.longitude <=> NEW.source_longitude
-          AND BINARY t.road_address <=> BINARY NEW.source_road_address
-          AND BINARY t.jibun_address <=> BINARY NEW.source_jibun_address,
-          t.region_revision,0),NEW.confirmed_by_user_id,NEW.confirmed_at
-FROM toilet t WHERE t.toilet_id=NEW.toilet_id
-ON DUPLICATE KEY UPDATE sigungu_code=VALUES(sigungu_code),note=VALUES(note),
-    source_revision=VALUES(source_revision),confirmed_by_user_id=VALUES(confirmed_by_user_id),
-    confirmed_at=VALUES(confirmed_at);
-
-CREATE TRIGGER normalize_region_override_update
-AFTER UPDATE ON toilet_region_override
-FOR EACH ROW
-INSERT INTO toilet_region_decision
-    (toilet_id,sigungu_code,note,source_revision,confirmed_by_user_id,confirmed_at)
-SELECT NEW.toilet_id,NEW.sigungu_code,NEW.note,
-       IF(t.latitude <=> NEW.source_latitude
-          AND t.longitude <=> NEW.source_longitude
-          AND BINARY t.road_address <=> BINARY NEW.source_road_address
-          AND BINARY t.jibun_address <=> BINARY NEW.source_jibun_address,
-          t.region_revision,0),NEW.confirmed_by_user_id,NEW.confirmed_at
-FROM toilet t WHERE t.toilet_id=NEW.toilet_id
-ON DUPLICATE KEY UPDATE sigungu_code=VALUES(sigungu_code),note=VALUES(note),
-    source_revision=VALUES(source_revision),confirmed_by_user_id=VALUES(confirmed_by_user_id),
-    confirmed_at=VALUES(confirmed_at);
-
-CREATE TRIGGER normalize_region_override_delete
-AFTER DELETE ON toilet_region_override
-FOR EACH ROW
-DELETE FROM toilet_region_decision WHERE toilet_id=OLD.toilet_id;
 
 DROP VIEW current_toilet_region;
 

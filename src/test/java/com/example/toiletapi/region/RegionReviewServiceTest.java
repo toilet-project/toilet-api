@@ -79,6 +79,8 @@ class RegionReviewServiceTest {
         assertEquals("지도 위치 확인", result.note());
         verify(jdbc).update(contains("INSERT INTO toilet_region_override"),
                 any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class));
+        verify(jdbc).update(contains("INSERT INTO toilet_region_decision"),
+                any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class));
         verify(audit).record(9L, AuditAction.TOILET_REGION_CONFIRMED, "TOILET", 1L,
                 java.util.Map.of("sigunguCode","41465","regionName","경기도 용인시 수지구"));
     }

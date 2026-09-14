@@ -156,6 +156,7 @@ public class RegionReviewService {
                 .addValue("note", request.note().trim()).addValue("latitude", toilet.getLatitude())
                 .addValue("longitude", toilet.getLongitude()).addValue("roadAddress", toilet.getRoadAddress())
                 .addValue("jibunAddress", toilet.getJibunAddress()).addValue("adminId", adminId)
+                .addValue("sourceRevision", toilet.getRegionRevision() == null ? 1L : toilet.getRegionRevision())
                 .addValue("confirmedAt", confirmedAt.toLocalDateTime());
         jdbc.update("""
                 INSERT INTO toilet_region_override
@@ -169,6 +170,14 @@ public class RegionReviewService {
                   source_longitude=VALUES(source_longitude),source_road_address=VALUES(source_road_address),
                   source_jibun_address=VALUES(source_jibun_address),confirmed_by_user_id=VALUES(confirmed_by_user_id),
                   confirmed_at=VALUES(confirmed_at)
+                """, values);
+        jdbc.update("""
+                INSERT INTO toilet_region_decision
+                    (toilet_id,sigungu_code,note,source_revision,confirmed_by_user_id,confirmed_at)
+                VALUES (:id,:sigunguCode,:note,:sourceRevision,:adminId,:confirmedAt)
+                ON DUPLICATE KEY UPDATE sigungu_code=VALUES(sigungu_code),note=VALUES(note),
+                    source_revision=VALUES(source_revision),confirmed_by_user_id=VALUES(confirmed_by_user_id),
+                    confirmed_at=VALUES(confirmed_at)
                 """, values);
         audit.record(adminId, AuditAction.TOILET_REGION_CONFIRMED, "TOILET", id,
                 Map.of("sigunguCode", choice.sigunguCode(), "regionName", displayName(choice)));

@@ -66,6 +66,12 @@ class ToiletRegionMySqlTest {
                 VALUES (1,'충청남도','44','천안시 서북구','44133','천안시','서북구',
                     'KAKAO','VERIFIED','MATCH',REPEAT('a',64),36.8,127.1,'Road A',NULL,36.8,127.1,'{}',NOW())
                 """);
+        jdbc.update("""
+                INSERT INTO toilet_region_assignment
+                    (toilet_id,sigungu_code,region_source,status,reason,source_hash,source_revision,
+                     evaluated_latitude,evaluated_longitude,checked_at)
+                VALUES (1,'44133','KAKAO','VERIFIED','MATCH',REPEAT('a',64),1,36.8,127.1,NOW())
+                """);
     }
 
     @Test void nativeProjectionPreservesCityDistrictAndCodes() {
@@ -81,14 +87,14 @@ class ToiletRegionMySqlTest {
 
     @Test void staleCoordinateOrAddressNeverLeaksAsVerified() {
         for (var update : new String[]{
-                "UPDATE toilet SET latitude=36.9",
-                "UPDATE toilet SET longitude=127.2",
-                "UPDATE toilet SET latitude=NULL",
-                "UPDATE toilet SET road_address='road a'",
-                "UPDATE toilet SET road_address=NULL",
-                "UPDATE toilet SET jibun_address='new address'",
-                "UPDATE toilet_region SET evaluated_latitude=36.9",
-                "UPDATE toilet_region SET evaluated_longitude=127.2"}) {
+                "UPDATE toilet SET latitude=36.9,region_revision=region_revision+1",
+                "UPDATE toilet SET longitude=127.2,region_revision=region_revision+1",
+                "UPDATE toilet SET latitude=NULL,region_revision=region_revision+1",
+                "UPDATE toilet SET road_address='road a',region_revision=region_revision+1",
+                "UPDATE toilet SET road_address=NULL,region_revision=region_revision+1",
+                "UPDATE toilet SET jibun_address='new address',region_revision=region_revision+1",
+                "UPDATE toilet_region_assignment SET evaluated_latitude=36.9",
+                "UPDATE toilet_region_assignment SET evaluated_longitude=127.2"}) {
             fixture();
             jdbc.update(update);
             assertTrue(repository.findCurrentRegion(1L).isEmpty(), update);
@@ -97,14 +103,14 @@ class ToiletRegionMySqlTest {
 
     @Test void unverifiedStatusesNeverLeak() {
         for (var status : new String[]{"MISMATCH","ADDRESS_UNVERIFIED","REVERSE_FAILED","NO_COORDINATE"}) {
-            jdbc.update("UPDATE toilet_region SET status=?", status);
+            jdbc.update("UPDATE toilet_region_assignment SET status=?", status);
             assertTrue(repository.findCurrentRegion(1L).isEmpty(), status);
         }
     }
 
     @Test void nullAddressAndSejongHierarchyAreNotInvented() {
-        jdbc.update("UPDATE toilet SET road_address=NULL");
-        jdbc.update("UPDATE toilet_region SET source_road_address=NULL,sido_name='세종특별자치시',sido_code='36',sigungu_name=NULL,sigungu_code='36110',city_name=NULL,district_name=NULL");
+        jdbc.update("UPDATE toilet SET road_address=NULL,region_revision=region_revision+1");
+        jdbc.update("UPDATE toilet_region_assignment SET sigungu_code='36110',source_revision=2");
         var region = repository.findCurrentRegion(1L).orElseThrow();
         assertEquals("세종특별자치시", region.getSidoName());
         assertEquals("36", region.getSidoCode());
@@ -114,13 +120,14 @@ class ToiletRegionMySqlTest {
     }
 
     @Test void currentManualDecisionWinsOverUnverifiedAutomaticResult() {
-        jdbc.update("UPDATE toilet_region SET status='MISMATCH'");
+        jdbc.update("UPDATE toilet_region_assignment SET status='MISMATCH'");
         jdbc.update("""
                 INSERT INTO toilet_region_override
                 (toilet_id,sido_name,sido_code,sigungu_name,sigungu_code,city_name,district_name,note,
                  source_latitude,source_longitude,source_road_address,source_jibun_address,confirmed_by_user_id)
                 VALUES (1,'경기도','41','평택시','41220',NULL,NULL,'관할 확인',36.8,127.1,'Road A',NULL,9)
                 """);
+        jdbc.update("INSERT INTO toilet_region_decision VALUES (1,'41220','관할 확인',1,9,NOW())");
         var region = repository.findCurrentRegion(1L).orElseThrow();
         assertEquals("평택시", region.getSigunguName());
         assertEquals("41220", region.getSigunguCode());
@@ -133,7 +140,8 @@ class ToiletRegionMySqlTest {
                  source_latitude,source_longitude,source_road_address,source_jibun_address,confirmed_by_user_id)
                 VALUES (1,'경기도','41','평택시','41220','관할 확인',36.8,127.1,'Road A',NULL,9)
                 """);
-        jdbc.update("UPDATE toilet SET road_address='Road B'");
+        jdbc.update("INSERT INTO toilet_region_decision VALUES (1,'41220','관할 확인',1,9,NOW())");
+        jdbc.update("UPDATE toilet SET road_address='Road B',region_revision=region_revision+1");
         assertTrue(repository.findCurrentRegion(1L).isEmpty());
     }
 }

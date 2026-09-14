@@ -5,6 +5,17 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ToiletCoordinateAddressTest {
+    @Test void regionRevisionChangesOnlyWhenRegionInputsChange() {
+        Toilet toilet = new Toilet();
+        assertEquals(1L, toilet.getRegionRevision());
+        toilet.applyAdminConfirmedCoordinates(new BigDecimal("37.5"), new BigDecimal("127.0"), "도로명", null);
+        assertEquals(2L, toilet.getRegionRevision());
+        toilet.applyAdminConfirmedCoordinates(new BigDecimal("37.5000000"), new BigDecimal("127.0000000"), "도로명", null);
+        assertEquals(2L, toilet.getRegionRevision());
+        toilet.applyAdminConfirmedCoordinates(new BigDecimal("37.5"), new BigDecimal("127.0"), "도로명 변경", null);
+        assertEquals(3L, toilet.getRegionRevision());
+    }
+
     @Test void missingCounterpartClearsPreviousLocationAddress() {
         Toilet toilet = new Toilet();
         toilet.applyAdminConfirmedCoordinates(BigDecimal.ONE, BigDecimal.TEN, "이전 도로명", "이전 지번");
