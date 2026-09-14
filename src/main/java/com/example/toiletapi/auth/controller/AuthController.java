@@ -9,6 +9,7 @@ import com.example.toiletapi.auth.service.UserRolePolicyService;
 import com.example.toiletapi.auth.service.AccountService;
 import com.example.toiletapi.auth.model.UserStatus;
 import com.example.toiletapi.policy.service.PolicyConsentService;
+import com.example.toiletapi.photo.PhotoService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
@@ -35,12 +36,14 @@ public class AuthController {
     private final AccountService accountService;
     private final com.example.toiletapi.auth.service.AccountErasureService erasureService;
     private final com.example.toiletapi.auth.service.AccountLifecycleGate lifecycle;
+    private final PhotoService photos;
 
     public AuthController(RefreshTokenStore refreshTokenStore, AuthTokenService tokenService,
                           AppUserRepository userRepository, UserRolePolicyService rolePolicyService,
                           PolicyConsentService policyConsentService, AccountService accountService,
                           com.example.toiletapi.auth.service.AccountErasureService erasureService,
-                          com.example.toiletapi.auth.service.AccountLifecycleGate lifecycle) {
+                          com.example.toiletapi.auth.service.AccountLifecycleGate lifecycle,
+                          PhotoService photos) {
         this.refreshTokenStore = refreshTokenStore;
         this.tokenService = tokenService;
         this.userRepository = userRepository;
@@ -49,6 +52,7 @@ public class AuthController {
         this.accountService = accountService;
         this.erasureService = erasureService;
         this.lifecycle = lifecycle;
+        this.photos = photos;
     }
 
     @PostMapping("/refresh")
@@ -70,8 +74,9 @@ public class AuthController {
         Long userId = Long.valueOf(jwt.getSubject());
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        PhotoService.State profilePhoto = user.getStatus() == UserStatus.ACTIVE ? photos.state(userId) : null;
         return new AuthProfileResponse(jwt.getSubject(), user.getDisplayName(), user.getEmail(), user.getStatus(),
-                jwt.getClaimAsStringList("roles"), policyConsentService.status(userId).consentRequired());
+                jwt.getClaimAsStringList("roles"), policyConsentService.status(userId).consentRequired(), profilePhoto);
     }
 
     @DeleteMapping("/me")
@@ -144,5 +149,5 @@ public class AuthController {
     }
 
     public record AuthProfileResponse(String userId, String displayName, String email, UserStatus status,
-                                      List<String> roles, boolean consentRequired) { }
+                                      List<String> roles, boolean consentRequired, PhotoService.State profilePhoto) { }
 }

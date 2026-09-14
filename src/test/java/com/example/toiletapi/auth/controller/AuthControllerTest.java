@@ -63,11 +63,53 @@ class AuthControllerTest {
     @MockitoBean
     private AccountService accountService;
     @MockitoBean
+    private com.example.toiletapi.photo.PhotoService photoService;
+    @MockitoBean
     private com.example.toiletapi.auth.service.AccountErasureService erasureService;
     @MockitoBean
     private OAuthLoginSuccessHandler oauthLoginSuccessHandler;
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @Test
+    void currentProfileIncludesPhotoStateForFirstPaint() throws Exception {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("profile-photo-test")
+                .header("alg", "HS256").subject("7").claim("roles", java.util.List.of("USER"))
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(300)).build();
+        var user = AppUser.create("사진 사용자", "photo@example.test", true);
+        user.activateAfterConsent();
+        when(jwtDecoder.decode("profile-photo-test")).thenReturn(jwt);
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+        when(policyConsentService.status(7L)).thenReturn(new com.example.toiletapi.policy.dto.PolicyConsentStatusResponse(
+                false, java.util.List.of(), java.util.List.of()));
+        when(photoService.state(7L)).thenReturn(new com.example.toiletapi.photo.PhotoService.State(
+                true, true, "12345678-1234-1234-1234-123456789abc"));
+
+        mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer profile-photo-test"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.profilePhoto.available").value(true))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.profilePhoto.publicPhoto").value(true))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.profilePhoto.imageVersion")
+                        .value("12345678-1234-1234-1234-123456789abc"));
+        verify(photoService).state(7L);
+    }
+
+    @Test
+    void pendingConsentProfileDoesNotReadPhotoState() throws Exception {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("pending-consent-test")
+                .header("alg", "HS256").subject("8").claim("roles", java.util.List.of("USER"))
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(300)).build();
+        var user = AppUser.create("동의 대기 사용자", "pending@example.test", true);
+        when(jwtDecoder.decode("pending-consent-test")).thenReturn(jwt);
+        when(userRepository.findById(8L)).thenReturn(Optional.of(user));
+        when(policyConsentService.status(8L)).thenReturn(new com.example.toiletapi.policy.dto.PolicyConsentStatusResponse(
+                true, java.util.List.of(), java.util.List.of()));
+
+        mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer pending-consent-test"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.profilePhoto").doesNotExist());
+        verify(photoService, never()).state(8L);
+    }
 
     @Test void withdrawalUsesAuthenticatedIdAndReturnsConfirmedDeadline() throws Exception {
         var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("withdrawal-test")
