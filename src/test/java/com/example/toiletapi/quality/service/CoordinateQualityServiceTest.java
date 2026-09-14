@@ -110,6 +110,53 @@ class CoordinateQualityServiceTest {
     }
 
     @Test
+    void correctsToMarkerCoordinateAndCreatesNamedDisplayGroup() {
+        Long adminId = 7L;
+        Long toiletId = 101L;
+        BigDecimal latitude = new BigDecimal("36.3663613");
+        BigDecimal longitude = new BigDecimal("127.3148032");
+        when(toiletRepository.findByIdForUpdate(toiletId)).thenReturn(Optional.of(toilet));
+        when(toilet.getLatitude()).thenReturn(new BigDecimal("36.3660000"), latitude);
+        when(toilet.getLongitude()).thenReturn(new BigDecimal("127.3140000"), longitude);
+        when(toilet.getRoadAddress()).thenReturn("기존 주소", "대전광역시 유성구 노은로 101");
+        when(addressResolver.resolve(latitude, longitude)).thenReturn(new CoordinateAddress(
+                latitude, longitude, "대전광역시 유성구 노은로 101", "지번 주소"));
+        when(displayGroupRepository.matchingToiletIds(List.of(toiletId, 202L, 203L), latitude, longitude))
+                .thenReturn(List.of(toiletId, 202L, 203L));
+        when(displayGroupRepository.create("XXX문화원", latitude, longitude, adminId)).thenReturn(41L);
+
+        service.correctToilet(adminId, toiletId, new CorrectToiletCoordinateRequest(
+                latitude, longitude, null, "지도 확인", null, " XXX문화원 ", List.of(toiletId, 202L, 203L)));
+
+        verify(toiletRepository).flush();
+        verify(displayGroupRepository).create("XXX문화원", latitude, longitude, adminId);
+        verify(displayGroupRepository).replaceMembers(41L, List.of(toiletId, 202L, 203L));
+        verify(displayGroupRepository, never()).removeToilet(toiletId);
+        verify(auditLogService).record(eq(adminId), eq(AuditAction.TOILET_DISPLAY_GROUP_SAVED),
+                eq("TOILET_DISPLAY_GROUP"), eq(41L), any(Map.class));
+    }
+
+    @Test
+    void rejectsNewDisplayGroupThatOmitsCorrectedToilet() {
+        Long toiletId = 101L;
+        BigDecimal latitude = new BigDecimal("36.3663613");
+        BigDecimal longitude = new BigDecimal("127.3148032");
+        when(toiletRepository.findByIdForUpdate(toiletId)).thenReturn(Optional.of(toilet));
+        when(toilet.getLatitude()).thenReturn(new BigDecimal("36.3660000"));
+        when(toilet.getLongitude()).thenReturn(new BigDecimal("127.3140000"));
+        when(toilet.getRoadAddress()).thenReturn("기존 주소");
+        when(addressResolver.resolve(latitude, longitude)).thenReturn(new CoordinateAddress(
+                latitude, longitude, "대전광역시 유성구 노은로 101", "지번 주소"));
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> service.correctToilet(7L, toiletId, new CorrectToiletCoordinateRequest(
+                        latitude, longitude, null, "지도 확인", null, "XXX문화원", List.of(202L, 203L))));
+
+        verify(displayGroupRepository, never()).create(anyString(), any(), any(), any());
+        verify(displayGroupRepository, never()).replaceMembers(any(), anyList());
+    }
+
+    @Test
     void rejectsJoiningAGroupAtDifferentCoordinates() {
         Long adminId = 7L;
         Long toiletId = 101L;
