@@ -29,16 +29,18 @@ class CacheInvalidationMySqlTest {
         jdbc=new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7))");
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
+        jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
+        jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         // DDL is an explicit DBA operation; application writes below keep the regular test user.
         var ddlDataSource=new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword());
         Flyway.configure().dataSource(ddlDataSource).baselineOnMigrate(true).baselineVersion("0")
                 .locations("classpath:db/cache-revalidation").load().migrate();
         repository=new CacheInvalidationRepository(jdbc);
     }
-    @BeforeEach void clear() {jdbc.update("DELETE FROM toilet_region");jdbc.update("DELETE FROM toilet");jdbc.update("DELETE FROM web_cache_invalidation");}
+    @BeforeEach void clear() {jdbc.update("DELETE FROM toilet_region_decision");jdbc.update("DELETE FROM toilet_region_assignment");jdbc.update("DELETE FROM toilet_region");jdbc.update("DELETE FROM toilet");jdbc.update("DELETE FROM web_cache_invalidation");}
     @AfterAll static void rollbackRetainsQueueButRemovesOnlyOwnedTriggers() throws Exception {
         long before = repository.pendingCount();
-        assertEquals(6, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
+        assertEquals(12, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
         try (var connection = new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword()).getConnection()) {
             ScriptUtils.executeSqlScript(connection,new ClassPathResource("db/cache-revalidation/rollback_triggers.sql"));
         }
@@ -60,12 +62,14 @@ class CacheInvalidationMySqlTest {
     @Test void repeatedMutationsCoalesceButOldAckCannotEraseANewerEvent() {
         jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)"); var old=repository.due().getFirst();
         jdbc.update("UPDATE toilet SET name='new name' WHERE toilet_id=1"); var latest=repository.due().getFirst();
-        assertNotEquals(old.eventId(),latest.eventId()); assertEquals(1,repository.pendingCount());
+        assertNotEquals(old.eventId(),latest.eventId()); assertEquals(old.revision()+1,latest.revision()); assertEquals(1,repository.pendingCount());
         repository.acknowledge(old); repository.retry(old,"HTTP_503");
         assertEquals(1,repository.pendingCount()); assertEquals(0,repository.due().getFirst().attempts());
         repository.acknowledge(latest); assertTrue(repository.due().isEmpty());
         jdbc.update("UPDATE toilet SET latitude=38 WHERE toilet_id=1");
-        repository.acknowledge(latest); assertEquals(1,repository.pendingCount(),"new event after deletion must survive old ACK (ABA)");
+        var afterAck=repository.due().getFirst();
+        assertEquals(latest.revision()+1,afterAck.revision(),"delivered rows retain a monotonic revision");
+        repository.acknowledge(latest); assertEquals(1,repository.pendingCount(),"new event after acknowledgement must survive old ACK (ABA)");
     }
     @Test void regionCompletionRemovalAndToiletDeletionAreAllCaptured() {
         jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)"); repository.acknowledge(repository.due().getFirst());
@@ -76,6 +80,16 @@ class CacheInvalidationMySqlTest {
         jdbc.update("DELETE FROM toilet_region WHERE toilet_id=1"); assertEquals(1,repository.pendingCount());
         repository.acknowledge(repository.due().getFirst());
         jdbc.update("DELETE FROM toilet WHERE toilet_id=1"); assertEquals(1,repository.pendingCount());
+        var deletion=repository.due().getFirst(); assertEquals(CacheInvalidationEvent.Action.DELETE,deletion.action()); assertTrue(deletion.catalogChanged());
+    }
+    @Test void normalizedRegionWritesRemainCapturedAfterLegacyRemoval() {
+        jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)"); repository.acknowledge(repository.due().getFirst());
+        jdbc.update("INSERT INTO toilet_region_assignment VALUES (1,'VERIFIED')"); var assignment=repository.due().getFirst();
+        assertEquals(CacheInvalidationEvent.Action.UPSERT,assignment.action()); assertFalse(assignment.catalogChanged());
+        repository.acknowledge(assignment);
+        jdbc.update("INSERT INTO toilet_region_decision VALUES (1,'VERIFIED')"); assertEquals(1,repository.pendingCount());
+        repository.acknowledge(repository.due().getFirst());
+        jdbc.update("DELETE FROM toilet_region_assignment WHERE toilet_id=1"); assertEquals(1,repository.pendingCount());
     }
     @Test void failedDeliveryRemainsDurableAndIsDeferred() {
         jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)"); var item=repository.due().getFirst();

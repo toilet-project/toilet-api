@@ -11,6 +11,8 @@ web-cache:
   origin: ${WEB_CACHE_ORIGIN:}
   secret: ${WEB_CACHE_REVALIDATION_SECRET:}
   poll-ms: 5000
+  # Keep v1 until the manual outbox V2 schema and the compatible Web receiver are deployed.
+  contract-version: ${WEB_CACHE_CONTRACT_VERSION:1}
 
 server:
   port: ${API_PORT}

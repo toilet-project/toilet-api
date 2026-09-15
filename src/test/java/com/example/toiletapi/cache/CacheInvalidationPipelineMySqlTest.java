@@ -22,7 +22,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
 
-/** Real Spring scheduler -> signed HTTP -> ACK -> MySQL deletion. No production settings. */
+/** Real Spring scheduler -> signed HTTP -> ACK marker in MySQL. No production settings. */
 @Testcontainers
 class CacheInvalidationPipelineMySqlTest {
     @Container static MySQLContainer mysql = new MySQLContainer("mysql:8.0");
@@ -40,10 +40,14 @@ class CacheInvalidationPipelineMySqlTest {
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100))");
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
+        jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
+        jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         Flyway.configure().dataSource(mysql.getJdbcUrl(),"root",mysql.getPassword())
                 .baselineOnMigrate(true).baselineVersion("0").locations("classpath:db/cache-revalidation").load().migrate();
     }
     @BeforeEach void prepare() throws Exception {
+        jdbc.update("DELETE FROM toilet_region_decision");
+        jdbc.update("DELETE FROM toilet_region_assignment");
         jdbc.update("DELETE FROM toilet_region");
         jdbc.update("DELETE FROM toilet");
         jdbc.update("DELETE FROM web_cache_invalidation");
@@ -58,8 +62,11 @@ class CacheInvalidationPipelineMySqlTest {
                 var expected = CacheInvalidationClient.signature(CacheInvalidationClientTest.SECRET,timestamp,body);
                 if (!expected.equals(exchange.getRequestHeaders().getFirst("x-cache-signature"))) status=401;
                 else validSignatures.incrementAndGet();
-                var ids = new ObjectMapper().readTree(body).get("toiletIds");
-                var response = ("{\"ok\":true,\"acceptedIds\":"+ids+"}").getBytes(StandardCharsets.UTF_8);
+                var payload = new ObjectMapper().readTree(body);
+                var events = payload.get("events");
+                var response = (events == null
+                        ? "{\"ok\":true,\"acceptedIds\":"+payload.get("toiletIds")+"}"
+                        : "{\"ok\":true,\"acceptedEvents\":"+events+"}").getBytes(StandardCharsets.UTF_8);
                 exchange.sendResponseHeaders(status,response.length);
                 exchange.getResponseBody().write(response);
             } catch (Exception error) { throw new java.io.IOException("Test receiver failed"); }
@@ -71,7 +78,8 @@ class CacheInvalidationPipelineMySqlTest {
         context = new AnnotationConfigApplicationContext();
         context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("test-only",Map.of(
                 "web-cache.enabled","true", "web-cache.origin","http://127.0.0.1:"+receiver.getAddress().getPort(),
-                "web-cache.secret",CacheInvalidationClientTest.SECRET, "web-cache.poll-ms","50")));
+                "web-cache.secret",CacheInvalidationClientTest.SECRET, "web-cache.poll-ms","50",
+                "web-cache.contract-version","2")));
         context.registerBean(JdbcTemplate.class,()->jdbc);
         context.registerBean(SimpleMeterRegistry.class,SimpleMeterRegistry::new);
         // Closing the old process must finish its in-flight delivery before the test

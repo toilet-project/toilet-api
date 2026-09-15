@@ -41,5 +41,28 @@ class CacheInvalidationClientTest {
         for(String origin:List.of("http://example.com","https://user:password@example.com","https://example.com/path","https://example.com?secret=1"))
             assertThrows(IllegalArgumentException.class,()->new CacheInvalidationClient(origin,SECRET,HttpClient.newHttpClient(),Clock.systemUTC()));
         assertThrows(IllegalArgumentException.class,()->new CacheInvalidationClient("https://example.com","weak",HttpClient.newHttpClient(),Clock.systemUTC()));
+        assertThrows(IllegalArgumentException.class,()->new CacheInvalidationEvent(9_007_199_254_740_992L,1,CacheInvalidationEvent.Action.UPSERT,false));
+        assertThrows(IllegalArgumentException.class,()->new CacheInvalidationEvent(1,9_007_199_254_740_992L,CacheInvalidationEvent.Action.UPSERT,false));
+    }
+    @Test void v2RequiresAnExplicitRevisionAck() throws Exception {
+        HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+        AtomicReference<String> body=new AtomicReference<>();
+        AtomicReference<String> ack=new AtomicReference<>("{\"ok\":true,\"acceptedEvents\":[{\"toiletId\":1,\"revision\":7}]}");
+        server.createContext(CacheInvalidationClient.PATH,exchange->{
+            body.set(new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8));
+            byte[] bytes=ack.get().getBytes(StandardCharsets.UTF_8); exchange.sendResponseHeaders(200,bytes.length);
+            exchange.getResponseBody().write(bytes); exchange.close();
+        });
+        server.start();
+        try {
+            var client=new CacheInvalidationClient("http://127.0.0.1:"+server.getAddress().getPort(),SECRET,HttpClient.newHttpClient(),Clock.systemUTC());
+            var event=new CacheInvalidationEvent(1,7,CacheInvalidationEvent.Action.DELETE,true);
+            client.sendEvents(List.of(event));
+            var json=new com.fasterxml.jackson.databind.ObjectMapper().readTree(body.get());
+            assertEquals(2,json.path("contractVersion").asInt());
+            assertEquals("DELETE",json.path("events").get(0).path("action").asText());
+            ack.set("{\"ok\":true,\"acceptedEvents\":[{\"toiletId\":1,\"revision\":6}]}");
+            assertThrows(CacheInvalidationClient.DeliveryException.class,()->client.sendEvents(List.of(event)));
+        } finally {server.stop(0);}
     }
 }
