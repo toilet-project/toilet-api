@@ -15,6 +15,12 @@ export function renderLocalDeployment(source, role) {
       vars.ACCOUNT_LIFECYCLE_DEPLOYMENT_APPROVED == 'true' &&
       vars.ACCOUNT_LIFECYCLE_DEPLOYMENT_APPROVED_SHA == github.sha
     runs-on: ubuntu-latest`)
+  replace('          CACHE_ORIGIN: ${{ vars.WEB_CACHE_ORIGIN }}',
+    `          CACHE_ORIGIN: \${{ vars.WEB_CACHE_ORIGIN }}
+          CACHE_CONTRACT_VERSION: \${{ vars.WEB_CACHE_CONTRACT_VERSION || '1' }}`)
+  replace('            WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}',
+    `            WEB_CACHE_ORIGIN=\${{ vars.WEB_CACHE_ORIGIN }}
+            WEB_CACHE_CONTRACT_VERSION=\${{ vars.WEB_CACHE_CONTRACT_VERSION || '1' }}`)
   replace("          ERASURE_LEDGER_DEPLOYMENT_PROFILE: 'us-runtime'",
     `          ERASURE_LEDGER_DEPLOYMENT_PROFILE: 'local-paused'
           ERASURE_LEDGER_PROVIDER: 'LOCAL'

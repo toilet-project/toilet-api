@@ -33,6 +33,7 @@ jobs:
         env:
           CACHE_ENABLED: ${{ vars.WEB_CACHE_REVALIDATION_ENABLED || 'false' }}
           CACHE_ORIGIN: ${{ vars.WEB_CACHE_ORIGIN }}
+          CACHE_CONTRACT_VERSION: ${{ vars.WEB_CACHE_CONTRACT_VERSION || '1' }}
           CACHE_SECRET_NAME: ${{ vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET' }}
           CACHE_SECRET: ${{ secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET'] }}
         run: node scripts/check-web-cache-deployment.mjs
@@ -159,6 +160,7 @@ jobs:
             AUTH_ADMIN_BOOTSTRAP_EMAILS=${{ secrets.AUTH_ADMIN_BOOTSTRAP_EMAILS }}
             WEB_CACHE_REVALIDATION_ENABLED=${{ vars.WEB_CACHE_REVALIDATION_ENABLED || 'false' }}
             WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}
+            WEB_CACHE_CONTRACT_VERSION=${{ vars.WEB_CACHE_CONTRACT_VERSION || '1' }}
             WEB_CACHE_REVALIDATION_SECRET=${{ secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET'] }}
             EOF
 
