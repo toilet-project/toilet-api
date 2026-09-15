@@ -23,6 +23,9 @@ assert.equal(i,oldSteps.length-1);
 // Permit only the reviewed LOCAL preparation delta; all unrelated fields stay pinned.
 const lifecycleBaseline = oldSteps.find(s => s.id === 'lifecycle');
 assert.ok(lifecycleBaseline, 'Pinned lifecycle preparation step required');
+const cacheBaseline = oldSteps.find(s => s.name === 'Validate cache destination and matching signing key');
+assert.ok(cacheBaseline, 'Pinned cache deployment validation step required');
+cacheBaseline.env.CACHE_CONTRACT_VERSION = "${{ vars.WEB_CACHE_CONTRACT_VERSION || '1' }}";
 Object.assign(lifecycleBaseline.env, {
  ERASURE_LEDGER_DEPLOYMENT_PROFILE: 'local-paused',
  ERASURE_LEDGER_PROVIDER: 'LOCAL',
@@ -95,6 +98,9 @@ replaceOnce('KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}',
  +"PROFILE_PHOTO_ENABLED=${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}\n"
  +"PROFILE_PHOTO_CDN_ENABLED=${{ vars.PROFILE_PHOTO_CDN_ENABLED || 'false' }}\n"
  +"KAKAO_LOGIN_SCOPES=${{ vars.PROFILE_PHOTO_ENABLED == 'true' && 'profile_nickname,account_email,profile_image' || 'profile_nickname,account_email' }}");
+replaceOnce('WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}',
+ 'WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}\n'
+ +"WEB_CACHE_CONTRACT_VERSION=${{ vars.WEB_CACHE_CONTRACT_VERSION || '1' }}");
 replaceOnce('      - .account-lifecycle.env',
  '      - .account-lifecycle.env\n      - /home/luha/.config/geupddong/profile-photo.env');
 assert.equal(deploy.env.DEPLOY_SCRIPT,expectedScript,'Remote commands must match only the allowlisted LOCAL and maintenance delta');

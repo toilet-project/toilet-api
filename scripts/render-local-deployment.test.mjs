@@ -14,6 +14,7 @@ test('candidate keeps account actions paused and does not read R2 credentials',(
   assert.ok(out.includes("ACCOUNT_LIFECYCLE_MAINTENANCE: 'true'"))
   assert.ok(out.includes("ERASURE_LEDGER_LOCAL_DEPLOYMENT_APPROVED || 'false'"))
   assert.ok(out.includes("vars.ACCOUNT_LIFECYCLE_DEPLOYMENT_APPROVED_SHA == github.sha"))
+  assert.equal(out.split("vars.WEB_CACHE_CONTRACT_VERSION || '1'").length-1,2)
 })
 test('candidate rejects absent preflight before touching configuration and does not auto-create ledger',()=>{
   const out=renderLocalDeployment(source,role)
