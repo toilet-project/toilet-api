@@ -157,6 +157,9 @@ jobs:
             REDIS_HOST=redis
             REDIS_PORT=6379
             JWT_SECRET=${{ secrets.JWT_SECRET }}
+            SERVICE_ANALYTICS_ENABLED=true
+            ANALYTICS_VISITOR_HMAC_SECRET=${{ secrets.JWT_SECRET }}
+            SERVICE_ANALYTICS_DAILY_CRON=0 30 2 * * *
             AUTH_ADMIN_BOOTSTRAP_EMAILS=${{ secrets.AUTH_ADMIN_BOOTSTRAP_EMAILS }}
             WEB_CACHE_REVALIDATION_ENABLED=${{ vars.WEB_CACHE_REVALIDATION_ENABLED || 'false' }}
             WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}
