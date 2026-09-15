@@ -60,6 +60,11 @@ export function renderLocalDeployment(source, role) {
             PROFILE_PHOTO_ENABLED=\${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}
             PROFILE_PHOTO_CDN_ENABLED=\${{ vars.PROFILE_PHOTO_CDN_ENABLED || 'false' }}
             KAKAO_LOGIN_SCOPES=\${{ vars.PROFILE_PHOTO_ENABLED == 'true' && 'profile_nickname,account_email,profile_image' || 'profile_nickname,account_email' }}`)
+    replace('            JWT_SECRET=\${{ secrets.JWT_SECRET }}',
+      `            JWT_SECRET=\${{ secrets.JWT_SECRET }}
+            SERVICE_ANALYTICS_ENABLED=true
+            ANALYTICS_VISITOR_HMAC_SECRET=\${{ secrets.JWT_SECRET }}
+            SERVICE_ANALYTICS_DAILY_CRON=0 30 2 * * *`)
     replace('                  - .account-lifecycle.env',
       `                  - .account-lifecycle.env
                   - /home/luha/.config/geupddong/profile-photo.env`)

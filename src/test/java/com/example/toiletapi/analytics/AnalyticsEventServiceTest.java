@@ -1,0 +1,83 @@
+package com.example.toiletapi.analytics;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.web.server.ResponseStatusException;
+
+class AnalyticsEventServiceTest {
+
+    private static final String SECRET = "12345678901234567890123456789012";
+
+    @Test
+    void storesOnlyAllowlistedAndCoarsenedValues() {
+        AnalyticsRepository repository = mock(AnalyticsRepository.class);
+        AnalyticsEventService service = new AnalyticsEventService(repository,
+                Clock.fixed(Instant.parse("2026-09-16T01:02:03Z"), ZoneOffset.UTC), true, SECRET);
+        HttpServletRequest http = request("https://geupddong.com", "203.0.113.91",
+                "Mozilla/5.0 (Linux; Android 15) AppleWebKit Chrome/140 Mobile Safari/537.36",
+                "https://www.google.com/search?q=private", "KR");
+
+        service.collect(new AnalyticsEventRequest("toilet_detail_open", "/toilet/1111?token=secret",
+                "map", "26+", 999, null, "session-test-1234", "map", true, true), http);
+
+        ArgumentCaptor<AnalyticsRepository.EventRow> row = ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
+        verify(repository).insert(row.capture());
+        assertEquals("/toilet/:id", row.getValue().pageKey());
+        assertEquals("Organic Search", row.getValue().channel());
+        assertEquals("google", row.getValue().source());
+        assertEquals("mobile", row.getValue().device());
+        assertEquals("Android", row.getValue().os());
+        assertEquals("Chrome", row.getValue().browser());
+        assertEquals(32, row.getValue().visitorHash().length);
+        assertEquals(32, row.getValue().sessionHash().length);
+        assertEquals(0, row.getValue().engagementSeconds());
+        assertEquals("map", row.getValue().eventDetail());
+        assertEquals(true, row.getValue().newVisitor());
+    }
+
+    @Test
+    void rejectsUnknownOriginsAndEvents() {
+        AnalyticsRepository repository = mock(AnalyticsRepository.class);
+        AnalyticsEventService service = new AnalyticsEventService(repository, Clock.systemUTC(), true, SECRET);
+        HttpServletRequest badOrigin = request("https://attacker.invalid", "203.0.113.1", "Mozilla/5.0", "", "KR");
+        assertThrows(ResponseStatusException.class, () -> service.collect(
+                new AnalyticsEventRequest("page_view", "/", null, null, null, null, null, null, null, null), badOrigin));
+
+        HttpServletRequest valid = request("https://geupddong.com", "203.0.113.1", "Mozilla/5.0", "", "KR");
+        assertThrows(ResponseStatusException.class, () -> service.collect(
+                new AnalyticsEventRequest("raw_search_query", "/", null, null, null, null, null, null, null, null), valid));
+        verify(repository, never()).insert(any());
+    }
+
+    @Test
+    void disabledCollectionDoesNotWrite() {
+        AnalyticsRepository repository = mock(AnalyticsRepository.class);
+        AnalyticsEventService service = new AnalyticsEventService(repository, Clock.systemUTC(), false, SECRET);
+        service.collect(new AnalyticsEventRequest("page_view", "/", null, null, null, null, null, null, null, null),
+                request("https://geupddong.com", "203.0.113.1", "Mozilla/5.0", "", "KR"));
+        verify(repository, never()).insert(any());
+    }
+
+    private static HttpServletRequest request(String origin, String ip, String ua, String referer, String country) {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getHeader("Origin")).thenReturn(origin);
+        when(request.getHeader("CF-Connecting-IP")).thenReturn(ip);
+        when(request.getHeader("User-Agent")).thenReturn(ua);
+        when(request.getHeader("Referer")).thenReturn(referer);
+        when(request.getHeader("CF-IPCountry")).thenReturn(country);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        return request;
+    }
+}

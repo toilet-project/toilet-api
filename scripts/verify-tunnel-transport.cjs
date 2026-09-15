@@ -98,6 +98,11 @@ replaceOnce('KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}',
  +"PROFILE_PHOTO_ENABLED=${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}\n"
  +"PROFILE_PHOTO_CDN_ENABLED=${{ vars.PROFILE_PHOTO_CDN_ENABLED || 'false' }}\n"
  +"KAKAO_LOGIN_SCOPES=${{ vars.PROFILE_PHOTO_ENABLED == 'true' && 'profile_nickname,account_email,profile_image' || 'profile_nickname,account_email' }}");
+replaceOnce('JWT_SECRET=${{ secrets.JWT_SECRET }}',
+ 'JWT_SECRET=${{ secrets.JWT_SECRET }}\n'
+ +'SERVICE_ANALYTICS_ENABLED=true\n'
+ +'ANALYTICS_VISITOR_HMAC_SECRET=${{ secrets.JWT_SECRET }}\n'
+ +'SERVICE_ANALYTICS_DAILY_CRON=0 30 2 * * *');
 replaceOnce('WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}',
  'WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}\n'
  +"WEB_CACHE_CONTRACT_VERSION=${{ vars.WEB_CACHE_CONTRACT_VERSION || '1' }}");
