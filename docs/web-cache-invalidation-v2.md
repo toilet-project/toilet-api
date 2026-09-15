@@ -52,7 +52,7 @@ API는 `WEB_CACHE_CONTRACT_VERSION=1`일 때 기존 `{ "toiletIds": [...] }`를 
 6. 공유 캐시를 표본 검증한 뒤 API 계약만 `2`로 바꾼다.
 7. pending 수, 최고 대기 시간, failures, 실제 수정→다음 상세 조회 반영을 확인한다.
 
-운영 계정 기능이 활성 상태이면 준비 상태 전용 `deploy.yml`을 재활성화하지 않는다. 이미지와 계정 설정을 그대로 둔 채 계약 값 하나만 바꾸는 수동 `cache-contract-transition.yml`을 사용한다. 정확한 workflow SHA·현재 API 이미지 SHA·목표 계약 버전을 저장소 변수에 고정하고, 먼저 `check`를 실행한다. `apply`는 배포 중지, V2 스키마 검증, Web V2 수신 및 공유 캐시 표본 검증을 모두 입력으로 확인한 경우에만 `.env`의 `WEB_CACHE_CONTRACT_VERSION` 한 줄을 원자적으로 바꾸고 API만 재생성한다. 실패 시 원래 파일을 복구하고 같은 이미지로 API를 다시 확인하며 자동 재시도하지 않는다.
+운영 계정 기능이 활성 상태이면 준비 상태 전용 `deploy.yml`을 재활성화하지 않는다. 이미지와 계정 설정을 그대로 둔 채 계약 값 하나만 바꾸는 수동 `cache-contract-transition.yml`을 사용한다. 정확한 workflow SHA·현재 API 이미지 SHA·목표 계약 버전을 저장소 변수에 고정하고, 먼저 승인 스위치가 필요 없는 읽기 전용 `check`를 실행한다. 운영 변경 승인 스위치는 `apply`에만 필요하다. `apply`는 배포 중지, V2 스키마 검증, Web V2 수신 및 공유 캐시 표본 검증을 모두 입력으로 확인한 경우에만 `.env`의 `WEB_CACHE_CONTRACT_VERSION` 한 줄을 원자적으로 바꾸고 API만 재생성한다. 실패 시 원래 파일을 복구하고 같은 이미지로 API를 다시 확인하며 자동 재시도하지 않는다.
 
 API 코드를 먼저 배포하면 V2 컬럼 조회가 실패하므로 SQL 선행이 필수다. 반대로 SQL을 먼저 적용해도 기존 v1 전송기는 추가 컬럼을 무시하므로 단계적 전환이 가능하다.
 

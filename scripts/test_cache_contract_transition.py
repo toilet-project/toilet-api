@@ -36,12 +36,16 @@ class CacheContractTransitionTest(unittest.TestCase):
         source = (ROOT / '.github/workflows/cache-contract-transition.yml').read_text()
         for text in ('workflow_dispatch:', "github.ref == 'refs/heads/main'",
                      "vars.CACHE_CONTRACT_APPROVED_SHA == github.sha",
+                     'APPROVED_CONTRACT_VERSION: ${{ vars.CACHE_CONTRACT_APPROVED_VERSION }}',
+                     'test "$RELEASE_APPROVED" = true',
                      "test \"$TUNNEL_SSH_HOST\" = ssh-deploy.geupddong.com",
                      "--operation $OPERATION", "--contract-version $CONTRACT_VERSION",
                      "discover -s scripts -p test_cache_contract_transition.py"):
             self.assertIn(text, source)
         self.assertNotIn('\n  push:', source)
         self.assertNotIn('\n  schedule:', source)
+        condition = source.split('runs-on:', 1)[0]
+        self.assertNotIn('CACHE_CONTRACT_RELEASE_APPROVED', condition)
         self.assertNotIn('secrets.', (ROOT / 'scripts/cache_contract_transition.py').read_text())
 
 
