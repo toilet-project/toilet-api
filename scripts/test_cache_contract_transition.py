@@ -65,7 +65,10 @@ class CacheContractTransitionTest(unittest.TestCase):
         self.assertNotIn('\n  schedule:', source)
         condition = source.split('runs-on:', 1)[0]
         self.assertNotIn('CACHE_CONTRACT_RELEASE_APPROVED', condition)
-        self.assertNotIn('secrets.', (ROOT / 'scripts/cache_contract_transition.py').read_text())
+        transition = (ROOT / 'scripts/cache_contract_transition.py').read_text()
+        self.assertNotIn('secrets.', transition)
+        self.assertIn('CACHE_CONTRACT_FAILURE_CONTEXT primaryStage=', transition)
+        self.assertIn('rollbackStage=', transition)
 
 
 if __name__ == '__main__':
