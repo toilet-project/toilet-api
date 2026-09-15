@@ -101,11 +101,22 @@ def environment(obj):
     return values
 
 
-def normalize_inspection(obj):
+def peer_snapshot(obj):
     require(isinstance(obj.get('Mounts'), list) and all(isinstance(item, dict) for item in obj['Mounts']))
-    result = dict(obj)
-    result['Mounts'] = sorted(obj['Mounts'], key=lambda item: json.dumps(item, sort_keys=True))
-    return result
+    require(obj.get('State', {}).get('Running') is True)
+    return {
+        'Id': obj.get('Id'),
+        'Created': obj.get('Created'),
+        'Image': obj.get('Image'),
+        'Name': obj.get('Name'),
+        'Path': obj.get('Path'),
+        'Args': obj.get('Args'),
+        'Config': obj.get('Config'),
+        'HostConfig': obj.get('HostConfig'),
+        'Mounts': sorted(obj['Mounts'], key=lambda item: json.dumps(item, sort_keys=True)),
+        'RestartCount': obj.get('RestartCount'),
+        'StartedAt': obj['State'].get('StartedAt'),
+    }
 
 
 def inspect_api(expected_commit):
@@ -122,7 +133,7 @@ def inspect_api(expected_commit):
 
 
 def inspect_batch():
-    return normalize_inspection(json.loads(run(['docker', 'inspect', 'toilet-batch']))[0])
+    return peer_snapshot(json.loads(run(['docker', 'inspect', 'toilet-batch']))[0])
 
 
 def healthy(obj):

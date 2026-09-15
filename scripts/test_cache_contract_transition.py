@@ -1,9 +1,10 @@
 import pathlib
 import sys
 import unittest
+from copy import deepcopy
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from cache_contract_transition import contract_candidate, parse_dotenv
+from cache_contract_transition import contract_candidate, parse_dotenv, peer_snapshot
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -31,6 +32,24 @@ class CacheContractTransitionTest(unittest.TestCase):
         with self.assertRaises(ValueError): contract_candidate(base('1') + b'WEB_CACHE_CONTRACT_VERSION=2\n', '2')
         with self.assertRaises(ValueError): contract_candidate(base().replace(b'https://geupddong.com', b'https://preview.geupddong.com'), '2')
         with self.assertRaises(ValueError): contract_candidate(base().replace(b'WEB_CACHE_REVALIDATION_SECRET=synthetic\n', b''), '2')
+
+    def test_peer_snapshot_ignores_health_poll_history_but_detects_real_changes(self):
+        source = {
+            'Id': 'container', 'Created': 'created', 'Image': 'image', 'Name': '/toilet-batch',
+            'Path': 'java', 'Args': ['-jar'], 'Config': {'Env': ['A=B']},
+            'HostConfig': {'NetworkMode': 'toilet-network'}, 'Mounts': [{'Source': '/safe'}],
+            'RestartCount': 0,
+            'State': {'Running': True, 'StartedAt': 'start', 'Health': {'Log': [{'End': 'first'}]}},
+        }
+        polled = deepcopy(source)
+        polled['State']['Health']['Log'] = [{'End': 'later'}]
+        self.assertEqual(peer_snapshot(source), peer_snapshot(polled))
+        restarted = deepcopy(source)
+        restarted['State']['StartedAt'] = 'different'
+        self.assertNotEqual(peer_snapshot(source), peer_snapshot(restarted))
+        reconfigured = deepcopy(source)
+        reconfigured['Config']['Env'] = ['A=C']
+        self.assertNotEqual(peer_snapshot(source), peer_snapshot(reconfigured))
 
     def test_workflow_is_manual_exact_sha_and_pinned_tunnel_only(self):
         source = (ROOT / '.github/workflows/cache-contract-transition.yml').read_text()
