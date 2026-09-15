@@ -2,9 +2,10 @@ import pathlib
 import sys
 import unittest
 from copy import deepcopy
+from unittest.mock import patch
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from cache_contract_transition import contract_candidate, parse_dotenv, peer_snapshot
+from cache_contract_transition import contract_candidate, parse_dotenv, peer_snapshot, wait_for_healthy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -50,6 +51,22 @@ class CacheContractTransitionTest(unittest.TestCase):
         reconfigured = deepcopy(source)
         reconfigured['Config']['Env'] = ['A=C']
         self.assertNotEqual(peer_snapshot(source), peer_snapshot(reconfigured))
+
+    def test_wait_for_healthy_allows_bounded_startup_delay(self):
+        with patch('cache_contract_transition.healthy', side_effect=[OSError('starting'), None]) as check, \
+                patch('cache_contract_transition.time.monotonic', side_effect=[0, 1]), \
+                patch('cache_contract_transition.time.sleep') as sleep:
+            wait_for_healthy({'safe': 'object'}, timeout=60, interval=2)
+        self.assertEqual(check.call_count, 2)
+        sleep.assert_called_once_with(2)
+
+    def test_wait_for_healthy_fails_after_deadline(self):
+        with patch('cache_contract_transition.healthy', side_effect=OSError('still starting')), \
+                patch('cache_contract_transition.time.monotonic', side_effect=[0, 60]), \
+                patch('cache_contract_transition.time.sleep') as sleep:
+            with self.assertRaisesRegex(ValueError, 'CACHE_CONTRACT_HEALTH_UNVERIFIED'):
+                wait_for_healthy({'safe': 'object'}, timeout=60, interval=2)
+        sleep.assert_not_called()
 
     def test_workflow_is_manual_exact_sha_and_pinned_tunnel_only(self):
         source = (ROOT / '.github/workflows/cache-contract-transition.yml').read_text()
