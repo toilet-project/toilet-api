@@ -1,4 +1,4 @@
-# LOCAL preparation only: explicit deployment approval required; account actions remain disabled.
+# Production deployment requires exact-SHA approval; account actions remain disabled.
 name: Toilet API CI/CD Pipeline
 
 on:
