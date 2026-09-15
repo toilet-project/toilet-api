@@ -2,11 +2,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
 import {validateWebCacheDeployment as validate} from './web-cache-deployment-policy.mjs'
-const preview={enabled:'true',origin:'https://preview.geupddong.com',secretName:'WEB_CACHE_REVALIDATION_SECRET',secret:'a'.repeat(64)}
+const preview={enabled:'true',origin:'https://preview.geupddong.com',secretName:'WEB_CACHE_REVALIDATION_SECRET',secret:'a'.repeat(64),contractVersion:'1'}
 const production={...preview,origin:'https://geupddong.com',secretName:'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET'}
-test('preview retains existing key selection',()=>assert.deepEqual(validate(preview),{enabled:true,target:'preview'}))
-test('production requires its dedicated key',()=>assert.deepEqual(validate(production),{enabled:true,target:'production'}))
-test('unconfigured disabled sender remains supported',()=>assert.deepEqual(validate({}),{enabled:false,target:'disabled'}))
+test('preview retains existing key selection',()=>assert.deepEqual(validate(preview),{enabled:true,target:'preview',contractVersion:1}))
+test('production requires its dedicated key',()=>assert.deepEqual(validate({...production,contractVersion:'2'}),{enabled:true,target:'production',contractVersion:2}))
+test('unconfigured disabled sender remains supported',()=>assert.deepEqual(validate({}),{enabled:false,target:'disabled',contractVersion:1}))
+test('only cache contract versions 1 and 2 are accepted',()=>{
+  for(const contractVersion of ['', '0', '3', 'v2', '2\n']) assert.throws(()=>validate({...production,contractVersion}))
+})
 test('enabled sender rejects missing origin',()=>assert.throws(()=>validate({...preview,origin:''})))
 test('production never silently falls back to preview secret',()=>{
   assert.throws(()=>validate({...production,secret:''}))
@@ -32,6 +35,8 @@ test('workflow preflight and actual injection use identical no-value-fallback se
   const workflow=await readFile(new URL('../.github/workflows/deploy.yml',import.meta.url),'utf8')
   const expression="secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET']"
   assert.equal(workflow.split(expression).length-1,2)
+  const contractExpression="vars.WEB_CACHE_CONTRACT_VERSION || '1'"
+  assert.equal(workflow.split(contractExpression).length-1,2)
   const preflightIndex=workflow.indexOf('node scripts/check-web-cache-deployment.mjs')
   const imageLoginIndex=workflow.indexOf('Log in to Docker Hub')
   const deployIndex=workflow.indexOf('Deploy to Mini PC through Tunnel')
