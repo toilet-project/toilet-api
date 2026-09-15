@@ -6,20 +6,23 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class CacheInvalidationRepository {
-    public record Pending(long toiletId, String eventId, int attempts) {}
+    public record Pending(long toiletId, String eventId, long revision, CacheInvalidationEvent.Action action,
+                          boolean catalogChanged, int attempts) {
+        CacheInvalidationEvent event() { return new CacheInvalidationEvent(toiletId, revision, action, catalogChanged); }
+    }
     private final JdbcTemplate jdbc;
     public CacheInvalidationRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public List<Pending> due() {
-        return jdbc.query("SELECT toilet_id,event_id,attempts FROM web_cache_invalidation WHERE next_attempt_at<=UTC_TIMESTAMP(6) ORDER BY next_attempt_at,toilet_id LIMIT 100",
-                (rs,n) -> new Pending(rs.getLong(1),rs.getString(2),rs.getInt(3)));
+        return jdbc.query("SELECT toilet_id,event_id,revision,action,catalog_changed,attempts FROM web_cache_invalidation WHERE delivered_at IS NULL AND next_attempt_at<=UTC_TIMESTAMP(6) ORDER BY next_attempt_at,toilet_id LIMIT 100",
+                (rs,n) -> new Pending(rs.getLong(1),rs.getString(2),rs.getLong(3),CacheInvalidationEvent.Action.valueOf(rs.getString(4)),rs.getBoolean(5),rs.getInt(6)));
     }
-    public long pendingCount() { return jdbc.queryForObject("SELECT COUNT(*) FROM web_cache_invalidation", Long.class); }
+    public long pendingCount() { return jdbc.queryForObject("SELECT COUNT(*) FROM web_cache_invalidation WHERE delivered_at IS NULL", Long.class); }
     public long oldestPendingSeconds() {
-        return jdbc.queryForObject("SELECT COALESCE(GREATEST(0,TIMESTAMPDIFF(SECOND,MIN(first_queued_at),UTC_TIMESTAMP(6))),0) FROM web_cache_invalidation", Long.class);
+        return jdbc.queryForObject("SELECT COALESCE(GREATEST(0,TIMESTAMPDIFF(SECOND,MIN(first_queued_at),UTC_TIMESTAMP(6))),0) FROM web_cache_invalidation WHERE delivered_at IS NULL", Long.class);
     }
     public void acknowledge(Pending item) {
-        jdbc.update("DELETE FROM web_cache_invalidation WHERE toilet_id=? AND event_id=?",item.toiletId(),item.eventId());
+        jdbc.update("UPDATE web_cache_invalidation SET delivered_at=UTC_TIMESTAMP(6),last_error_code=NULL WHERE toilet_id=? AND event_id=? AND delivered_at IS NULL",item.toiletId(),item.eventId());
     }
     public void retry(Pending item, String code) {
         int seconds = retrySeconds(item.attempts());

@@ -1,5 +1,7 @@
 # 공개 상세 캐시 갱신 — opt-in 설계·운영 절차
 
+> 이 문서는 2026-09-05 v1 운영 기록이다. 배포 독립 공유 데이터 캐시용 revision 계약과 전환 순서는 [v2 보강 문서](web-cache-invalidation-v2.md)를 기준으로 한다.
+
 2026-09-05 · `feature/durable-preview-cache` · WBS toilet-web #186
 
 ## 적용 상태

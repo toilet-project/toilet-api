@@ -15,11 +15,15 @@ public class CacheInvalidationDispatcher {
     private static final Logger log=LoggerFactory.getLogger(CacheInvalidationDispatcher.class);
     private final CacheInvalidationRepository repository;
     private final CacheInvalidationClient client;
+    private final int contractVersion;
     private final Counter deliveries, failures;
     private final AtomicLong pending = new AtomicLong();
     private final AtomicLong oldestPendingSeconds = new AtomicLong();
-    public CacheInvalidationDispatcher(CacheInvalidationRepository repository,CacheInvalidationClient client,MeterRegistry metrics) {
+    public CacheInvalidationDispatcher(CacheInvalidationRepository repository,CacheInvalidationClient client,MeterRegistry metrics,
+            @org.springframework.beans.factory.annotation.Value("${web-cache.contract-version:1}") int contractVersion) {
         this.repository=repository; this.client=client;
+        if(contractVersion!=1 && contractVersion!=2) throw new IllegalArgumentException("Unsupported cache contract version");
+        this.contractVersion=contractVersion;
         deliveries=metrics.counter("web.cache.invalidation.deliveries");
         failures=metrics.counter("web.cache.invalidation.failures");
         metrics.gauge("web.cache.invalidation.pending",pending);
@@ -34,7 +38,8 @@ public class CacheInvalidationDispatcher {
             var items=repository.due();
             if(items.isEmpty()) return;
             try {
-                client.send(items.stream().map(CacheInvalidationRepository.Pending::toiletId).toList());
+                if(contractVersion==1) client.send(items.stream().map(CacheInvalidationRepository.Pending::toiletId).toList());
+                else client.sendEvents(items.stream().map(CacheInvalidationRepository.Pending::event).toList());
             } catch (Exception error) {
                 failures.increment();
                 String code=error instanceof CacheInvalidationClient.DeliveryException ? error.getMessage() : "TRANSPORT_OR_ACK_ERROR";
