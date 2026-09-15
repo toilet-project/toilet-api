@@ -158,6 +158,18 @@ def healthy(obj):
     require(valid, 'CACHE_CONTRACT_HEALTH_UNVERIFIED')
 
 
+def wait_for_healthy(obj, timeout=60, interval=2):
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            healthy(obj)
+            return
+        except Exception:
+            if time.monotonic() >= deadline:
+                raise ValueError('CACHE_CONTRACT_HEALTH_UNVERIFIED') from None
+            time.sleep(interval)
+
+
 def restart(root):
     run(['docker', 'compose', '--project-directory', str(root), '-f', str(root / 'compose.yaml'),
          'up', '-d', '--no-deps', '--no-build', '--pull', 'never', '--force-recreate',
@@ -216,7 +228,7 @@ def apply(args):
                 primary_stage = 'aux-config-compare'
                 require(all(read_owned(path) == content for path, content in unchanged.items()))
                 primary_stage = 'api-health'
-                healthy(updated_obj)
+                wait_for_healthy(updated_obj)
                 primary_stage = 'backup-remove'
                 backup.unlink()
             except Exception:
@@ -238,7 +250,7 @@ def apply(args):
                     rollback_stage = 'aux-config-compare'
                     require(all(read_owned(path) == content for path, content in unchanged.items()))
                     rollback_stage = 'api-health'
-                    healthy(restored_obj)
+                    wait_for_healthy(restored_obj)
                     rollback_stage = 'backup-remove'
                     if backup.exists():
                         backup.unlink()
