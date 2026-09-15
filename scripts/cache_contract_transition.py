@@ -198,33 +198,56 @@ def apply(args):
                 stream.write(original)
                 stream.flush()
                 os.fsync(stream.fileno())
+            primary_stage = 'candidate-write'
             try:
                 atomic_replace(env_path, replacement)
+                primary_stage = 'api-restart'
                 restart(root)
+                primary_stage = 'api-inspect'
                 updated_obj, updated_runtime = inspect_api(args.expected_api_commit)
                 expected_runtime = dict(original_runtime)
                 expected_runtime[CONTRACT_KEY] = args.contract_version
+                primary_stage = 'runtime-compare'
                 require(updated_runtime == expected_runtime, 'CACHE_CONTRACT_RUNTIME_REJECTED')
+                primary_stage = 'peer-compare'
                 require(inspect_batch() == original_batch, 'CACHE_CONTRACT_PEER_CHANGED')
+                primary_stage = 'compose-compare'
                 require(read_project_file(compose_path) == compose)
+                primary_stage = 'aux-config-compare'
                 require(all(read_owned(path) == content for path, content in unchanged.items()))
+                primary_stage = 'api-health'
                 healthy(updated_obj)
+                primary_stage = 'backup-remove'
                 backup.unlink()
             except Exception:
+                rollback_stage = 'candidate-verify'
                 try:
                     require(read_owned(env_path) == replacement, 'CACHE_CONTRACT_EXTERNAL_CHANGE_REQUIRES_REVIEW')
+                    rollback_stage = 'config-restore'
                     atomic_replace(env_path, original)
+                    rollback_stage = 'api-restart'
                     restart(root)
+                    rollback_stage = 'api-inspect'
                     restored_obj, restored_runtime = inspect_api(args.expected_api_commit)
+                    rollback_stage = 'runtime-compare'
                     require(restored_runtime == original_runtime)
+                    rollback_stage = 'peer-compare'
                     require(inspect_batch() == original_batch, 'CACHE_CONTRACT_PEER_CHANGED')
+                    rollback_stage = 'compose-compare'
                     require(read_project_file(compose_path) == compose)
+                    rollback_stage = 'aux-config-compare'
                     require(all(read_owned(path) == content for path, content in unchanged.items()))
+                    rollback_stage = 'api-health'
                     healthy(restored_obj)
+                    rollback_stage = 'backup-remove'
                     if backup.exists():
                         backup.unlink()
                 except Exception:
+                    print('CACHE_CONTRACT_FAILURE_CONTEXT primaryStage=' + primary_stage
+                          + ' rollbackStage=' + rollback_stage, file=sys.stderr)
                     raise RuntimeError('CACHE_CONTRACT_ROLLBACK_UNVERIFIED') from None
+                print('CACHE_CONTRACT_FAILURE_CONTEXT primaryStage=' + primary_stage
+                      + ' rollbackStage=complete', file=sys.stderr)
                 raise RuntimeError('CACHE_CONTRACT_FAILED_CONFIG_RESTORED') from None
         elif args.operation == 'apply':
             require(current == args.contract_version, 'CACHE_CONTRACT_RUNTIME_REJECTED')
