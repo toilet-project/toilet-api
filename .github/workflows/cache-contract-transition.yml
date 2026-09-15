@@ -38,7 +38,6 @@ jobs:
     if: >-
       github.repository == 'toilet-project/toilet-api' &&
       github.ref == 'refs/heads/main' &&
-      vars.CACHE_CONTRACT_RELEASE_APPROVED == 'true' &&
       vars.CACHE_CONTRACT_APPROVED_SHA == github.sha
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -52,7 +51,8 @@ jobs:
           EXPECTED_API_COMMIT: ${{ inputs.expected_api_commit }}
           APPROVED_API_COMMIT: ${{ vars.CACHE_CONTRACT_APPROVED_API_COMMIT }}
           CONTRACT_VERSION: ${{ inputs.contract_version }}
-          APPROVED_CONTRACT_VERSION: ${{ vars.WEB_CACHE_CONTRACT_VERSION }}
+          APPROVED_CONTRACT_VERSION: ${{ vars.CACHE_CONTRACT_APPROVED_VERSION }}
+          RELEASE_APPROVED: ${{ vars.CACHE_CONTRACT_RELEASE_APPROVED }}
           OPERATION: ${{ inputs.operation }}
           FREEZE: ${{ inputs.deployment_freeze_confirmed }}
           SCHEMA: ${{ inputs.schema_verified }}
@@ -66,6 +66,7 @@ jobs:
           case "$OPERATION" in
             check) ;;
             apply)
+              test "$RELEASE_APPROVED" = true
               test "$FREEZE" = true
               test "$SCHEMA" = true
               if test "$CONTRACT_VERSION" = 2; then test "$WEB_READY" = true; fi
