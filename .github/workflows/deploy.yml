@@ -1,4 +1,4 @@
-# Production deployment requires exact-SHA approval; account actions remain disabled.
+# Production deployment runs only for the explicitly approved commit SHA; account actions remain disabled.
 name: Toilet API CI/CD Pipeline
 
 on:
