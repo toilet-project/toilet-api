@@ -1,5 +1,3 @@
-DROP TABLE IF EXISTS admin_analytics_snapshot;
-
 CREATE TABLE service_analytics_event (
     event_id BIGINT NOT NULL AUTO_INCREMENT,
     occurred_at DATETIME(6) NOT NULL,
