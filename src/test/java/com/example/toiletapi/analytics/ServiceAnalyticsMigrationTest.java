@@ -14,7 +14,7 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 class ServiceAnalyticsMigrationTest {
 
     @Test
-    void replacesTheGoogleSnapshotWithOwnedEventAndDailyTables() throws Exception {
+    void addsOwnedEventAndDailyTablesWithoutBreakingTheRunningAdmin() throws Exception {
         DataSource dataSource = new DriverManagerDataSource(
                 "jdbc:h2:mem:service-analytics-v21;MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         execute(dataSource, "db/migration/V20__create_admin_analytics_snapshot.sql");
@@ -33,7 +33,7 @@ class ServiceAnalyticsMigrationTest {
                 """, Integer.class);
 
         assertThat(ownedTables).isEqualTo(4);
-        assertThat(retiredTables).isZero();
+        assertThat(retiredTables).isEqualTo(1);
     }
 
     private static void execute(DataSource dataSource, String path) throws Exception {
