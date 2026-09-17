@@ -30,7 +30,7 @@ public class AnalyticsRepository {
                     device_type, os_family, browser_family, country_code, city_name, visitor_hash,
                     session_hash, engagement_seconds, result_count_bucket, event_detail,
                     success_status, new_visitor, key_event
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, Timestamp.from(value.occurredAt()), Date.valueOf(value.occurredDate()), value.eventName(),
                 value.pageKey(), value.channel(), value.source(), value.device(), value.os(), value.browser(),
                 value.country(), value.city(), value.visitorHash(), value.sessionHash(), value.engagementSeconds(),
