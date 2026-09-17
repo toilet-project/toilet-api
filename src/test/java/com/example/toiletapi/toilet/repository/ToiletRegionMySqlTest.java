@@ -28,7 +28,7 @@ class ToiletRegionMySqlTest {
     @BeforeAll static void schema() throws Exception {
         var dataSource = new DriverManagerDataSource(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword());
         jdbc = new JdbcTemplate(dataSource);
-        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY, latitude DECIMAL(10,7), longitude DECIMAL(10,7), road_address VARCHAR(255), jibun_address VARCHAR(255))");
+        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY, latitude DECIMAL(10,7), longitude DECIMAL(10,7), road_address VARCHAR(255), jibun_address VARCHAR(255), visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
         jdbc.execute("CREATE TABLE app_user (user_id BIGINT PRIMARY KEY)");
         jdbc.update("INSERT INTO app_user VALUES (9)");
         try (var connection = dataSource.getConnection()) {

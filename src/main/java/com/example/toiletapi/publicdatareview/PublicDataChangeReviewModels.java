@@ -28,9 +28,17 @@ public final class PublicDataChangeReviewModels {
     public record ValidationIssue(String code, String message, boolean blocking) {}
     public record Validation(List<ValidationIssue> issues) {}
     public record DecisionHistory(Action action, OffsetDateTime decidedAt, String actorName, String note) {}
+    public record HiddenContext(long eventId, Long representativeToiletId, String reason,
+                                OffsetDateTime hiddenAt, String currentVisibility,
+                                String baselineName, String currentName, String proposalName) {}
     public record Detail(ReviewItem review, String dataSource, String baselineHash, boolean isStale,
                          ProtectedValue current, Proposal proposal, Long distanceMeters, Receipt receipt,
-                         Validation validation, List<DecisionHistory> decisionHistory) {}
+                         Validation validation, List<DecisionHistory> decisionHistory, HiddenContext hiddenContext) {
+        public Detail(ReviewItem review,String dataSource,String baselineHash,boolean isStale,ProtectedValue current,
+                      Proposal proposal,Long distanceMeters,Receipt receipt,Validation validation,List<DecisionHistory> history) {
+            this(review,dataSource,baselineHash,isStale,current,proposal,distanceMeters,receipt,validation,history,null);
+        }
+    }
     public record DecisionRequest(@NotNull Action action, @Size(max = 500) String note,
                                   @NotNull Long expectedVersion, @NotNull @Size(min = 64, max = 64)
                                   String expectedBaselineHash) {}

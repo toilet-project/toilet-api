@@ -38,7 +38,7 @@ class CacheInvalidationPipelineMySqlTest {
     @BeforeAll static void schema() {
         dataSource = new DriverManagerDataSource(mysql.getJdbcUrl(),mysql.getUsername(),mysql.getPassword());
         jdbc = new JdbcTemplate(dataSource);
-        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100))");
+        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
@@ -106,14 +106,14 @@ class CacheInvalidationPipelineMySqlTest {
     @Test void committedChangeIsAutomaticallySignedAndAcknowledged() throws Exception {
         startSender();
         new TransactionTemplate(new DataSourceTransactionManager(dataSource)).execute(status->{
-            jdbc.update("INSERT INTO toilet VALUES(13144,'fixture only')"); return null;
+            jdbc.update("INSERT INTO toilet (toilet_id,name) VALUES(13144,'fixture only')"); return null;
         });
         await(()->validSignatures.get()>0 && repository.pendingCount()==0);
         assertEquals("fixture only",jdbc.queryForObject("SELECT name FROM toilet WHERE toilet_id=13144",String.class));
     }
     @Test void rollbackIsNeverSent() throws Exception {
         new TransactionTemplate(new DataSourceTransactionManager(dataSource)).execute(status->{
-            jdbc.update("INSERT INTO toilet VALUES(13144,'fixture only')"); status.setRollbackOnly();return null;
+            jdbc.update("INSERT INTO toilet (toilet_id,name) VALUES(13144,'fixture only')"); status.setRollbackOnly();return null;
         });
         startSender();
         context.getBean(CacheInvalidationDispatcher.class).dispatch();
@@ -122,7 +122,7 @@ class CacheInvalidationPipelineMySqlTest {
     }
     @Test void failedReceiverAndProcessRestartRetainAndRetryCommittedEvent() throws Exception {
         responseStatus.set(503);
-        jdbc.update("INSERT INTO toilet VALUES(13144,'fixture only')");
+        jdbc.update("INSERT INTO toilet (toilet_id,name) VALUES(13144,'fixture only')");
         startSender();
         await(()->jdbc.queryForObject("SELECT attempts FROM web_cache_invalidation WHERE toilet_id=13144",Integer.class)>0);
         assertEquals(1,repository.pendingCount());

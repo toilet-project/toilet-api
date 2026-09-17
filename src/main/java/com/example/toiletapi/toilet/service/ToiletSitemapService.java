@@ -16,10 +16,10 @@ public class ToiletSitemapService {
     private final JdbcTemplate jdbc;
 
     public List<Long> shards() {
-        // Index-only scan of the existing primary key. Never load entity/address/report data.
+        // Visibility-filtered ID projection. Never load entity/address/report data.
         var result = jdbc.queryForList("""
                 SELECT (toilet_id - 1) DIV 10000 AS shard
-                FROM toilet WHERE toilet_id BETWEEN 1 AND ?
+                FROM toilet WHERE visibility_status='VISIBLE' AND toilet_id BETWEEN 1 AND ?
                 GROUP BY shard ORDER BY shard LIMIT 50000
                 """, Long.class, MAX_ID);
         if (result.size() >= 50_000) throw new UnsupportedOperationException("Sitemap index capacity exceeded");
@@ -32,7 +32,7 @@ public class ToiletSitemapService {
         long start = shard * SHARD_SIZE;
         long end = Math.min(start + SHARD_SIZE, MAX_ID);
         return jdbc.queryForList("""
-                SELECT toilet_id FROM toilet WHERE toilet_id > ? AND toilet_id <= ?
+                SELECT toilet_id FROM toilet WHERE visibility_status='VISIBLE' AND toilet_id > ? AND toilet_id <= ?
                 ORDER BY toilet_id LIMIT 10000
                 """, Long.class, start, end);
     }

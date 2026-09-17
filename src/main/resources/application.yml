@@ -14,6 +14,10 @@ web-cache:
   # Keep v1 until the manual outbox V2 schema and the compatible Web receiver are deployed.
   contract-version: ${WEB_CACHE_CONTRACT_VERSION:1}
 
+app:
+  duplicate-facilities:
+    enabled: ${DUPLICATE_FACILITIES_ENABLED:false}
+
 service-analytics:
   enabled: ${SERVICE_ANALYTICS_ENABLED:false}
   visitor-secret: ${ANALYTICS_VISITOR_HMAC_SECRET:${JWT_SECRET:}}

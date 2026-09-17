@@ -86,6 +86,7 @@ public class ToiletService {
      */
     public ToiletDetailResponse getToiletDetail(Long toiletId) {
         return toiletRepository.findById(toiletId)
+                .filter(com.example.toiletapi.toilet.model.Toilet::isPubliclyVisible)
                 .map(toilet -> ToiletDetailResponse.from(toilet,
                         toiletRepository.findCurrentRegion(toiletId).map(ToiletRegionResponse::from).orElse(null)))
                 .orElseThrow(() -> new ToiletNotFoundException(toiletId));

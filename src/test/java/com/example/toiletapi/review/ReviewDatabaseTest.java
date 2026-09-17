@@ -34,7 +34,7 @@ class ReviewDatabaseTest {
     void setup(DataSource ds,boolean h2) throws Exception {
         jdbc=new JdbcTemplate(ds);tx=new TransactionTemplate(new DataSourceTransactionManager(ds));
         jdbc.execute("CREATE TABLE app_user(user_id BIGINT PRIMARY KEY,status VARCHAR(20),display_name VARCHAR(100),auth_version BIGINT NOT NULL DEFAULT 0)");
-        jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7))");
+        jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7),visibility_status VARCHAR(24) DEFAULT 'VISIBLE')");
         String ddl=new ClassPathResource("db/migration/V12__create_location_reviews.sql").getContentAsString(StandardCharsets.UTF_8);
         if(h2)ddl=ddl.replace("CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci","").replace("BOOLEAN","TINYINT");
         new ResourceDatabasePopulator(new ByteArrayResource(ddl.getBytes(StandardCharsets.UTF_8))).execute(ds);
@@ -42,8 +42,8 @@ class ReviewDatabaseTest {
         if(h2)photoDdl=photoDdl.replace("BOOLEAN","TINYINT");
         new ResourceDatabasePopulator(new ByteArrayResource(photoDdl.getBytes(StandardCharsets.UTF_8))).execute(ds);
         jdbc.update("INSERT INTO app_user(user_id,status,display_name) VALUES(1,'ACTIVE','작성자 하나'),(2,'ACTIVE','작성자 둘')");
-        jdbc.update("INSERT INTO toilet VALUES(1,'합성 화장실',36.3,127.3),(2,'좌표 없는 화장실',NULL,NULL)");
-        for(long id=3;id<=20;id++)jdbc.update("INSERT INTO toilet VALUES(?,'다른 합성 화장실',36.3,127.3)",id);
+        jdbc.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES(1,'합성 화장실',36.3,127.3),(2,'좌표 없는 화장실',NULL,NULL)");
+        for(long id=3;id<=20;id++)jdbc.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES(?,'다른 합성 화장실',36.3,127.3)",id);
         policies=mock(PolicyConsentService.class);
         service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,key->{});
     }
@@ -53,6 +53,14 @@ class ReviewDatabaseTest {
     Item createAt(long toilet,String comment){return call(()->service.create(author,new Create(toilet,4,5,true,20,comment,input(comment).position()),UUID.randomUUID().toString()));}
     long id(Item item){return Long.parseLong(item.id());}
     void failure(String code,Supplier<?> action){assertEquals(code,assertThrows(ReviewFailure.class,()->call(action)).code());}
+
+    @Test void hiddenFacilityCannotReceiveNewReviewsButExistingReviewIsRetained() {
+        var first=create("보존 대상 리뷰");
+        jdbc.update("UPDATE toilet SET visibility_status='HIDDEN_DUPLICATE' WHERE toilet_id=1");
+        assertTrue(new ReviewRepository(jdbc).facility(1,false).isEmpty());
+        assertTrue(new ReviewRepository(jdbc).find(id(first)).isPresent());
+        assertEquals("보존 대상 리뷰",new ReviewRepository(jdbc).find(id(first)).orElseThrow().comment());
+    }
 
     @Test void durableCreateIdempotencyAndNewestKeysetPage() {
         String key=UUID.randomUUID().toString();Create request=input("첫 번째");
@@ -138,7 +146,7 @@ class ReviewDatabaseTest {
         assertEquals(0,call(cleanup::deleteExpired));
         failure("REVIEW_ALREADY_EXISTS",()->service.create(author,new Create(3L,4,5,true,20,"한도 유지",input("").position()),UUID.randomUUID().toString()));
         for(int i=100;i<1101;i++){
-            jdbc.update("INSERT INTO toilet VALUES(?,'합성',36.3,127.3)",i);
+            jdbc.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES(?,'합성',36.3,127.3)",i);
             jdbc.update("INSERT INTO toilet_review_toilet_guard(user_id,toilet_id,next_allowed_at) VALUES(1,?,?)",i,LocalDateTime.ofInstant(clock.instant(),ZoneOffset.ofHours(9)));
         }
         assertEquals(1000,call(cleanup::deleteExpired));assertEquals(1,call(cleanup::deleteExpired));
