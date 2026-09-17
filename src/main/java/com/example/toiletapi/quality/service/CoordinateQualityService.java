@@ -43,13 +43,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class CoordinateQualityService {
     private static final String DUPLICATE_GROUPS = """
             WITH duplicate_groups AS (
-                SELECT latitude, longitude, COUNT(*) AS toilet_count,
-                       MIN(COALESCE(name, '이름 없는 화장실')) AS representative_name,
-                       MIN(COALESCE(NULLIF(road_address, ''), NULLIF(jibun_address, ''), '주소 정보 없음')) AS representative_address
-                  FROM toilet
-                 WHERE visibility_status='VISIBLE' AND latitude IS NOT NULL AND longitude IS NOT NULL
-                 GROUP BY latitude, longitude
-                HAVING COUNT(*) > 1
+                SELECT t.latitude, t.longitude, COUNT(*) AS physical_count,
+                       SUM(CASE WHEN g.group_id IS NULL THEN 1 ELSE 0 END) AS toilet_count,
+                       MIN(CASE WHEN g.group_id IS NULL THEN COALESCE(t.name, '이름 없는 화장실') END) AS representative_name,
+                       MIN(CASE WHEN g.group_id IS NULL THEN COALESCE(NULLIF(t.road_address, ''), NULLIF(t.jibun_address, ''), '주소 정보 없음') END) AS representative_address
+                  FROM toilet t
+                  LEFT JOIN toilet_display_group_member m ON m.toilet_id = t.toilet_id
+                  LEFT JOIN toilet_display_group g ON g.group_id = m.group_id
+                    AND g.latitude = t.latitude AND g.longitude = t.longitude
+                 WHERE t.visibility_status='VISIBLE' AND t.latitude IS NOT NULL AND t.longitude IS NOT NULL
+                 GROUP BY t.latitude, t.longitude
             ), pending_reports AS (
                 SELECT t.latitude, t.longitude, COUNT(*) AS pending_report_count
                   FROM toilet_report r
@@ -91,7 +94,7 @@ public class CoordinateQualityService {
         String where = filterSql();
         List<DuplicateCoordinateGroupResponse> items = jdbc.query(
                 DUPLICATE_GROUPS + GROUP_SELECT + where
-                        + " ORDER BY d.toilet_count DESC, d.representative_name ASC LIMIT :limit OFFSET :offset",
+                        + " ORDER BY d.toilet_count DESC, d.representative_name ASC, d.latitude ASC, d.longitude ASC LIMIT :limit OFFSET :offset",
                 parameters, (rs, rowNumber) -> mapGroup(rs));
         Long total = jdbc.queryForObject(
                 DUPLICATE_GROUPS + "SELECT COUNT(*) FROM (" + GROUP_SELECT + where + ") filtered_groups",
@@ -115,6 +118,7 @@ public class CoordinateQualityService {
                   LEFT JOIN toilet_display_group g ON g.group_id = m.group_id
                     AND g.latitude = t.latitude AND g.longitude = t.longitude
                  WHERE t.visibility_status='VISIBLE' AND t.latitude = :latitude AND t.longitude = :longitude
+                   AND g.group_id IS NULL
                  ORDER BY COALESCE(g.display_name, t.name) ASC, m.sort_order ASC, t.toilet_id ASC
                 """, coordinates, (rs, rowNumber) -> new DuplicateCoordinateToiletResponse(
                 rs.getLong("toilet_id"), rs.getString("mng_no"), rs.getString("name"),
@@ -122,6 +126,7 @@ public class CoordinateQualityService {
                 rs.getBigDecimal("latitude"), rs.getBigDecimal("longitude"), rs.getString("coordinate_source"),
                 rs.getObject("display_group_id", Long.class), rs.getString("display_group_name")));
         List<Long> toiletIds = toilets.stream().map(DuplicateCoordinateToiletResponse::id).toList();
+        if (toiletIds.isEmpty()) return new DuplicateCoordinateGroupDetailResponse(group, toilets, List.of(), List.of());
         Map<Long, String> names = toilets.stream().collect(java.util.stream.Collectors.toMap(
                 DuplicateCoordinateToiletResponse::id, item -> Objects.toString(item.name(), "이름 없는 화장실")));
         List<CoordinateQualityReportResponse> reports = reportRepository
@@ -320,7 +325,8 @@ public class CoordinateQualityService {
         List<DuplicateCoordinateGroupResponse> groups = jdbc.query(
                 DUPLICATE_GROUPS + GROUP_SELECT + " WHERE SHA2(CONCAT(CAST(d.latitude AS CHAR), '|', CAST(d.longitude AS CHAR)), 256) = :groupKey",
                 parameters, (rs, rowNumber) -> mapGroup(rs));
-        if (groups.isEmpty()) throw new IllegalArgumentException("중복 좌표 그룹을 찾을 수 없습니다.");
+        if (groups.isEmpty()) throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "해당 좌표에 남은 검토 시설이 없습니다.");
         return groups.getFirst();
     }
 
@@ -333,7 +339,8 @@ public class CoordinateQualityService {
 
     private String filterSql() {
         return """
-                 WHERE (:status IS NULL OR COALESCE(q.status, 'PENDING') = :status)
+                 WHERE d.physical_count > 1 AND d.toilet_count > 0
+                   AND (:status IS NULL OR COALESCE(q.status, 'PENDING') = :status)
                    AND (:keyword = '' OR d.representative_name LIKE :keywordPattern
                         OR d.representative_address LIKE :keywordPattern
                         OR EXISTS (SELECT 1 FROM toilet t

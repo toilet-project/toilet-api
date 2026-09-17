@@ -31,8 +31,8 @@ import static com.example.toiletapi.region.RegionReviewModels.*;
 public class RegionReviewService {
     // A confirmation is current only while the exact reviewed source remains unchanged.
     static final String EFFECTIVE_STATUS = """
-            CASE WHEN d.toilet_id IS NOT NULL THEN 'VERIFIED'
-                 WHEN t.latitude IS NULL OR t.longitude IS NULL THEN 'NO_COORDINATE'
+            CASE WHEN t.latitude IS NULL OR t.longitude IS NULL THEN 'NO_COORDINATE'
+                 WHEN d.toilet_id IS NOT NULL THEN 'VERIFIED'
                  WHEN a.toilet_id IS NULL THEN 'UNASSESSED'
                  WHEN a.source_revision <> t.region_revision THEN 'STALE'
                  WHEN a.status = 'VERIFIED' AND NOT (t.latitude <=> a.evaluated_latitude

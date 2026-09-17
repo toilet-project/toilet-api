@@ -118,4 +118,23 @@ class RegionReviewServiceTest {
         assertTrue(sql.getValue().contains("a.source_revision <> t.region_revision"));
         assertFalse(sql.getValue().contains("LEFT JOIN toilet_region r"));
     }
+
+    @Test void missingCoordinatesRemainUnfinishedEvenAfterDistrictConfirmation() {
+        var db = new org.springframework.jdbc.core.JdbcTemplate(new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                "jdbc:h2:mem:region-status-" + java.util.UUID.randomUUID() + ";MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", ""));
+        // H2 spells MySQL's null-safe equality differently; the production CASE order is unchanged.
+        var expression = RegionReviewService.EFFECTIVE_STATUS.replace("<=>", "IS NOT DISTINCT FROM");
+        db.execute("CREATE TABLE t(latitude DECIMAL(10,7),longitude DECIMAL(10,7),region_revision BIGINT)");
+        db.execute("CREATE TABLE d(toilet_id BIGINT)");
+        db.execute("CREATE TABLE a(toilet_id BIGINT,source_revision BIGINT,status VARCHAR(30),evaluated_latitude DECIMAL(10,7),evaluated_longitude DECIMAL(10,7))");
+        db.update("INSERT INTO t VALUES(NULL,NULL,1)");
+        db.update("INSERT INTO d VALUES(1)");
+        db.update("INSERT INTO a VALUES(1,1,'NO_COORDINATE',NULL,NULL)");
+        assertEquals("NO_COORDINATE", db.queryForObject("SELECT " + expression + " FROM t,d,a", String.class));
+        db.update("UPDATE t SET latitude=37");
+        assertEquals("NO_COORDINATE", db.queryForObject("SELECT " + expression + " FROM t,d,a", String.class));
+        db.update("UPDATE t SET longitude=127");
+        assertEquals("VERIFIED", db.queryForObject("SELECT " + expression + " FROM t,d,a", String.class));
+        db.execute("SHUTDOWN");
+    }
 }
