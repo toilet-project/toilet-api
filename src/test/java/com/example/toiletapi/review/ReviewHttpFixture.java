@@ -70,7 +70,7 @@ public class ReviewHttpFixture {
     static class Config {
         @Bean DataSource dataSource() {
             var ds=NativeMySqlFixture.create(); var jdbc=new JdbcTemplate(ds);
-            jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7))");
+            jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7),visibility_status VARCHAR(24) DEFAULT 'VISIBLE')");
             for(String file:new String[]{"V1__create_auth_data_model.sql","V2__create_toilet_report_and_coordinate_revision.sql",
                     "V4__create_user_notification.sql","V5__create_coordinate_quality_review.sql","V7__create_policy_consent_model.sql",
                     "V11__account_withdrawal_retention.sql","V12__create_location_reviews.sql"})
@@ -79,7 +79,7 @@ public class ReviewHttpFixture {
                 jdbc.update("INSERT INTO app_user(user_id,status,display_name) VALUES(?,'ACTIVE',?)",id,"가상 검증 사용자 "+id);
                 if(id!=7)jdbc.update("INSERT INTO user_policy_consent(user_id,policy_document_id,consent_source) SELECT ?,policy_document_id,'WEB_OAUTH_ONBOARDING' FROM policy_document WHERE required=true",id);
             }
-            for(int id=1;id<=40;id++)jdbc.update("INSERT INTO toilet VALUES(?,?,36.3,127.3)",id,"격리 시험 화장실 "+id);
+            for(int id=1;id<=40;id++)jdbc.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES(?,?,36.3,127.3)",id,"격리 시험 화장실 "+id);
             // Optional operator-supplied synthetic facility; never change a real facility or spoof device GPS.
             if(System.getenv("REVIEW_FIXTURE_LATITUDE")!=null){
                 double lat=Double.parseDouble(System.getenv("REVIEW_FIXTURE_LATITUDE")),lon=Double.parseDouble(System.getenv("REVIEW_FIXTURE_LONGITUDE"));

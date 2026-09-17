@@ -66,7 +66,7 @@ public class RegionReviewService {
         validatePage(page, size);
         String term = keyword == null ? "" : keyword.trim();
         if (term.length() > 100) throw new IllegalArgumentException("검색어는 100자 이하로 입력해 주세요.");
-        String where = " WHERE 1=1 ";
+        String where = " WHERE t.visibility_status='VISIBLE' ";
         var params = new MapSqlParameterSource().addValue("limit", size).addValue("offset", (long) page * size);
         if (filter == Filter.REVIEW) where += " AND (" + EFFECTIVE_STATUS + ") <> 'VERIFIED' ";
         else if (filter != Filter.ALL) {

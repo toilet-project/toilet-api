@@ -100,7 +100,9 @@ public class PublicDataChangeReviewService {
         if (candidate.version() != request.expectedVersion()
                 || !candidate.baselineHash().equals(request.expectedBaselineHash()))
             throw conflict("변경 후보가 갱신되었습니다. 새로고침 후 다시 확인해 주세요.");
-        String currentHash = hash(candidate.currentLatitude(), candidate.currentLongitude(),
+        HiddenContext hidden = hiddenContext(id);
+        if (hidden != null && !hiddenStillCurrent(id)) throw conflict("숨김 상태가 변경되었습니다. 새 후보를 확인해 주세요.");
+        String currentHash = comparisonHash(hidden, candidate.currentLatitude(), candidate.currentLongitude(),
                 candidate.currentRoadAddress(), candidate.currentJibunAddress());
         if (!currentHash.equals(candidate.baselineHash())) {
             throw conflict("현재 확정값이 변경되었습니다. 새 후보를 확인해 주세요.");
@@ -134,6 +136,7 @@ public class PublicDataChangeReviewService {
     }
 
     private void apply(long adminId, Candidate candidate, String note) {
+        HiddenContext hidden = hiddenContext(candidate.id());
         List<ValidationIssue> issues = validation(candidate.proposalLatitude(), candidate.proposalLongitude(),
                 candidate.proposalRoadAddress(), candidate.proposalJibunAddress());
         if (issues.stream().anyMatch(ValidationIssue::blocking))
@@ -161,6 +164,11 @@ public class PublicDataChangeReviewService {
                 .addValue("latitude", candidate.proposalLatitude()).addValue("longitude", candidate.proposalLongitude())
                 .addValue("road", candidate.proposalRoadAddress()).addValue("jibun", candidate.proposalJibunAddress()));
         if (changed != 1) throw new IllegalStateException("변경할 화장실을 찾지 못했습니다.");
+        if (hidden != null) {
+            if (hidden.proposalName() == null || hidden.proposalName().isBlank()) throw new IllegalArgumentException("제안 시설명을 확인해 주세요.");
+            jdbc.update("UPDATE toilet SET name=:name WHERE toilet_id=:id", new MapSqlParameterSource("id",candidate.toiletId()).addValue("name",hidden.proposalName()));
+            // Applying source values never releases the independently managed visibility decision.
+        }
         close(candidate.id(), Status.APPLIED, note);
     }
 
@@ -226,7 +234,8 @@ public class PublicDataChangeReviewService {
                 """ + (forUpdate ? " FOR UPDATE" : ""), values(id), (rs, row) -> detailRow(rs));
         if (rows.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "변경 후보를 찾을 수 없습니다.");
         DetailRow row = rows.getFirst();
-        String currentHash = hash(row.currentLatitude(), row.currentLongitude(), row.currentRoadAddress(), row.currentJibunAddress());
+        HiddenContext hidden = hiddenContext(id);
+        String currentHash = comparisonHash(hidden, row.currentLatitude(), row.currentLongitude(), row.currentRoadAddress(), row.currentJibunAddress());
         Confirmation confirmation = latestConfirmation(row.toiletId());
         Receipt receipt = latestReceipt(row.id());
         var current = new ProtectedValue(row.currentLatitude(), row.currentLongitude(), row.currentRoadAddress(),
@@ -237,10 +246,30 @@ public class PublicDataChangeReviewService {
                 fields(row.changedFields()), time(row.firstReceivedAt()), time(row.lastReceivedAt()), row.receiptCount(),
                 row.hasWarning(), row.version());
         return new Detail(item, Objects.toString(row.dataSource(), "PUBLIC_DATA"), row.baselineHash(),
-                row.status() == Status.PENDING && !currentHash.equals(row.baselineHash()), current, proposal,
+                row.status() == Status.PENDING && (!currentHash.equals(row.baselineHash()) || (hidden != null && !hiddenStillCurrent(id))), current, proposal,
                 distance(row.currentLatitude(), row.currentLongitude(), row.proposalLatitude(), row.proposalLongitude()),
                 receipt, new Validation(validation(row.proposalLatitude(), row.proposalLongitude(),
-                row.proposalRoadAddress(), row.proposalJibunAddress())), decisions(row.id()));
+                row.proposalRoadAddress(), row.proposalJibunAddress())), decisions(row.id()), hidden);
+    }
+
+    private HiddenContext hiddenContext(long id) {
+        var rows=jdbc.query("""
+            SELECT r.hidden_event_id,r.baseline_name,r.proposal_name,t.name,t.visibility_status,
+                   e.representative_toilet_id,e.reason,e.occurred_at
+            FROM public_data_change_review r JOIN toilet t ON t.toilet_id=r.toilet_id
+            JOIN toilet_visibility_event e ON e.event_id=r.hidden_event_id WHERE r.review_id=:id
+            """,values(id),(rs,n)->new HiddenContext(rs.getLong("hidden_event_id"),rs.getObject("representative_toilet_id",Long.class),rs.getString("reason"),time(rs.getTimestamp("occurred_at").toLocalDateTime()),rs.getString("visibility_status"),rs.getString("baseline_name"),rs.getString("name"),rs.getString("proposal_name")));
+        return rows.isEmpty()?null:rows.getFirst();
+    }
+    private boolean hiddenStillCurrent(long id) {
+        return jdbc.queryForObject("SELECT COUNT(*) FROM public_data_change_review r JOIN toilet t ON t.toilet_id=r.toilet_id WHERE r.review_id=:id AND t.visibility_status='HIDDEN_DUPLICATE' AND r.hidden_event_id=t.hidden_event_id",values(id),Long.class)==1;
+    }
+    private static String comparisonHash(HiddenContext hidden,BigDecimal lat,BigDecimal lng,String road,String jibun) {
+        return hidden==null?hash(lat,lng,road,jibun):hashNamed(hidden.currentName(),lat,lng,road,jibun);
+    }
+    static String hashNamed(String name,BigDecimal lat,BigDecimal lng,String road,String jibun) {
+        try { return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest((normalize(name)+"\u001f"+hash(lat,lng,road,jibun)).getBytes(StandardCharsets.UTF_8))); }
+        catch(NoSuchAlgorithmException e){throw new IllegalStateException(e);}
     }
 
     private Confirmation latestConfirmation(long toiletId) {

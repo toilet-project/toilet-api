@@ -41,7 +41,7 @@ public class ReviewRepository {
                 (rs, n) -> new Author(rs.getString(1), rs.getLong(2)), id).stream().findFirst();
     }
     Optional<Facility> facility(long id, boolean lock) {
-        return jdbc.query("SELECT name,latitude,longitude FROM toilet WHERE toilet_id=?" + (lock ? " FOR UPDATE" : ""),
+        return jdbc.query("SELECT name,latitude,longitude FROM toilet WHERE visibility_status='VISIBLE' AND toilet_id=?" + (lock ? " FOR UPDATE" : ""),
                 (rs, n) -> new Facility(rs.getString(1), nullableDouble(rs,2), nullableDouble(rs,3)), id).stream().findFirst();
     }
     Optional<Row> find(long id) { return jdbc.query(SELECT + " WHERE r.review_id=?", ROW, id).stream().findFirst(); }

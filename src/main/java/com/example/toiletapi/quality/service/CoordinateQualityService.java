@@ -47,7 +47,7 @@ public class CoordinateQualityService {
                        MIN(COALESCE(name, '이름 없는 화장실')) AS representative_name,
                        MIN(COALESCE(NULLIF(road_address, ''), NULLIF(jibun_address, ''), '주소 정보 없음')) AS representative_address
                   FROM toilet
-                 WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+                 WHERE visibility_status='VISIBLE' AND latitude IS NOT NULL AND longitude IS NOT NULL
                  GROUP BY latitude, longitude
                 HAVING COUNT(*) > 1
             ), pending_reports AS (
@@ -114,7 +114,7 @@ public class CoordinateQualityService {
                   LEFT JOIN toilet_display_group_member m ON m.toilet_id = t.toilet_id
                   LEFT JOIN toilet_display_group g ON g.group_id = m.group_id
                     AND g.latitude = t.latitude AND g.longitude = t.longitude
-                 WHERE t.latitude = :latitude AND t.longitude = :longitude
+                 WHERE t.visibility_status='VISIBLE' AND t.latitude = :latitude AND t.longitude = :longitude
                  ORDER BY COALESCE(g.display_name, t.name) ASC, m.sort_order ASC, t.toilet_id ASC
                 """, coordinates, (rs, rowNumber) -> new DuplicateCoordinateToiletResponse(
                 rs.getLong("toilet_id"), rs.getString("mng_no"), rs.getString("name"),

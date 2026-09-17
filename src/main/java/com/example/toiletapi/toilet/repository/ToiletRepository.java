@@ -38,6 +38,7 @@ public interface ToiletRepository extends JpaRepository<Toilet, Long> {
      * @param eastLng 최동단 경도
      * @return 지도 영역 안의 화장실 목록
      */
+    @Query("select t from Toilet t where t.visibilityStatus='VISIBLE' and t.latitude between :southLat and :northLat and t.longitude between :westLng and :eastLng")
     List<Toilet> findByLatitudeBetweenAndLongitudeBetween(
             BigDecimal southLat,
             BigDecimal northLat,
@@ -67,7 +68,7 @@ public interface ToiletRepository extends JpaRepository<Toilet, Long> {
                    AVG(longitude) AS longitude,
                    COUNT(*) AS toiletCount
             FROM toilet
-            WHERE latitude BETWEEN :southLat AND :northLat
+            WHERE visibility_status='VISIBLE' AND latitude BETWEEN :southLat AND :northLat
               AND longitude BETWEEN :westLng AND :eastLng
             GROUP BY FLOOR(latitude / :gridSize), FLOOR(longitude / :gridSize)
             """, nativeQuery = true)

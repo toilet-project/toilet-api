@@ -16,13 +16,13 @@ class ToiletSitemapMySqlTest {
     static ToiletSitemapService service;
     @BeforeAll static void schema() {
         jdbc=new JdbcTemplate(new DriverManagerDataSource(mysql.getJdbcUrl(),mysql.getUsername(),mysql.getPassword()));
-        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY)");
+        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,visibility_status VARCHAR(24) DEFAULT 'VISIBLE')");
         service=new ToiletSitemapService(jdbc);
     }
     @BeforeEach void clear() { jdbc.update("DELETE FROM toilet"); }
     @Test void sparseIdsAndBoundariesAreNotOffsetPages() {
         for(long id: new long[]{1,10000,10001,20000,900001,ToiletSitemapService.MAX_ID})
-            jdbc.update("INSERT INTO toilet VALUES (?)",id);
+            jdbc.update("INSERT INTO toilet(toilet_id) VALUES (?)",id);
         assertEquals(List.of(0L,1L,90L,900719925474L),service.shards());
         assertEquals(List.of(1L,10000L),service.ids(0));
         assertEquals(List.of(10001L,20000L),service.ids(1));
@@ -40,7 +40,7 @@ class ToiletSitemapMySqlTest {
         assertThrows(IllegalArgumentException.class,()->service.ids(Long.MAX_VALUE));
     }
     @Test void fullShardIsBoundedAndUsesPrimaryKeyRange() {
-        jdbc.batchUpdate("INSERT INTO toilet VALUES (?)", java.util.stream.LongStream.rangeClosed(1,10001)
+        jdbc.batchUpdate("INSERT INTO toilet(toilet_id) VALUES (?)", java.util.stream.LongStream.rangeClosed(1,10001)
                 .mapToObj(id->new Object[]{id}).toList());
         assertEquals(10000,service.ids(0).size());
         assertEquals(List.of(10001L),service.ids(1));

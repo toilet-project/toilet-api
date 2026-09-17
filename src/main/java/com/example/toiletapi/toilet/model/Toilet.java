@@ -26,6 +26,11 @@ public class Toilet {
     @Column(name = "toilet_id")
     private Long id;
 
+    @Column(name = "visibility_status", nullable = false)
+    private String visibilityStatus = "VISIBLE";
+
+    public boolean isPubliclyVisible() { return "VISIBLE".equals(visibilityStatus); }
+
     @Column(name = "mng_no", length = 50)
     private String managementNumber;
 
