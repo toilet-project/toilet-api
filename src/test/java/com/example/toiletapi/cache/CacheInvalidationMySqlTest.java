@@ -27,7 +27,7 @@ class CacheInvalidationMySqlTest {
     @BeforeAll static void schema() {
         dataSource=new DriverManagerDataSource(mysql.getJdbcUrl(),mysql.getUsername(),mysql.getPassword());
         jdbc=new JdbcTemplate(dataSource);
-        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7))");
+        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
@@ -50,17 +50,17 @@ class CacheInvalidationMySqlTest {
     @Test void queueIsCommittedAndRolledBackWithTheToiletMutation() {
         var tx=new TransactionTemplate(new DataSourceTransactionManager(dataSource));
         tx.execute(status->{
-            jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)");
+            jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)");
             assertEquals(1,repository.due().size());
             assertTrue(CompletableFuture.supplyAsync(repository::due).join().isEmpty(),"dispatcher cannot observe an uncommitted event");
             status.setRollbackOnly();return null;
         });
         assertTrue(repository.due().isEmpty());
-        tx.execute(status->{jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)");return null;});
+        tx.execute(status->{jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)");return null;});
         assertEquals(1,repository.due().size());
     }
     @Test void repeatedMutationsCoalesceButOldAckCannotEraseANewerEvent() {
-        jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)"); var old=repository.due().getFirst();
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)"); var old=repository.due().getFirst();
         jdbc.update("UPDATE toilet SET name='new name' WHERE toilet_id=1"); var latest=repository.due().getFirst();
         assertNotEquals(old.eventId(),latest.eventId()); assertEquals(old.revision()+1,latest.revision()); assertEquals(1,repository.pendingCount());
         repository.acknowledge(old); repository.retry(old,"HTTP_503");
@@ -72,7 +72,7 @@ class CacheInvalidationMySqlTest {
         repository.acknowledge(latest); assertEquals(1,repository.pendingCount(),"new event after acknowledgement must survive old ACK (ABA)");
     }
     @Test void regionCompletionRemovalAndToiletDeletionAreAllCaptured() {
-        jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)"); repository.acknowledge(repository.due().getFirst());
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)"); repository.acknowledge(repository.due().getFirst());
         jdbc.update("INSERT INTO toilet_region VALUES (1,'VERIFIED')"); assertEquals(1,repository.pendingCount());
         repository.acknowledge(repository.due().getFirst());
         jdbc.update("UPDATE toilet_region SET status='REVIEW_REQUIRED' WHERE toilet_id=1"); assertEquals(1,repository.pendingCount());
@@ -91,8 +91,22 @@ class CacheInvalidationMySqlTest {
         repository.acknowledge(repository.due().getFirst());
         jdbc.update("DELETE FROM toilet_region_assignment WHERE toilet_id=1"); assertEquals(1,repository.pendingCount());
     }
+    @Test void visibilityChangesInvalidateBothDetailAndCatalog() {
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)");
+        repository.acknowledge(repository.due().getFirst());
+        jdbc.update("UPDATE toilet SET visibility_status='HIDDEN_DUPLICATE' WHERE toilet_id=1");
+        var hidden = repository.due().getFirst();
+        assertEquals(CacheInvalidationEvent.Action.PRIVATE, hidden.action());
+        assertTrue(hidden.catalogChanged());
+        repository.acknowledge(hidden);
+        jdbc.update("UPDATE toilet SET visibility_status='VISIBLE' WHERE toilet_id=1");
+        var restored = repository.due().getFirst();
+        assertEquals(CacheInvalidationEvent.Action.UPSERT, restored.action());
+        assertTrue(restored.catalogChanged());
+        assertEquals(hidden.revision()+1, restored.revision());
+    }
     @Test void failedDeliveryRemainsDurableAndIsDeferred() {
-        jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)"); var item=repository.due().getFirst();
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)"); var item=repository.due().getFirst();
         repository.retry(item,"HTTP_503");
         assertTrue(repository.due().isEmpty());
         assertEquals(1,new CacheInvalidationRepository(new JdbcTemplate(dataSource)).pendingCount());
