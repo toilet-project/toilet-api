@@ -40,7 +40,7 @@ class CacheInvalidationMySqlTest {
     @BeforeEach void clear() {jdbc.update("DELETE FROM toilet_region_decision");jdbc.update("DELETE FROM toilet_region_assignment");jdbc.update("DELETE FROM toilet_region");jdbc.update("DELETE FROM toilet");jdbc.update("DELETE FROM web_cache_invalidation");}
     @AfterAll static void rollbackRetainsQueueButRemovesOnlyOwnedTriggers() throws Exception {
         long before = repository.pendingCount();
-        assertEquals(12, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
+        assertEquals(13, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
         try (var connection = new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword()).getConnection()) {
             ScriptUtils.executeSqlScript(connection,new ClassPathResource("db/cache-revalidation/rollback_triggers.sql"));
         }

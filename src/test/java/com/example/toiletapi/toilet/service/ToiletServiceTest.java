@@ -31,7 +31,7 @@ class ToiletServiceTest {
     @Test
     void shouldExposeOnlyCurrentVerifiedRegion() {
         Toilet toilet = mock(Toilet.class);
-        when(toilet.getVisibilityStatus()).thenReturn("VISIBLE");
+        when(toilet.isPubliclyVisible()).thenReturn(true);
         ToiletRegionProjection region = mock(ToiletRegionProjection.class);
         when(toiletRepository.findById(101L)).thenReturn(Optional.of(toilet));
         when(toiletRepository.findCurrentRegion(101L)).thenReturn(Optional.of(region));
@@ -53,7 +53,7 @@ class ToiletServiceTest {
     @Test
     void shouldNotInventRegionWhenCurrentViewHasNoMatch() {
         Toilet toilet = mock(Toilet.class);
-        when(toilet.getVisibilityStatus()).thenReturn("VISIBLE");
+        when(toilet.isPubliclyVisible()).thenReturn(true);
         when(toiletRepository.findById(102L)).thenReturn(Optional.of(toilet));
         when(toiletRepository.findCurrentRegion(102L)).thenReturn(Optional.empty());
         when(toilet.getRoadAddress()).thenReturn("대전광역시 유성구 대학로 99");
@@ -132,7 +132,7 @@ class ToiletServiceTest {
     @Test
     void shouldReturnMappedToiletDetail() {
         Toilet toilet = org.mockito.Mockito.mock(Toilet.class);
-        when(toilet.getVisibilityStatus()).thenReturn("VISIBLE");
+        when(toilet.isPubliclyVisible()).thenReturn(true);
         when(toilet.getId()).thenReturn(101L);
         when(toilet.getName()).thenReturn("강남역 공중화장실");
         when(toilet.getToiletType()).thenReturn("공중화장실");
@@ -174,7 +174,7 @@ class ToiletServiceTest {
     @Test
     void shouldNotExposeHiddenToiletDetail() {
         Toilet toilet = mock(Toilet.class);
-        when(toilet.getVisibilityStatus()).thenReturn("HIDDEN_DUPLICATE");
+        when(toilet.isPubliclyVisible()).thenReturn(false);
         when(toiletRepository.findById(101L)).thenReturn(Optional.of(toilet));
         assertThrows(ToiletNotFoundException.class, () -> toiletService.getToiletDetail(101L));
     }
