@@ -83,7 +83,7 @@ class CacheInvalidationMySqlTest {
         var deletion=repository.due().getFirst(); assertEquals(CacheInvalidationEvent.Action.DELETE,deletion.action()); assertTrue(deletion.catalogChanged());
     }
     @Test void normalizedRegionWritesRemainCapturedAfterLegacyRemoval() {
-        jdbc.update("INSERT INTO toilet VALUES (1,'sample',37)"); repository.acknowledge(repository.due().getFirst());
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)"); repository.acknowledge(repository.due().getFirst());
         jdbc.update("INSERT INTO toilet_region_assignment VALUES (1,'VERIFIED')"); var assignment=repository.due().getFirst();
         assertEquals(CacheInvalidationEvent.Action.UPSERT,assignment.action()); assertFalse(assignment.catalogChanged());
         repository.acknowledge(assignment);
