@@ -116,4 +116,38 @@ public class QualityQueueSqlTest {
         assertEquals(0, service.detail(key).group().toiletCount());
         assertTrue(service.detail(key).toilets().isEmpty());
     }
+
+    @Test void windowCountPreservesPagesOrderAndOutOfRangeRecovery() {
+        db.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES (4,'대학 A',36,127),(5,'대학 B',36,127),(6,'대학 C',35,127),(7,'대학 D',35,127)");
+        db.update("UPDATE toilet SET name='대학 원본' WHERE toilet_id=3");
+        var first = service.search("대학", null, 0, 1);
+        var second = service.search("대학", null, 1, 1);
+        var last = service.search("대학", null, 2, 1);
+        assertEquals(3, first.totalElements());
+        assertEquals(3, second.totalElements());
+        assertEquals(3, last.totalElements());
+        assertEquals(3, first.totalPages());
+        assertEquals(3, first.items().getFirst().toiletCount());
+        assertNotEquals(second.items().getFirst().groupKey(), last.items().getFirst().groupKey());
+        db.update("DELETE FROM toilet WHERE toilet_id IN (6,7)");
+        var outside = service.search("대학", null, 2, 1);
+        assertTrue(outside.items().isEmpty());
+        assertEquals(2, outside.totalElements());
+        assertEquals(2, outside.totalPages());
+        assertEquals(0, service.search("일치없음", null, 0, 1).totalElements());
+    }
+
+    @Test void keywordCountIgnoresHiddenAndGroupedMatchesAndSupportsStatus() {
+        db.update("UPDATE toilet SET name='충남대학교 본관' WHERE toilet_id=1");
+        assertEquals(1, service.search(" 충남  대학 ", null, 0, 20).totalElements());
+        groupTwo();
+        assertEquals(0, service.search("대학", null, 0, 20).totalElements());
+        db.update("UPDATE toilet SET name='대학교 별관',visibility_status='HIDDEN' WHERE toilet_id=3");
+        assertEquals(0, service.search("대학", null, 0, 20).totalElements());
+        db.update("UPDATE toilet SET visibility_status='VISIBLE' WHERE toilet_id=3");
+        var key = service.search("대학", null, 0, 20).items().getFirst().groupKey();
+        db.update("INSERT INTO coordinate_quality_review VALUES (?, 'NEEDS_CORRECTION')",key);
+        assertEquals(0, service.search("대학", com.example.toiletapi.quality.model.CoordinateQualityStatus.PENDING, 0, 20).totalElements());
+        assertEquals(1, service.search("대학", com.example.toiletapi.quality.model.CoordinateQualityStatus.NEEDS_CORRECTION, 0, 20).totalElements());
+    }
 }

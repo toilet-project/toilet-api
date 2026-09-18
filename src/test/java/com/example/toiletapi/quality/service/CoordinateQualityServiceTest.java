@@ -65,7 +65,6 @@ class CoordinateQualityServiceTest {
         when(jdbc.query(anyString(), any(SqlParameterSource.class),
                 org.mockito.ArgumentMatchers.<RowMapper<DuplicateCoordinateGroupResponse>>any()))
                 .thenReturn(List.of());
-        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(0L);
 
         service.search("  충남   대학  ", null, 0, 20);
 
@@ -79,6 +78,41 @@ class CoordinateQualityServiceTest {
         org.junit.jupiter.api.Assertions.assertTrue(sql.getValue().contains("COALESCE(t.name, '') LIKE :keywordPattern"));
         org.junit.jupiter.api.Assertions.assertTrue(sql.getValue().contains("g.group_id IS NULL"));
         org.junit.jupiter.api.Assertions.assertTrue(sql.getValue().contains("d.keyword_match = 1"));
+        org.junit.jupiter.api.Assertions.assertTrue(sql.getValue().contains("COUNT(*) OVER() AS total_elements"));
+        verify(jdbc, never()).queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class));
+    }
+
+    @Test
+    void returnsWindowCountWithoutRepeatingGroupAggregation() throws Exception {
+        var rs = mock(java.sql.ResultSet.class);
+        when(rs.getString(anyString())).thenAnswer(call -> "review_status".equals(call.getArgument(0)) ? "PENDING" : "test");
+        when(rs.getLong(anyString())).thenAnswer(call -> "total_elements".equals(call.getArgument(0)) ? 41L : 2L);
+        when(jdbc.query(anyString(), any(SqlParameterSource.class), any(RowMapper.class)))
+                .thenAnswer(call -> List.of(((RowMapper<?>) call.getArgument(2)).mapRow(rs, 0)));
+        var result = service.search("대학", null, 1, 20);
+        org.junit.jupiter.api.Assertions.assertEquals(41, result.totalElements());
+        org.junit.jupiter.api.Assertions.assertEquals(3, result.totalPages());
+        org.junit.jupiter.api.Assertions.assertEquals(1, result.items().size());
+        verify(jdbc, never()).queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class));
+    }
+
+    @Test
+    void emptyFirstPageDoesNotRunAnotherCountQuery() {
+        when(jdbc.query(anyString(), any(SqlParameterSource.class), any(RowMapper.class))).thenReturn(List.of());
+        var result = service.search("없는검색어", null, 0, 20);
+        org.junit.jupiter.api.Assertions.assertEquals(0, result.totalElements());
+        org.junit.jupiter.api.Assertions.assertEquals(0, result.totalPages());
+        verify(jdbc, never()).queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class));
+    }
+
+    @Test
+    void emptyLaterPageCountsRemainingGroupsSoClientCanClampPage() {
+        when(jdbc.query(anyString(), any(SqlParameterSource.class), any(RowMapper.class))).thenReturn(List.of());
+        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(19L);
+        var result = service.search("대학", CoordinateQualityStatus.PENDING, 2, 20);
+        org.junit.jupiter.api.Assertions.assertEquals(19, result.totalElements());
+        org.junit.jupiter.api.Assertions.assertEquals(1, result.totalPages());
+        org.junit.jupiter.api.Assertions.assertTrue(result.items().isEmpty());
     }
 
     @Test
