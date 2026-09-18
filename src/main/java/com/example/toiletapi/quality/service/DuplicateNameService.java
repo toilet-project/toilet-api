@@ -1,6 +1,7 @@
 package com.example.toiletapi.quality.service;
 
 import com.example.toiletapi.global.time.KoreanTime;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
@@ -93,6 +94,49 @@ public class DuplicateNameService {
     public List<Facility> hideExactDuplicates(long actor,HideRequest request) {
         return hideChecked(actor,request,HideConstraint.SAME_NAME_AND_COORDINATES);
     }
+    public ExactDuplicateCleanupPreview exactDuplicateCleanupPreview() {
+        var plan=exactDuplicatePlan();
+        return new ExactDuplicateCleanupPreview(plan.processable().size(),plan.processable().stream().mapToLong(g->g.members().size()-1L).sum(),plan.blocked());
+    }
+    @Transactional
+    public ExactDuplicateCleanupResult cleanupExactDuplicates(long actor,ExactDuplicateCleanupRequest request) {
+        if(actor<=0)throw new IllegalArgumentException("관리자 정보를 확인해 주세요.");
+        reason(request.reason());
+        var plan=exactDuplicatePlan();
+        long groups=0,hidden=0;
+        for(var group:plan.processable().stream().limit(request.maxGroups()).toList()) {
+            var targets=group.members().stream().filter(f->f.id()!=group.representative().id()).toList();
+            var versions=new LinkedHashMap<Long,Long>();
+            versions.put(group.representative().id(),group.representative().version());
+            targets.forEach(f->versions.put(f.id(),f.version()));
+            hideChecked(actor,new HideRequest(group.representative().id(),targets.stream().map(Facility::id).toList(),versions,request.reason()),HideConstraint.SAME_NAME_AND_COORDINATES);
+            groups++;hidden+=targets.size();
+        }
+        return new ExactDuplicateCleanupResult(groups,hidden,exactDuplicateCleanupPreview());
+    }
+    private ExactDuplicatePlan exactDuplicatePlan() {
+        var visible=jdbc.query("SELECT t.*,NULL AS hidden_reason,NULL AS hidden_at,NULL AS sigungu_code,NULL AS region_name FROM toilet t WHERE t.visibility_status='VISIBLE' AND NULLIF(t.name,'') IS NOT NULL AND t.latitude BETWEEN -90 AND 90 AND t.longitude BETWEEN -180 AND 180 AND NOT(t.latitude=0 AND t.longitude=0) ORDER BY t.toilet_id",Map.of(),(rs,n)->facility(rs));
+        var representatives=new HashSet<>(jdbc.queryForList("SELECT DISTINCT representative_toilet_id FROM toilet WHERE visibility_status='HIDDEN_DUPLICATE' AND representative_toilet_id IS NOT NULL",Map.of(),Long.class));
+        var grouped=new LinkedHashMap<ExactDuplicateKey,List<Facility>>();
+        for(var f:visible) {
+            if(f.name()==null||f.name().isBlank()||!validCoordinates(f.latitude(),f.longitude()))continue;
+            grouped.computeIfAbsent(new ExactDuplicateKey(f.name(),numericKey(f.latitude()),numericKey(f.longitude())),ignored->new ArrayList<>()).add(f);
+        }
+        var processable=new ArrayList<ExactDuplicateGroup>();long blocked=0;
+        for(var members:grouped.values()) {
+            if(members.size()<2)continue;
+            var linked=members.stream().filter(f->representatives.contains(f.id())).toList();
+            if(linked.size()>1||members.size()>101){blocked++;continue;}
+            var representative=linked.isEmpty()?members.getFirst():linked.getFirst();
+            processable.add(new ExactDuplicateGroup(representative,List.copyOf(members)));
+        }
+        processable.sort(Comparator.comparingLong(g->g.representative().id()));
+        return new ExactDuplicatePlan(List.copyOf(processable),blocked);
+    }
+    private static BigDecimal numericKey(BigDecimal value){return value.stripTrailingZeros();}
+    private record ExactDuplicateKey(String name,BigDecimal latitude,BigDecimal longitude) {}
+    private record ExactDuplicateGroup(Facility representative,List<Facility> members) {}
+    private record ExactDuplicatePlan(List<ExactDuplicateGroup> processable,long blocked) {}
     private List<Facility> hideChecked(long actor,HideRequest request,HideConstraint constraint) {
         reason(request.reason());
         var ids=new TreeSet<>(request.toiletIds());

@@ -25,6 +25,11 @@ public final class DuplicateNameModels {
                               @NotEmpty @Size(max=100) List<@NotNull @Positive Long> toiletIds,
                               @NotEmpty @Size(max=101) Map<@Positive Long, @NotNull @PositiveOrZero Long> expectedVersions,
                               @NotBlank @Size(max=500) String reason) {}
+    public record ExactDuplicateCleanupPreview(long groups, long facilitiesToHide, long blockedGroups) {}
+    public record ExactDuplicateCleanupRequest(@Min(1) @Max(50) int maxGroups,
+                                               @NotBlank @Size(max=500) String reason) {}
+    public record ExactDuplicateCleanupResult(long processedGroups, long hiddenFacilities,
+                                              ExactDuplicateCleanupPreview remaining) {}
     public record RestoreRequest(@PositiveOrZero long expectedVersion, @NotBlank @Size(max=500) String reason) {}
     public record Event(long id, long toiletId, Long representativeId, String action, String reason,
                         LocalDateTime occurredAt, String snapshotName, String snapshotRoadAddress) {}
