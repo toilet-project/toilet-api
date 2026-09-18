@@ -46,7 +46,13 @@ public class CoordinateQualityService {
                 SELECT t.latitude, t.longitude, COUNT(*) AS physical_count,
                        SUM(CASE WHEN g.group_id IS NULL THEN 1 ELSE 0 END) AS toilet_count,
                        MIN(CASE WHEN g.group_id IS NULL THEN COALESCE(t.name, '이름 없는 화장실') END) AS representative_name,
-                       MIN(CASE WHEN g.group_id IS NULL THEN COALESCE(NULLIF(t.road_address, ''), NULLIF(t.jibun_address, ''), '주소 정보 없음') END) AS representative_address
+                       MIN(CASE WHEN g.group_id IS NULL THEN COALESCE(NULLIF(t.road_address, ''), NULLIF(t.jibun_address, ''), '주소 정보 없음') END) AS representative_address,
+                       MAX(CASE WHEN :keyword <> '' AND g.group_id IS NULL AND (
+                                      COALESCE(t.name, '') LIKE :keywordPattern
+                                      OR COALESCE(t.mng_no, '') LIKE :keywordPattern
+                                      OR COALESCE(t.road_address, '') LIKE :keywordPattern
+                                      OR COALESCE(t.jibun_address, '') LIKE :keywordPattern
+                                  ) THEN 1 ELSE 0 END) AS keyword_match
                   FROM toilet t
                   LEFT JOIN toilet_display_group_member m ON m.toilet_id = t.toilet_id
                   LEFT JOIN toilet_display_group g ON g.group_id = m.group_id
@@ -87,7 +93,7 @@ public class CoordinateQualityService {
     public DuplicateCoordinateGroupPageResponse search(String keyword, CoordinateQualityStatus status, int page, int size) {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
-        String normalizedKeyword = keyword == null ? "" : keyword.trim();
+        String normalizedKeyword = normalizeKeyword(keyword);
         MapSqlParameterSource parameters = filters(normalizedKeyword, status)
                 .addValue("limit", safeSize)
                 .addValue("offset", safePage * safeSize);
@@ -333,7 +339,7 @@ public class CoordinateQualityService {
     private MapSqlParameterSource filters(String keyword, CoordinateQualityStatus status) {
         return new MapSqlParameterSource()
                 .addValue("keyword", keyword)
-                .addValue("keywordPattern", "%" + keyword + "%")
+                .addValue("keywordPattern", "%" + keyword.replace(" ", "%") + "%")
                 .addValue("status", status == null ? null : status.name());
     }
 
@@ -341,12 +347,12 @@ public class CoordinateQualityService {
         return """
                  WHERE d.physical_count > 1 AND d.toilet_count > 0
                    AND (:status IS NULL OR COALESCE(q.status, 'PENDING') = :status)
-                   AND (:keyword = '' OR d.representative_name LIKE :keywordPattern
-                        OR d.representative_address LIKE :keywordPattern
-                        OR EXISTS (SELECT 1 FROM toilet t
-                                    WHERE t.latitude = d.latitude AND t.longitude = d.longitude
-                                      AND (t.name LIKE :keywordPattern OR t.mng_no LIKE :keywordPattern)))
+                   AND (:keyword = '' OR d.keyword_match = 1)
                 """;
+    }
+
+    private String normalizeKeyword(String keyword) {
+        return keyword == null ? "" : keyword.trim().replaceAll("\\s+", " ");
     }
 
     private DuplicateCoordinateGroupResponse mapGroup(java.sql.ResultSet rs) throws java.sql.SQLException {

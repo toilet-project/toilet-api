@@ -34,10 +34,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 
 @ExtendWith(MockitoExtension.class)
 class CoordinateQualityServiceTest {
@@ -56,6 +58,27 @@ class CoordinateQualityServiceTest {
     void setUp() {
         service = new CoordinateQualityService(jdbc, reviewRepository, toiletRepository, reportRepository,
                 revisionRepository, auditLogService, addressResolver, displayGroupRepository);
+    }
+
+    @Test
+    void searchesEveryVisibleUngroupedToiletNameByPartialKeyword() {
+        when(jdbc.query(anyString(), any(SqlParameterSource.class),
+                org.mockito.ArgumentMatchers.<RowMapper<DuplicateCoordinateGroupResponse>>any()))
+                .thenReturn(List.of());
+        when(jdbc.queryForObject(anyString(), any(SqlParameterSource.class), eq(Long.class))).thenReturn(0L);
+
+        service.search("  충남   대학  ", null, 0, 20);
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<SqlParameterSource> parameters = ArgumentCaptor.forClass(SqlParameterSource.class);
+        verify(jdbc).query(sql.capture(), parameters.capture(),
+                org.mockito.ArgumentMatchers.<RowMapper<DuplicateCoordinateGroupResponse>>any());
+        MapSqlParameterSource values = (MapSqlParameterSource) parameters.getValue();
+        org.junit.jupiter.api.Assertions.assertEquals("충남 대학", values.getValue("keyword"));
+        org.junit.jupiter.api.Assertions.assertEquals("%충남%대학%", values.getValue("keywordPattern"));
+        org.junit.jupiter.api.Assertions.assertTrue(sql.getValue().contains("COALESCE(t.name, '') LIKE :keywordPattern"));
+        org.junit.jupiter.api.Assertions.assertTrue(sql.getValue().contains("g.group_id IS NULL"));
+        org.junit.jupiter.api.Assertions.assertTrue(sql.getValue().contains("d.keyword_match = 1"));
     }
 
     @Test
