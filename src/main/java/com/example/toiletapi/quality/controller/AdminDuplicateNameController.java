@@ -20,6 +20,7 @@ public class AdminDuplicateNameController {
     @GetMapping("/facilities") public List<Facility> facilities(@RequestParam String name){return service.facilities(name);}
     @GetMapping("/coordinate-facilities") public List<Facility> coordinateFacilities(@RequestParam java.math.BigDecimal latitude,@RequestParam java.math.BigDecimal longitude){return service.coordinateFacilities(latitude,longitude);}
     @PostMapping("/coordinate-hide") public List<Facility> coordinateHide(@AuthenticationPrincipal Jwt jwt,@Valid @RequestBody HideRequest request){return service.hideAtCoordinates(Long.parseLong(jwt.getSubject()),request);}
+    @PostMapping("/exact-hide") public List<Facility> exactHide(@AuthenticationPrincipal Jwt jwt,@Valid @RequestBody HideRequest request){return service.hideExactDuplicates(Long.parseLong(jwt.getSubject()),request);}
     @GetMapping("/{id}/history") public List<Event> history(@PathVariable long id){return service.history(id);}
     @PostMapping("/hide") public List<Facility> hide(@AuthenticationPrincipal Jwt jwt,@Valid @RequestBody HideRequest request){return service.hide(Long.parseLong(jwt.getSubject()),request);}
     @PostMapping("/{id}/restore") public List<Facility> restore(@AuthenticationPrincipal Jwt jwt,@PathVariable long id,@Valid @RequestBody RestoreRequest request){return service.restore(Long.parseLong(jwt.getSubject()),id,request);}
