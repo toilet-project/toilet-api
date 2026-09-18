@@ -79,7 +79,7 @@ public class DuplicateNameService {
     }
     @Transactional
     public List<Facility> hide(long actor, HideRequest request) {
-        return hideChecked(actor,request,false);
+        return hideChecked(actor,request,HideConstraint.SAME_NAME);
     }
     public List<Facility> coordinateFacilities(java.math.BigDecimal latitude,java.math.BigDecimal longitude) {
         if(!validCoordinates(latitude,longitude))throw new IllegalArgumentException("유효한 좌표를 확인해 주세요.");
@@ -87,9 +87,13 @@ public class DuplicateNameService {
     }
     @Transactional
     public List<Facility> hideAtCoordinates(long actor,HideRequest request) {
-        return hideChecked(actor,request,true);
+        return hideChecked(actor,request,HideConstraint.SAME_COORDINATES);
     }
-    private List<Facility> hideChecked(long actor,HideRequest request,boolean sameCoordinates) {
+    @Transactional
+    public List<Facility> hideExactDuplicates(long actor,HideRequest request) {
+        return hideChecked(actor,request,HideConstraint.SAME_NAME_AND_COORDINATES);
+    }
+    private List<Facility> hideChecked(long actor,HideRequest request,HideConstraint constraint) {
         reason(request.reason());
         var ids=new TreeSet<>(request.toiletIds());
         if(ids.isEmpty() || ids.size()>100 || ids.size()!=request.toiletIds().size() || ids.contains(request.representativeId())) throw new IllegalArgumentException("대표 시설과 숨길 시설을 따로 선택해 주세요.");
@@ -99,11 +103,15 @@ public class DuplicateNameService {
         var representative=rows.stream().filter(f->f.id()==request.representativeId()).findFirst().orElseThrow();
         for(var f:rows) {
             if(!Objects.equals(request.expectedVersions().get(f.id()), f.version()) || !"VISIBLE".equals(f.visibilityStatus())) throw conflict();
-            if(sameCoordinates) {
+            if(constraint.requiresSameCoordinates()) {
                 if(!validCoordinates(f.latitude(),f.longitude()) || !validCoordinates(representative.latitude(),representative.longitude())
                     || f.latitude().compareTo(representative.latitude())!=0 || f.longitude().compareTo(representative.longitude())!=0)
                     throw new IllegalArgumentException("같은 좌표 그룹의 시설만 선택해 주세요.");
-            } else if(f.name()==null || representative.name()==null || !f.name().trim().equalsIgnoreCase(representative.name().trim())) throw new IllegalArgumentException("같은 이름 그룹의 시설만 선택해 주세요.");
+            }
+            if(constraint.requiresExactName() && !Objects.equals(f.name(),representative.name()))
+                throw new IllegalArgumentException("이름이 완전히 같은 시설만 선택해 주세요.");
+            if(constraint.requiresSameName() && (f.name()==null || representative.name()==null || !f.name().trim().equalsIgnoreCase(representative.name().trim())))
+                throw new IllegalArgumentException("같은 이름 그룹의 시설만 선택해 주세요.");
         }
         var targets=new TreeSet<>(ids); targets.remove(request.representativeId());
         if(jdbc.queryForObject("SELECT COUNT(*) FROM toilet WHERE visibility_status='HIDDEN_DUPLICATE' AND representative_toilet_id IN (:ids)",Map.of("ids",targets),Long.class)>0) throw new ResponseStatusException(HttpStatus.CONFLICT,"다른 시설의 대표로 사용 중인 시설은 숨길 수 없습니다.");
@@ -112,7 +120,17 @@ public class DuplicateNameService {
             jdbc.update("UPDATE toilet SET visibility_status='HIDDEN_DUPLICATE',representative_toilet_id=:rep,hidden_event_id=:event,visibility_version=visibility_version+1 WHERE toilet_id=:id",new MapSqlParameterSource("id",f.id()).addValue("rep",request.representativeId()).addValue("event",event));
             supersede(f.id());
         }
-        return sameCoordinates?coordinateFacilities(representative.latitude(),representative.longitude()):facilities(representative.name());
+        return constraint==HideConstraint.SAME_COORDINATES?coordinateFacilities(representative.latitude(),representative.longitude()):facilities(representative.name());
+    }
+    private enum HideConstraint {
+        SAME_NAME(true,false,false), SAME_COORDINATES(false,true,false), SAME_NAME_AND_COORDINATES(false,true,true);
+        private final boolean sameName;
+        private final boolean sameCoordinates;
+        private final boolean exactName;
+        HideConstraint(boolean sameName,boolean sameCoordinates,boolean exactName){this.sameName=sameName;this.sameCoordinates=sameCoordinates;this.exactName=exactName;}
+        boolean requiresSameName(){return sameName;}
+        boolean requiresSameCoordinates(){return sameCoordinates;}
+        boolean requiresExactName(){return exactName;}
     }
     private static boolean validCoordinates(java.math.BigDecimal lat,java.math.BigDecimal lng) {
         return lat!=null && lng!=null && lat.abs().compareTo(java.math.BigDecimal.valueOf(90))<=0

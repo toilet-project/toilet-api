@@ -46,6 +46,20 @@ class DuplicateNameServiceTest {
         assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM toilet_visibility_event",Integer.class));
         assertThrows(IllegalArgumentException.class,()->service.hide(9,new HideRequest(1,List.of(4L),Map.of(1L,0L,4L,0L),"이름 경로는 제한 유지")));
     }
+    @Test void exactHideKeepsRepresentativeAndRequiresBothNameAndCoordinates(){
+        db.update("UPDATE toilet SET latitude=37.1,longitude=127.1 WHERE toilet_id IN(1,2,3,4)");
+        var result=service.hideExactDuplicates(9,new HideRequest(1,List.of(2L,3L),Map.of(1L,0L,2L,0L,3L,0L),"동일 이름·좌표 자동 정리"));
+        assertEquals("VISIBLE",status(1));assertEquals("HIDDEN_DUPLICATE",status(2));assertEquals("HIDDEN_DUPLICATE",status(3));
+        assertEquals(3,result.size());assertEquals(1,service.history(2).size());assertEquals(1,service.history(3).size());
+        assertThrows(IllegalArgumentException.class,()->service.hideExactDuplicates(9,new HideRequest(1,List.of(4L),Map.of(1L,0L,4L,0L),"이름 다름")));
+
+        service.restore(9,2,new RestoreRequest(1,"시험 해제"));
+        db.update("UPDATE toilet SET name='같은 이름 ' WHERE toilet_id=2");
+        assertThrows(IllegalArgumentException.class,()->service.hideExactDuplicates(9,new HideRequest(1,List.of(2L),Map.of(1L,0L,2L,2L),"공백까지 같아야 함")));
+        db.update("UPDATE toilet SET name='같은 이름' WHERE toilet_id=2");
+        db.update("UPDATE toilet SET longitude=127.1000001 WHERE toilet_id=2");
+        assertThrows(IllegalArgumentException.class,()->service.hideExactDuplicates(9,new HideRequest(1,List.of(2L),Map.of(1L,0L,2L,2L),"좌표 다름")));
+    }
     @Test void onlySelectedRowsHiddenAndReasonSurvivesRestore(){
         assertEquals(1,service.groups("",false,0,20).totalElements());
         service.hide(9,new HideRequest(1,List.of(2L),Map.of(1L,0L,2L,0L),"주소와 출입구 확인"));
