@@ -96,19 +96,27 @@ public class CoordinateQualityService {
         String normalizedKeyword = normalizeKeyword(keyword);
         MapSqlParameterSource parameters = filters(normalizedKeyword, status)
                 .addValue("limit", safeSize)
-                .addValue("offset", safePage * safeSize);
+                .addValue("offset", (long) safePage * safeSize);
         String where = filterSql();
-        List<DuplicateCoordinateGroupResponse> items = jdbc.query(
-                DUPLICATE_GROUPS + GROUP_SELECT + where
+        List<CountedGroup> rows = jdbc.query(
+                DUPLICATE_GROUPS + GROUP_SELECT.replace("SELECT SHA2", "SELECT COUNT(*) OVER() AS total_elements, SHA2") + where
                         + " ORDER BY d.toilet_count DESC, d.representative_name ASC, d.latitude ASC, d.longitude ASC LIMIT :limit OFFSET :offset",
-                parameters, (rs, rowNumber) -> mapGroup(rs));
-        Long total = jdbc.queryForObject(
-                DUPLICATE_GROUPS + "SELECT COUNT(*) FROM (" + GROUP_SELECT + where + ") filtered_groups",
-                parameters, Long.class);
-        long totalElements = total == null ? 0 : total;
+                parameters, (rs, rowNumber) -> new CountedGroup(mapGroup(rs), rs.getLong("total_elements")));
+        long totalElements = rows.isEmpty() ? 0 : rows.getFirst().total();
+        // An out-of-range page has no window-count row. Preserve accurate pagination
+        // after concurrent corrections remove the final page; first-page emptiness is definitive.
+        if (rows.isEmpty() && safePage > 0) {
+            Long total = jdbc.queryForObject(
+                    DUPLICATE_GROUPS + "SELECT COUNT(*) FROM (" + GROUP_SELECT + where + ") filtered_groups",
+                    parameters, Long.class);
+            totalElements = total == null ? 0 : total;
+        }
+        List<DuplicateCoordinateGroupResponse> items = rows.stream().map(CountedGroup::group).toList();
         int totalPages = totalElements == 0 ? 0 : (int) Math.ceil((double) totalElements / safeSize);
         return new DuplicateCoordinateGroupPageResponse(items, safePage, safeSize, totalElements, totalPages);
     }
+
+    private record CountedGroup(DuplicateCoordinateGroupResponse group, long total) {}
 
     @Transactional(readOnly = true)
     public DuplicateCoordinateGroupDetailResponse detail(String groupKey) {
