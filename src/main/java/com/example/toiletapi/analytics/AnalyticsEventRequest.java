@@ -15,5 +15,8 @@ public record AnalyticsEventRequest(
         @Size(max = 64) String sessionId,
         @Size(max = 40) String detail,
         Boolean success,
-        Boolean newVisitor
+        Boolean newVisitor,
+        @Size(max = 120) String referrerHost,
+        @Size(max = 40) String utmSource,
+        @Size(max = 24) String utmMedium
 ) { }
