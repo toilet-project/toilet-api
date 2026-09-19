@@ -3,7 +3,10 @@ on:
   pull_request:
     paths:
       - '.github/workflows/deploy.yml'
+      - '.github/workflows/region-transition-observation.yml'
       - '.github/workflows/tunnel-transport-checks.yml'
+      - 'scripts/collect-region-transition-observation.sh'
+      - 'scripts/verify-region-transition-observation.cjs'
       - 'scripts/verify-tunnel-transport.cjs'
 permissions:
   contents: read
@@ -25,3 +28,9 @@ jobs:
           TUNNEL_YAML_MODULE: ${{ runner.temp }}/tunnel-validation/node_modules/yaml
           TUNNEL_BASH: /bin/bash
         run: node scripts/verify-tunnel-transport.cjs
+      - name: Verify read-only region transition observation
+        env:
+          TUNNEL_YAML_MODULE: ${{ runner.temp }}/tunnel-validation/node_modules/yaml
+        run: |
+          bash -n scripts/collect-region-transition-observation.sh
+          node scripts/verify-region-transition-observation.cjs
