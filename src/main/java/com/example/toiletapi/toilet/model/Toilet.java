@@ -140,4 +140,35 @@ public class Toilet {
     public void applyReportedOpenTime(String openTime) {
         this.openTime = openTime;
     }
+
+    /** 관리자 편집 화면에서 검증을 마친 값을 한 번에 반영합니다. */
+    public void applyAdminUpdate(ToiletEditableData data) {
+        if (!sameCoordinate(this.latitude, data.latitude())
+                || !sameCoordinate(this.longitude, data.longitude())
+                || !Objects.equals(this.roadAddress, data.roadAddress())
+                || !Objects.equals(this.jibunAddress, data.jibunAddress())) {
+            applyAdminConfirmedCoordinates(data.latitude(), data.longitude(), data.roadAddress(), data.jibunAddress());
+        }
+        this.name = data.name();
+        this.toiletType = data.toiletType();
+        this.maleToiletCount = data.maleToiletCount();
+        this.maleUrinalCount = data.maleUrinalCount();
+        this.maleDisabledToiletCount = data.maleDisabledToiletCount();
+        this.maleDisabledUrinalCount = data.maleDisabledUrinalCount();
+        this.maleChildToiletCount = data.maleChildToiletCount();
+        this.maleChildUrinalCount = data.maleChildUrinalCount();
+        this.femaleToiletCount = data.femaleToiletCount();
+        this.femaleDisabledToiletCount = data.femaleDisabledToiletCount();
+        this.femaleChildToiletCount = data.femaleChildToiletCount();
+        this.agencyName = data.agencyName();
+        this.phoneNumber = data.phoneNumber();
+        this.openTime = data.openTime();
+        this.openTimeDetail = data.openTimeDetail();
+        this.installationDate = data.installationDate();
+        this.hasEmergencyBell = data.hasEmergencyBell();
+        this.emergencyBellLocation = data.emergencyBellLocation();
+        this.hasCctv = data.hasCctv();
+        this.hasDiaperTable = data.hasDiaperTable();
+        this.diaperTableLocation = data.diaperTableLocation();
+    }
 }
