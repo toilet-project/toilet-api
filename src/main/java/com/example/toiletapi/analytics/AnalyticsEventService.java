@@ -1,7 +1,6 @@
 package com.example.toiletapi.analytics;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -30,13 +29,18 @@ public class AnalyticsEventService {
     private static final Set<String> ORIGINS = Set.of(
             "https://geupddong.com", "https://www.geupddong.com", "https://preview.geupddong.com",
             "http://localhost:5173");
+    private static final Set<String> PRODUCTION_ORIGINS = Set.of(
+            "https://geupddong.com", "https://www.geupddong.com");
     private static final Set<String> EVENTS = Set.of(
-            "page_view", "session_start", "engagement", "scroll_depth", "toilet_search",
+            "page_view", "session_start", "engagement", "screen_view", "scroll_depth", "toilet_search",
             "nearby_search", "search_result_select", "toilet_marker_select", "toilet_detail_open",
             "directions_click", "report_start", "report_submit", "login_result", "review_submit");
     private static final Set<String> KEY_EVENTS = Set.of(
             "nearby_search", "search_result_select", "report_start", "report_submit", "login_result", "review_submit");
     private static final Set<String> RESULT_BUCKETS = Set.of("", "0", "1", "2-5", "6-10", "11-25", "26+");
+    private static final Set<String> SCREEN_KEYS = Set.of(
+            "notifications", "account_home", "my_reports", "my_reviews", "account_settings",
+            "review_list", "review_write", "not_found");
 
     private final AnalyticsEventWriter writer;
     private final Clock clock;
@@ -69,6 +73,7 @@ public class AnalyticsEventService {
 
         String event = clean(request.event()).toLowerCase(Locale.ROOT);
         if (!EVENTS.contains(event)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "허용되지 않은 분석 이벤트입니다.");
+        if (!PRODUCTION_ORIGINS.contains(origin)) return;
         String userAgent = clean(http.getHeader("User-Agent"));
         if (isBot(userAgent)) return;
 
@@ -77,7 +82,7 @@ public class AnalyticsEventService {
         byte[] sessionHash = sessionHash(request.sessionId(), visitorHash, now);
         enforceRate(visitorHash, now);
         Client client = classify(userAgent);
-        Referral referral = referral(http.getHeader("Referer"));
+        Referral referral = referral(request.referrerHost(), request.utmSource(), request.utmMedium());
         int engagement = "engagement".equals(event) ? Math.min(number(request.engagementSeconds()), 3600) : 0;
         String resultBucket = RESULT_BUCKETS.contains(clean(request.resultCountBucket()))
                 ? clean(request.resultCountBucket()) : "";
@@ -141,6 +146,7 @@ public class AnalyticsEventService {
             return request.scrollPercent().toString();
         }
         String detail = clean(request.detail()).toLowerCase(Locale.ROOT);
+        if ("screen_view".equals(event)) return SCREEN_KEYS.contains(detail) ? detail : "";
         return detail.matches("[a-z0-9_+-]{1,40}") ? detail : "";
     }
 
@@ -157,26 +163,55 @@ public class AnalyticsEventService {
 
     private static String pageKey(String raw) {
         String path = clean(raw).split("[?#]", 2)[0];
+        if (path.length() > 1) path = path.replaceFirst("/+$", "");
         if (path.isBlank()) return "/";
-        if (path.matches("/toilet/\\d+")) return "/toilet/:id";
-        if (path.matches("/review-verification/[^/]+")) return "/review-verification/:id";
+        if (path.matches("/toilet/\\d+") || "/toilet/:id".equals(path)) return "/toilet/:id";
         if (path.matches("/policies/(terms|privacy|location|all)")) return path;
-        if (Set.of("/", "/review-preview", "/notifications", "/profile").contains(path)) return path;
+        if ("/".equals(path)) return path;
         return "/other";
     }
 
-    private static Referral referral(String raw) {
-        if (raw == null || raw.isBlank()) return new Referral("Direct", "direct");
-        try {
-            String host = clean(URI.create(raw).getHost()).toLowerCase(Locale.ROOT);
-            if (host.endsWith("geupddong.com")) return new Referral("Internal", "geupddong");
-            if (host.contains("google.")) return new Referral("Organic Search", "google");
-            if (host.contains("naver.")) return new Referral("Organic Search", "naver");
-            if (host.contains("daum.") || host.contains("kakao.")) return new Referral("Referral", "kakao");
-            return new Referral("Referral", host.length() > 80 ? host.substring(0, 80) : host);
-        } catch (RuntimeException exception) {
-            return new Referral("Unassigned", "unknown");
-        }
+    private static Referral referral(String rawHost, String rawUtmSource, String rawUtmMedium) {
+        String campaignSource = campaignValue(rawUtmSource, 40);
+        String campaignMedium = campaignValue(rawUtmMedium, 24).replace('-', '_');
+        if (!campaignSource.isBlank()) return new Referral(campaignChannel(campaignMedium), campaignSource);
+
+        String host = clean(rawHost).toLowerCase(Locale.ROOT).replaceFirst("\\.$", "");
+        if (host.isBlank()) return new Referral("Direct", "none");
+        if (!host.matches("[a-z0-9](?:[a-z0-9.-]{0,118}[a-z0-9])?")) return new Referral("Unassigned", "unknown");
+        if (domain(host, "geupddong.com")) return new Referral("Internal", "geupddong");
+        if (host.startsWith("google.") || host.contains(".google.")) return new Referral("Organic Search", "google");
+        if (domain(host, "naver.com")) return new Referral("Organic Search", "naver");
+        if (domain(host, "daum.net")) return new Referral("Organic Search", "daum");
+        if (domain(host, "bing.com")) return new Referral("Organic Search", "bing");
+        if (domain(host, "kakao.com") || domain(host, "kakao.co.kr")) return new Referral("Organic Social", "kakao");
+        if (domain(host, "instagram.com")) return new Referral("Organic Social", "instagram");
+        if (domain(host, "facebook.com")) return new Referral("Organic Social", "facebook");
+        if (domain(host, "threads.net")) return new Referral("Organic Social", "threads");
+        if (domain(host, "x.com") || domain(host, "twitter.com")) return new Referral("Organic Social", "x");
+        return new Referral("Referral", host.length() > 80 ? host.substring(0, 80) : host);
+    }
+
+    private static String campaignValue(String raw, int maximum) {
+        String value = clean(raw).toLowerCase(Locale.ROOT);
+        return value.length() <= maximum && value.matches("[a-z0-9._+-]+") ? value : "";
+    }
+
+    private static String campaignChannel(String medium) {
+        return switch (medium) {
+            case "organic", "organic_search", "seo" -> "Organic Search";
+            case "social", "organic_social", "social_media" -> "Organic Social";
+            case "paid_social" -> "Paid Social";
+            case "cpc", "ppc", "paid_search", "sem" -> "Paid Search";
+            case "email", "newsletter" -> "Email";
+            case "referral", "affiliate" -> "Referral";
+            case "qr", "offline" -> "Offline";
+            default -> "Campaign";
+        };
+    }
+
+    private static boolean domain(String host, String domain) {
+        return host.equals(domain) || host.endsWith("." + domain);
     }
 
     private static Client classify(String ua) {

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,10 +28,11 @@ class AnalyticsEventServiceTest {
                 Clock.fixed(Instant.parse("2026-09-16T01:02:03Z"), ZoneOffset.UTC), true, SECRET);
         HttpServletRequest http = request("https://geupddong.com", "203.0.113.91",
                 "Mozilla/5.0 (Linux; Android 15) AppleWebKit Chrome/140 Mobile Safari/537.36",
-                "https://www.google.com/search?q=private", "KR");
+                "https://geupddong.com/toilet/1111", "KR");
 
         service.collect(new AnalyticsEventRequest("toilet_detail_open", "/toilet/1111?token=secret",
-                "map", "26+", 999, null, "session-test-1234", "map", true, true), http);
+                "map", "26+", 999, null, "session-test-1234", "map", true, true,
+                "www.google.com", null, null), http);
 
         ArgumentCaptor<AnalyticsRepository.EventRow> row = ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
         verify(repository).insert(row.capture());
@@ -53,11 +55,13 @@ class AnalyticsEventServiceTest {
         AnalyticsEventService service = new AnalyticsEventService(repository, Clock.systemUTC(), true, SECRET);
         HttpServletRequest badOrigin = request("https://attacker.invalid", "203.0.113.1", "Mozilla/5.0", "", "KR");
         assertThrows(ResponseStatusException.class, () -> service.collect(
-                new AnalyticsEventRequest("page_view", "/", null, null, null, null, null, null, null, null), badOrigin));
+                new AnalyticsEventRequest("page_view", "/", null, null, null, null, null, null, null, null,
+                        null, null, null), badOrigin));
 
         HttpServletRequest valid = request("https://geupddong.com", "203.0.113.1", "Mozilla/5.0", "", "KR");
         assertThrows(ResponseStatusException.class, () -> service.collect(
-                new AnalyticsEventRequest("raw_search_query", "/", null, null, null, null, null, null, null, null), valid));
+                new AnalyticsEventRequest("raw_search_query", "/", null, null, null, null, null, null, null, null,
+                        null, null, null), valid));
         verify(repository, never()).insert(any());
     }
 
@@ -65,9 +69,68 @@ class AnalyticsEventServiceTest {
     void disabledCollectionDoesNotWrite() {
         AnalyticsRepository repository = mock(AnalyticsRepository.class);
         AnalyticsEventService service = new AnalyticsEventService(repository, Clock.systemUTC(), false, SECRET);
-        service.collect(new AnalyticsEventRequest("page_view", "/", null, null, null, null, null, null, null, null),
+        service.collect(new AnalyticsEventRequest("page_view", "/", null, null, null, null, null, null, null, null,
+                        null, null, null),
                 request("https://geupddong.com", "203.0.113.1", "Mozilla/5.0", "", "KR"));
         verify(repository, never()).insert(any());
+    }
+
+    @Test
+    void usesFirstTouchUtmAndCanonicalPageKeys() {
+        AnalyticsRepository repository = mock(AnalyticsRepository.class);
+        AnalyticsEventService service = new AnalyticsEventService(repository,
+                Clock.fixed(Instant.parse("2026-09-16T01:02:03Z"), ZoneOffset.UTC), true, SECRET);
+
+        service.collect(new AnalyticsEventRequest("screen_view", "/toilet/:id", null, null, null, null,
+                "session-test-1234", "review_list", null, false, "search.naver.com", "kakao", "social"),
+                request("https://www.geupddong.com", "203.0.113.1", "Mozilla/5.0 (iPhone) Safari/537.36",
+                        "https://www.geupddong.com/toilet/53585", "KR"));
+
+        ArgumentCaptor<AnalyticsRepository.EventRow> row = ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
+        verify(repository).insert(row.capture());
+        assertEquals("/toilet/:id", row.getValue().pageKey());
+        assertEquals("Organic Social", row.getValue().channel());
+        assertEquals("kakao", row.getValue().source());
+        assertEquals("review_list", row.getValue().eventDetail());
+    }
+
+    @Test
+    void dropsPreviewEventsWithoutFailingTheRequest() {
+        AnalyticsRepository repository = mock(AnalyticsRepository.class);
+        AnalyticsEventService service = new AnalyticsEventService(repository, Clock.systemUTC(), true, SECRET);
+
+        service.collect(new AnalyticsEventRequest("page_view", "/", null, null, null, null, null, null,
+                        null, null, "www.google.com", null, null),
+                request("https://preview.geupddong.com", "203.0.113.1", "Mozilla/5.0", "", "KR"));
+
+        verify(repository, never()).insert(any());
+    }
+
+    @Test
+    void classifiesDirectSearchAndExternalReferralsFromTheInitialHost() {
+        AnalyticsRepository repository = mock(AnalyticsRepository.class);
+        AnalyticsEventService service = new AnalyticsEventService(repository,
+                Clock.fixed(Instant.parse("2026-09-16T01:02:03Z"), ZoneOffset.UTC), true, SECRET);
+        HttpServletRequest http = request("https://geupddong.com", "203.0.113.1",
+                "Mozilla/5.0 (iPhone) Safari/537.36", "https://geupddong.com/", "KR");
+
+        service.collect(eventWithReferrer(null), http);
+        service.collect(eventWithReferrer("m.search.naver.com"), http);
+        service.collect(eventWithReferrer("example.org"), http);
+
+        ArgumentCaptor<AnalyticsRepository.EventRow> rows = ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
+        verify(repository, times(3)).insert(rows.capture());
+        assertEquals("Direct", rows.getAllValues().get(0).channel());
+        assertEquals("none", rows.getAllValues().get(0).source());
+        assertEquals("Organic Search", rows.getAllValues().get(1).channel());
+        assertEquals("naver", rows.getAllValues().get(1).source());
+        assertEquals("Referral", rows.getAllValues().get(2).channel());
+        assertEquals("example.org", rows.getAllValues().get(2).source());
+    }
+
+    private static AnalyticsEventRequest eventWithReferrer(String host) {
+        return new AnalyticsEventRequest("page_view", "/", null, null, null, null,
+                "session-test-1234", null, null, null, host, null, null);
     }
 
     private static HttpServletRequest request(String origin, String ip, String ua, String referer, String country) {
