@@ -107,7 +107,7 @@ class AnalyticsEventServiceTest {
     }
 
     @Test
-    void classifiesDirectSearchAndExternalReferralsFromTheInitialHost() {
+    void classifiesDirectSearchExternalInternalAndInvalidReferralsFromTheInitialHost() {
         AnalyticsRepository repository = mock(AnalyticsRepository.class);
         AnalyticsEventService service = new AnalyticsEventService(repository,
                 Clock.fixed(Instant.parse("2026-09-16T01:02:03Z"), ZoneOffset.UTC), true, SECRET);
@@ -117,19 +117,50 @@ class AnalyticsEventServiceTest {
         service.collect(eventWithReferrer(null), http);
         service.collect(eventWithReferrer("m.search.naver.com"), http);
         service.collect(eventWithReferrer("example.org"), http);
+        service.collect(eventWithReferrer("www.geupddong.com"), http);
+        service.collect(eventWithReferrer("not a host/path"), http);
 
         ArgumentCaptor<AnalyticsRepository.EventRow> rows = ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
-        verify(repository, times(3)).insert(rows.capture());
+        verify(repository, times(5)).insert(rows.capture());
         assertEquals("Direct", rows.getAllValues().get(0).channel());
         assertEquals("none", rows.getAllValues().get(0).source());
         assertEquals("Organic Search", rows.getAllValues().get(1).channel());
         assertEquals("naver", rows.getAllValues().get(1).source());
         assertEquals("Referral", rows.getAllValues().get(2).channel());
         assertEquals("example.org", rows.getAllValues().get(2).source());
+        assertEquals("Internal", rows.getAllValues().get(3).channel());
+        assertEquals("geupddong", rows.getAllValues().get(3).source());
+        assertEquals("Unassigned", rows.getAllValues().get(4).channel());
+        assertEquals("unknown", rows.getAllValues().get(4).source());
+    }
+
+    @Test
+    void keepsKnownPolicyPagesAndCollapsesUnknownPaths() {
+        AnalyticsRepository repository = mock(AnalyticsRepository.class);
+        AnalyticsEventService service = new AnalyticsEventService(repository,
+                Clock.fixed(Instant.parse("2026-09-16T01:02:03Z"), ZoneOffset.UTC), true, SECRET);
+        HttpServletRequest http = request("https://geupddong.com", "203.0.113.1",
+                "Mozilla/5.0 (iPhone) Safari/537.36", "", "KR");
+
+        service.collect(event("/policies/privacy/?from=private"), http);
+        service.collect(event("/profile?member=private"), http);
+
+        ArgumentCaptor<AnalyticsRepository.EventRow> rows = ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
+        verify(repository, times(2)).insert(rows.capture());
+        assertEquals("/policies/privacy", rows.getAllValues().get(0).pageKey());
+        assertEquals("/other", rows.getAllValues().get(1).pageKey());
     }
 
     private static AnalyticsEventRequest eventWithReferrer(String host) {
-        return new AnalyticsEventRequest("page_view", "/", null, null, null, null,
+        return event("/", host);
+    }
+
+    private static AnalyticsEventRequest event(String path) {
+        return event(path, null);
+    }
+
+    private static AnalyticsEventRequest event(String path, String host) {
+        return new AnalyticsEventRequest("page_view", path, null, null, null, null,
                 "session-test-1234", null, null, null, host, null, null);
     }
 
