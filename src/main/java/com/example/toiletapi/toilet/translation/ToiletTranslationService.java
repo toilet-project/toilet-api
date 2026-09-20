@@ -82,12 +82,10 @@ public class ToiletTranslationService {
         String name = clean(raw.name(), 255, "화장실명", true);
         String road = clean(raw.roadAddress(), 500, "도로명 주소", false);
         String jibun = clean(raw.jibunAddress(), 500, "지번 주소", false);
-        String openTime = clean(raw.openTime(), 255, "개방시간", false);
-        String openTimeDetail = clean(raw.openTimeDetail(), 500, "상세 개방시간", false);
         String hash = clean(raw.expectedSourceHash(), 64, "원문 해시", true);
         if (!hash.matches("[0-9a-fA-F]{64}")) throw new IllegalArgumentException("원문 해시 형식이 올바르지 않습니다.");
         String source = manual ? "MANUAL" : clean(raw.source(), 40, "번역 출처", true);
-        return new TranslationInput(raw.toiletId(), locale, name, road, jibun, openTime, openTimeDetail,
+        return new TranslationInput(raw.toiletId(), locale, name, road, jibun,
                 hash.toLowerCase(Locale.ROOT), source);
     }
 

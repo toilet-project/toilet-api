@@ -81,6 +81,11 @@ class ToiletTranslationMigrationMySqlTest {
         assertEquals(2L, jdbc.queryForObject(
                 "SELECT version FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", Long.class));
 
+        jdbc.update("UPDATE toilet SET open_time='상시',open_time_detail='24시간' WHERE toilet_id=1");
+        repository.synchronizeKoreanSource(1, java.time.LocalDateTime.now());
+        assertEquals(2L, jdbc.queryForObject(
+                "SELECT version FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", Long.class));
+
         jdbc.update("DELETE FROM toilet WHERE toilet_id=1");
         assertEquals(0, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM toilet_translation WHERE toilet_id=1", Integer.class));

@@ -10,6 +10,7 @@ import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
 import com.example.toiletapi.report.repository.CoordinateRevisionRepository;
 import com.example.toiletapi.report.repository.ToiletReportRepository;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -59,7 +60,7 @@ public class QualityQueueSqlTest {
             }
         };
         service = new CoordinateQualityService(jdbc, mock(CoordinateQualityReviewRepository.class),
-                mock(ToiletRepository.class), mock(ToiletReportRepository.class), mock(CoordinateRevisionRepository.class),
+                mock(ToiletRepository.class), mock(ToiletTranslationService.class), mock(ToiletReportRepository.class), mock(CoordinateRevisionRepository.class),
                 mock(AuditLogService.class), mock(CoordinateAddressResolver.class), mock(ToiletDisplayGroupRepository.class));
         db.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES (1,'1층',37,127),(2,'2층',37,127),(3,'미처리',37,127)");
     }

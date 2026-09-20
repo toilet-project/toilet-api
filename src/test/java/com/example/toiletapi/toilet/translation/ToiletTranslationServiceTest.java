@@ -71,16 +71,16 @@ class ToiletTranslationServiceTest {
         assertThrows(IllegalArgumentException.class, () -> ToiletTranslationService.normalizeLocale("not_a_locale_value"));
         assertThrows(IllegalArgumentException.class, () -> service.saveMachineTranslation(input("ko", hash, "SOURCE")));
         assertThrows(IllegalArgumentException.class, () -> service.saveMachineTranslation(
-                new TranslationInput(1, "en", "x".repeat(256), null, null, null, null, hash, "TEST")));
+                new TranslationInput(1, "en", "x".repeat(256), null, null, hash, "TEST")));
     }
 
     private TranslationInput input(String locale, String sourceHash, String source) {
         return new TranslationInput(1, locale, "Restroom", "110 Sejong-daero", "31 Taepyeong-ro",
-                "Open 24 hours", null, sourceHash, source);
+                sourceHash, source);
     }
 
     private Text text(String locale, String name, String sourceHash, boolean current, boolean manual) {
-        return new Text(1, locale, name, null, null, null, null, sourceHash,
+        return new Text(1, locale, name, null, null, sourceHash,
                 manual ? "REVIEWED" : "MACHINE_TRANSLATED", manual ? "MANUAL" : "GOOGLE_CLOUD",
                 manual, 1, null, null, current);
     }

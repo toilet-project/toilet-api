@@ -6,8 +6,6 @@ CREATE TABLE toilet_translation (
     name VARCHAR(255) NULL,
     road_address VARCHAR(500) NULL,
     jibun_address VARCHAR(500) NULL,
-    open_time VARCHAR(255) NULL,
-    open_time_detail VARCHAR(500) NULL,
     source_hash CHAR(64) NOT NULL,
     translation_status VARCHAR(24) NOT NULL,
     translation_source VARCHAR(40) NOT NULL,
@@ -25,14 +23,12 @@ CREATE TABLE toilet_translation (
 );
 
 INSERT INTO toilet_translation
-    (toilet_id, locale, name, road_address, jibun_address, open_time, open_time_detail,
+    (toilet_id, locale, name, road_address, jibun_address,
      source_hash, translation_status, translation_source, manual_override,
      translated_at, reviewed_at, created_at, updated_at)
-SELECT toilet_id, 'ko', name, road_address, jibun_address, open_time, open_time_detail,
+SELECT toilet_id, 'ko', name, road_address, jibun_address,
        SHA2(CONCAT(COALESCE(TRIM(name), ''), CHAR(31),
                    COALESCE(TRIM(road_address), ''), CHAR(31),
-                   COALESCE(TRIM(jibun_address), ''), CHAR(31),
-                   COALESCE(TRIM(open_time), ''), CHAR(31),
-                   COALESCE(TRIM(open_time_detail), '')), 256),
+                   COALESCE(TRIM(jibun_address), '')), 256),
        'SOURCE', 'SOURCE', FALSE, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 FROM toilet;

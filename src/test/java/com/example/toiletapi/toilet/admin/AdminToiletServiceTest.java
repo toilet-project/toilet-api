@@ -5,6 +5,7 @@ import com.example.toiletapi.auth.service.AuditLogService;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.model.ToiletEditableData;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,7 +25,8 @@ class AdminToiletServiceTest {
     NamedParameterJdbcTemplate jdbc = mock(NamedParameterJdbcTemplate.class);
     ToiletRepository toilets = mock(ToiletRepository.class);
     AuditLogService audit = mock(AuditLogService.class);
-    AdminToiletService service = new AdminToiletService(jdbc, toilets, audit);
+    ToiletTranslationService translations = mock(ToiletTranslationService.class);
+    AdminToiletService service = new AdminToiletService(jdbc, toilets, audit, translations);
     Toilet toilet = mock(Toilet.class);
 
     @BeforeEach void setup() {
@@ -88,6 +90,7 @@ class AdminToiletServiceTest {
 
         verify(toilet).applyAdminUpdate(argThat(value -> value.name().equals("변경 화장실")));
         verify(toilets).flush();
+        verify(translations).synchronizeKoreanSource(1L);
         verify(audit).record(eq(9L), eq(AuditAction.TOILET_ADMIN_UPDATED), eq("TOILET"), eq(1L),
                 argThat(details -> ((List<?>) details.get("changedFields")).contains("name")));
     }
@@ -99,6 +102,7 @@ class AdminToiletServiceTest {
         service.update(9, 1, new UpdateRequest(AdminToiletService.snapshotToken(before),
                 emptyEditable("기존 화장실")));
         verify(toilet, never()).applyAdminUpdate(any());
+        verifyNoInteractions(translations);
         verifyNoInteractions(audit);
     }
 

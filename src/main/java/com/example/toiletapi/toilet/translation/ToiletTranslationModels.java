@@ -11,8 +11,6 @@ public final class ToiletTranslationModels {
             String name,
             String roadAddress,
             String jibunAddress,
-            String openTime,
-            String openTimeDetail,
             String sourceHash,
             String status,
             String source,
@@ -31,8 +29,6 @@ public final class ToiletTranslationModels {
             String name,
             String roadAddress,
             String jibunAddress,
-            String openTime,
-            String openTimeDetail,
             String expectedSourceHash,
             String source
     ) {}

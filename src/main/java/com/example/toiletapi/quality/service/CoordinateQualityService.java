@@ -25,6 +25,7 @@ import com.example.toiletapi.report.repository.CoordinateRevisionRepository;
 import com.example.toiletapi.report.repository.ToiletReportRepository;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -83,6 +84,7 @@ public class CoordinateQualityService {
     private final NamedParameterJdbcTemplate jdbc;
     private final CoordinateQualityReviewRepository reviewRepository;
     private final ToiletRepository toiletRepository;
+    private final ToiletTranslationService translations;
     private final ToiletReportRepository reportRepository;
     private final CoordinateRevisionRepository revisionRepository;
     private final AuditLogService auditLogService;
@@ -174,6 +176,8 @@ public class CoordinateQualityService {
         CoordinateRevision revision = CoordinateRevision.createAdminDirect(toiletId, toilet.getLatitude(), toilet.getLongitude(),
                 toilet.getRoadAddress(), toilet.getJibunAddress(), address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress(), adminId);
         toilet.applyAdminConfirmedCoordinates(address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress());
+        toiletRepository.flush();
+        translations.synchronizeKoreanSource(toiletId);
         if (request.displayGroupId() == null) {
             displayGroupRepository.removeToilet(toiletId);
         } else {
@@ -187,7 +191,6 @@ public class CoordinateQualityService {
 
     private void joinCoordinateDisplayGroup(Long adminId, Long toiletId, BigDecimal latitude, BigDecimal longitude,
                                             Long displayGroupId) {
-        toiletRepository.flush();
         if (!displayGroupRepository.belongsToCoordinates(displayGroupId, latitude, longitude)) {
             throw new IllegalArgumentException("선택한 위치의 관리자 확정 그룹을 찾을 수 없습니다.");
         }
@@ -260,6 +263,7 @@ public class CoordinateQualityService {
         }
 
         toiletRepository.flush();
+        movedToiletIds.forEach(translations::synchronizeKoreanSource);
         List<Long> finalToiletIds = new ArrayList<>();
         finalToiletIds.add(currentToiletId);
         finalToiletIds.addAll(markerToiletIds);

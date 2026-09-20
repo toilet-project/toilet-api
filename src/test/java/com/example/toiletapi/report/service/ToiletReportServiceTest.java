@@ -3,7 +3,9 @@ package com.example.toiletapi.report.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -27,6 +29,7 @@ import com.example.toiletapi.report.repository.CoordinateRevisionRepository;
 import com.example.toiletapi.report.repository.ToiletReportRepository;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -51,6 +54,7 @@ class ToiletReportServiceTest {
     @Mock private AuditLogService auditLogService;
     @Mock private UserNotificationService notificationService;
     @Mock private CoordinateAddressResolver addressResolver;
+    @Mock private ToiletTranslationService translations;
     @InjectMocks private ToiletReportService service;
 
     @Test
@@ -113,9 +117,25 @@ class ToiletReportServiceTest {
         assertEquals("제보 지번", report.getProposedJibunAddress());
         ArgumentCaptor<CoordinateRevision> revision = ArgumentCaptor.forClass(CoordinateRevision.class);
         verify(revisionRepository).save(revision.capture());
+        verify(toiletRepository).flush();
+        verify(translations).synchronizeKoreanSource(10L);
         assertEquals("기존 지번", revision.getValue().getPreviousJibunAddress());
         assertEquals("조회한 지번", revision.getValue().getAppliedJibunAddress());
         verify(notificationService).createReportDecision(report, "시청 공중화장실");
+    }
+
+    @Test
+    void approvedOpenTimeUsesStructuredSchedulePathInsteadOfTranslationSync() {
+        ToiletReport report = ToiletReport.createOpenTimeCorrection(10L, 3L, "24시간", "현장 확인", "key");
+        Toilet toilet = mock(Toilet.class);
+        when(toilet.getName()).thenReturn("시청 공중화장실");
+        when(reportRepository.findByIdForUpdate(12L)).thenReturn(Optional.of(report));
+        when(toiletRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(toilet));
+
+        service.approve(9L, 12L, new ReviewToiletReportRequest("운영 안내 확인", null, null, null));
+
+        verify(toilet).applyReportedOpenTime("24시간");
+        verify(translations, never()).synchronizeKoreanSource(anyLong());
     }
 
     @Test

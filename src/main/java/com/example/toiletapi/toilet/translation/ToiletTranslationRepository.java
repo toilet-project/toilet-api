@@ -17,9 +17,7 @@ public class ToiletTranslationRepository {
     private static final String SOURCE_HASH_SQL = """
             SHA2(CONCAT(COALESCE(TRIM(t.name), ''), CHAR(31),
                         COALESCE(TRIM(t.road_address), ''), CHAR(31),
-                        COALESCE(TRIM(t.jibun_address), ''), CHAR(31),
-                        COALESCE(TRIM(t.open_time), ''), CHAR(31),
-                        COALESCE(TRIM(t.open_time_detail), '')), 256)
+                        COALESCE(TRIM(t.jibun_address), '')), 256)
             """;
 
     private final NamedParameterJdbcTemplate jdbc;
@@ -32,7 +30,7 @@ public class ToiletTranslationRepository {
         String suffix = lock ? " FOR UPDATE" : "";
         return jdbc.query("""
                 SELECT tr.toilet_id,tr.locale,tr.name,tr.road_address,tr.jibun_address,
-                       tr.open_time,tr.open_time_detail,tr.source_hash,tr.translation_status,
+                       tr.source_hash,tr.translation_status,
                        tr.translation_source,tr.manual_override,tr.version,tr.translated_at,tr.reviewed_at,
                        CASE WHEN tr.locale='ko' OR tr.source_hash=ko.source_hash THEN TRUE ELSE FALSE END AS is_current
                   FROM toilet_translation tr
@@ -60,10 +58,10 @@ public class ToiletTranslationRepository {
             throw new IllegalArgumentException("동기화할 화장실을 찾지 못했습니다.");
         String sql = """
                 INSERT INTO toilet_translation
-                    (toilet_id,locale,name,road_address,jibun_address,open_time,open_time_detail,
+                    (toilet_id,locale,name,road_address,jibun_address,
                      source_hash,translation_status,translation_source,manual_override,
                      translated_at,reviewed_at,created_at,updated_at)
-                SELECT t.toilet_id,'ko',t.name,t.road_address,t.jibun_address,t.open_time,t.open_time_detail,
+                SELECT t.toilet_id,'ko',t.name,t.road_address,t.jibun_address,
                        %s,
                        'SOURCE','SOURCE',FALSE,NULL,NULL,:now,:now
                   FROM toilet t WHERE t.toilet_id=:toiletId
@@ -71,7 +69,6 @@ public class ToiletTranslationRepository {
                     version=IF(source_hash<>VALUES(source_hash),version+1,version),
                     updated_at=IF(source_hash<>VALUES(source_hash),VALUES(updated_at),updated_at),
                     name=VALUES(name),road_address=VALUES(road_address),jibun_address=VALUES(jibun_address),
-                    open_time=VALUES(open_time),open_time_detail=VALUES(open_time_detail),
                     source_hash=VALUES(source_hash),translation_status='SOURCE',translation_source='SOURCE'
                 """.formatted(SOURCE_HASH_SQL);
         jdbc.update(sql, new MapSqlParameterSource("toiletId", toiletId).addValue("now", now));
@@ -82,10 +79,10 @@ public class ToiletTranslationRepository {
         try {
             jdbc.update("""
                     INSERT INTO toilet_translation
-                        (toilet_id,locale,name,road_address,jibun_address,open_time,open_time_detail,
+                        (toilet_id,locale,name,road_address,jibun_address,
                          source_hash,translation_status,translation_source,manual_override,
                          translated_at,reviewed_at,created_at,updated_at)
-                    VALUES (:toiletId,:locale,:name,:road,:jibun,:openTime,:openTimeDetail,
+                    VALUES (:toiletId,:locale,:name,:road,:jibun,
                             :sourceHash,:status,:source,:manualOverride,
                             :translatedAt,:reviewedAt,:now,:now)
                     """, values(input, status, manualOverride, translatedAt, reviewedAt, now));
@@ -99,7 +96,6 @@ public class ToiletTranslationRepository {
         int changed = jdbc.update("""
                 UPDATE toilet_translation
                    SET name=:name,road_address=:road,jibun_address=:jibun,
-                       open_time=:openTime,open_time_detail=:openTimeDetail,
                        source_hash=:sourceHash,translation_status=:status,translation_source=:source,
                        manual_override=:manualOverride,translated_at=:translatedAt,reviewed_at=:reviewedAt,
                        version=version+1,updated_at=:now
@@ -129,8 +125,7 @@ public class ToiletTranslationRepository {
         return new MapSqlParameterSource()
                 .addValue("toiletId", input.toiletId()).addValue("locale", input.locale())
                 .addValue("name", input.name()).addValue("road", input.roadAddress())
-                .addValue("jibun", input.jibunAddress()).addValue("openTime", input.openTime())
-                .addValue("openTimeDetail", input.openTimeDetail()).addValue("sourceHash", input.expectedSourceHash())
+                .addValue("jibun", input.jibunAddress()).addValue("sourceHash", input.expectedSourceHash())
                 .addValue("status", status).addValue("source", input.source())
                 .addValue("manualOverride", manualOverride).addValue("translatedAt", translatedAt)
                 .addValue("reviewedAt", reviewedAt).addValue("now", now);
@@ -138,8 +133,7 @@ public class ToiletTranslationRepository {
 
     private static Text map(ResultSet rs) throws SQLException {
         return new Text(rs.getLong("toilet_id"), rs.getString("locale"), rs.getString("name"),
-                rs.getString("road_address"), rs.getString("jibun_address"), rs.getString("open_time"),
-                rs.getString("open_time_detail"), rs.getString("source_hash"),
+                rs.getString("road_address"), rs.getString("jibun_address"), rs.getString("source_hash"),
                 rs.getString("translation_status"), rs.getString("translation_source"),
                 rs.getBoolean("manual_override"), rs.getLong("version"),
                 rs.getObject("translated_at", LocalDateTime.class),
