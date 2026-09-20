@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mysql_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-mysql | sed -n 's/^MYSQL_USER=//p')"
-mysql_password="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-mysql | sed -n 's/^MYSQL_PASSWORD=//p')"
+api_environment="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-api)"
+mysql_user="$(sed -n 's/^SPRING_DB_USERNAME=//p' <<<"$api_environment")"
+mysql_password="$(sed -n 's/^SPRING_DB_PASSWORD=//p' <<<"$api_environment")"
+unset api_environment
 test -n "$mysql_user"
 test -n "$mysql_password"
 
 mysql_query() {
   docker exec -e MYSQL_PWD="$mysql_password" toilet-mysql \
-    mysql --protocol=socket --batch --raw -u "$mysql_user" toilet_db -e "$1"
+    mysql --protocol=tcp -h 127.0.0.1 --batch --raw -u "$mysql_user" toilet_db \
+    -e "START TRANSACTION READ ONLY; $1 ROLLBACK;"
 }
 
 cat <<'MARKDOWN'
