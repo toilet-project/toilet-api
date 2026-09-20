@@ -12,6 +12,7 @@ import com.example.toiletapi.report.model.*;
 import com.example.toiletapi.report.repository.*;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal; import java.nio.charset.StandardCharsets; import java.security.MessageDigest; import java.time.LocalDate; import java.time.LocalDateTime; import java.util.*;
 import lombok.RequiredArgsConstructor; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page; import org.springframework.data.domain.PageRequest; import org.springframework.data.domain.Pageable; import org.springframework.data.domain.Sort;
@@ -22,6 +23,7 @@ public class ToiletReportService {
     private final ToiletRepository toiletRepository; private final AppUserRepository userRepository; private final AuditLogService auditLogService;
     private final UserNotificationService notificationService;
     private final CoordinateAddressResolver addressResolver;
+    private final ToiletTranslationService translations;
     public ToiletReportResponse submit(Long userId, CreateToiletReportRequest request) {
         validateRequest(request); Toilet toilet = toiletRepository.findById(request.toiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
         userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
@@ -86,15 +88,21 @@ public class ToiletReportService {
             address = addressResolver.resolve(confirmedLatitude(request, report), confirmedLongitude(request, report));
         }
         Toilet toilet = toiletRepository.findByIdForUpdate(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
+        boolean translationSourceChanged = false;
         if ("COORDINATE_CORRECTION".equals(report.getReportType())) {
             BigDecimal previousLatitude = toilet.getLatitude(), previousLongitude = toilet.getLongitude(); String previousRoadAddress = toilet.getRoadAddress();
             String previousJibunAddress = toilet.getJibunAddress();
             toilet.applyAdminConfirmedCoordinates(address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress());
             revisionRepository.save(CoordinateRevision.create(report, previousLatitude, previousLongitude, previousRoadAddress, previousJibunAddress,
                     address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress(), adminId));
+            translationSourceChanged = true;
         } else if ("OPEN_TIME_CORRECTION".equals(report.getReportType())) {
             toilet.applyReportedOpenTime(report.getProposedOpenTime());
         } else throw new IllegalArgumentException("처리할 수 없는 제보 유형입니다.");
+        if (translationSourceChanged) {
+            toiletRepository.flush();
+            translations.synchronizeKoreanSource(report.getToiletId());
+        }
         report.approve(adminId, note(request));
         Map<String, Object> auditDetails = new HashMap<>(); auditDetails.put("toiletId", report.getToiletId());
         if ("COORDINATE_CORRECTION".equals(report.getReportType())) auditDetails.put("coordinateAdjustedByAdmin", hasCoordinateOverride(request));

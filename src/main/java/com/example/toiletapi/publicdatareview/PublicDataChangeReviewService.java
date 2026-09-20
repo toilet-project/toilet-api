@@ -3,6 +3,7 @@ package com.example.toiletapi.publicdatareview;
 import com.example.toiletapi.auth.model.AuditAction;
 import com.example.toiletapi.auth.service.AuditLogService;
 import com.example.toiletapi.global.time.KoreanTime;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -34,10 +35,13 @@ public class PublicDataChangeReviewService {
     private static final ZoneOffset SEOUL_OFFSET = ZoneOffset.ofHours(9);
     private final NamedParameterJdbcTemplate jdbc;
     private final AuditLogService audit;
+    private final ToiletTranslationService translations;
 
-    public PublicDataChangeReviewService(NamedParameterJdbcTemplate jdbc, AuditLogService audit) {
+    public PublicDataChangeReviewService(NamedParameterJdbcTemplate jdbc, AuditLogService audit,
+                                         ToiletTranslationService translations) {
         this.jdbc = jdbc;
         this.audit = audit;
+        this.translations = translations;
     }
 
     public Page search(Status status, String keyword, Integer receivedWithinDays,
@@ -169,6 +173,7 @@ public class PublicDataChangeReviewService {
             jdbc.update("UPDATE toilet SET name=:name WHERE toilet_id=:id", new MapSqlParameterSource("id",candidate.toiletId()).addValue("name",hidden.proposalName()));
             // Applying source values never releases the independently managed visibility decision.
         }
+        translations.synchronizeKoreanSource(candidate.toiletId());
         close(candidate.id(), Status.APPLIED, note);
     }
 

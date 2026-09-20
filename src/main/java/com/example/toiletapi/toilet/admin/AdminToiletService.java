@@ -7,6 +7,7 @@ import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.model.ToiletEditableData;
 import com.example.toiletapi.toilet.repository.ToiletRegionProjection;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -45,6 +46,7 @@ public class AdminToiletService {
     private final NamedParameterJdbcTemplate jdbc;
     private final ToiletRepository toilets;
     private final AuditLogService audit;
+    private final ToiletTranslationService translations;
 
     public Page<Item> search(String keyword, String sidoCode, String sigunguCode, int page, int size) {
         validatePage(page, size);
@@ -139,10 +141,17 @@ public class AdminToiletService {
         if (!changedFields.isEmpty()) {
             toilet.applyAdminUpdate(after);
             toilets.flush();
+            if (changedFields.stream().anyMatch(AdminToiletService::isTranslationSourceField)) {
+                translations.synchronizeKoreanSource(id);
+            }
             audit.record(adminId, AuditAction.TOILET_ADMIN_UPDATED, "TOILET", id,
                     Map.of("changedFields", changedFields, "changedFieldCount", changedFields.size()));
         }
         return detail(toilet);
+    }
+
+    private static boolean isTranslationSourceField(String field) {
+        return "name".equals(field) || "roadAddress".equals(field) || "jibunAddress".equals(field);
     }
 
     private Detail detail(Toilet toilet) {

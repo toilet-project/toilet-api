@@ -5,11 +5,14 @@ import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.dto.ToiletRegionResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
+import com.example.toiletapi.toilet.dto.ToiletTranslationResponse;
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +31,7 @@ public class ToiletService {
 
     private final ToiletRepository toiletRepository;
     private final ToiletDisplayGroupRepository displayGroupRepository;
+    private final ToiletTranslationService translationService;
 
     /**
      * 지도 화면의 경계 안에 있는 화장실 마커 정보를 조회합니다.
@@ -65,13 +69,19 @@ public class ToiletService {
         }
 
         var toilets = toiletRepository.findByLatitudeBetweenAndLongitudeBetween(southLat, northLat, westLng, eastLng);
-        var displayGroups = displayGroupRepository.assignmentsFor(toilets.stream().map(toilet -> toilet.getId()).toList());
+        var toiletIds = toilets.stream().map(toilet -> toilet.getId()).toList();
+        var displayGroups = displayGroupRepository.assignmentsFor(toiletIds);
+        var translations = translationService.currentTranslations(toiletIds);
         List<ToiletMapResponse> markers = toilets
                 .stream()
                 .map(toilet -> {
                     var assignment = displayGroups.get(toilet.getId());
-                    return assignment == null ? ToiletMapResponse.from(toilet)
-                            : ToiletMapResponse.from(toilet, assignment.groupId(), assignment.displayName());
+                    return ToiletMapResponse.from(
+                            toilet,
+                            assignment == null ? null : assignment.groupId(),
+                            assignment == null ? null : assignment.displayName(),
+                            responseTranslations(translations.get(toilet.getId()))
+                    );
                 })
                 .toList();
 
@@ -88,8 +98,19 @@ public class ToiletService {
         return toiletRepository.findById(toiletId)
                 .filter(com.example.toiletapi.toilet.model.Toilet::isPubliclyVisible)
                 .map(toilet -> ToiletDetailResponse.from(toilet,
-                        toiletRepository.findCurrentRegion(toiletId).map(ToiletRegionResponse::from).orElse(null)))
+                        toiletRepository.findCurrentRegion(toiletId).map(ToiletRegionResponse::from).orElse(null),
+                        responseTranslations(translationService.currentTranslations(List.of(toiletId)).get(toiletId))))
                 .orElseThrow(() -> new ToiletNotFoundException(toiletId));
+    }
+
+    private Map<String, ToiletTranslationResponse> responseTranslations(
+            Map<String, com.example.toiletapi.toilet.translation.ToiletTranslationModels.Text> translations
+    ) {
+        if (translations == null || translations.isEmpty()) return Map.of();
+        return translations.entrySet().stream().collect(java.util.stream.Collectors.toUnmodifiableMap(
+                Map.Entry::getKey,
+                entry -> ToiletTranslationResponse.from(entry.getValue())
+        ));
     }
 
     private void validateBounds(

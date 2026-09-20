@@ -2,6 +2,7 @@ package com.example.toiletapi.publicdatareview;
 
 import com.example.toiletapi.auth.model.AuditAction;
 import com.example.toiletapi.auth.service.AuditLogService;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ class PublicDataChangeReviewServiceTest {
     private JdbcTemplate db;
     private PublicDataChangeReviewService service;
     private AuditLogService audit;
+    private ToiletTranslationService translations;
     private String baselineHash;
 
     @BeforeEach
@@ -37,7 +39,8 @@ class PublicDataChangeReviewServiceTest {
         db.execute("ALTER TABLE public_data_change_review ADD hidden_event_id BIGINT");
         db.execute("CREATE TABLE toilet_visibility_event(event_id BIGINT PRIMARY KEY,representative_toilet_id BIGINT,reason VARCHAR(500),occurred_at DATETIME)");
         audit = mock(AuditLogService.class);
-        service = new PublicDataChangeReviewService(new NamedParameterJdbcTemplate(dataSource), audit);
+        translations = mock(ToiletTranslationService.class);
+        service = new PublicDataChangeReviewService(new NamedParameterJdbcTemplate(dataSource), audit, translations);
         baselineHash = PublicDataChangeReviewService.hash(new BigDecimal("37.5000000"),
                 new BigDecimal("127.1000000"), "서울 도로 1", "서울 지번 1");
         String proposalHash = PublicDataChangeReviewService.hash(new BigDecimal("37.6000000"),
@@ -94,6 +97,7 @@ class PublicDataChangeReviewServiceTest {
         assertEquals("APPLY", db.queryForObject("SELECT action FROM public_data_change_decision", String.class));
         verify(audit).record(9L, AuditAction.PUBLIC_DATA_CHANGE_APPLIED,
                 "PUBLIC_DATA_CHANGE_REVIEW", 11L, java.util.Map.of("toiletId", 1L, "action", "APPLY"));
+        verify(translations).synchronizeKoreanSource(1L);
 
         Detail retry = service.decide(9, 11,
                 new DecisionRequest(Action.APPLY, "공공데이터와 지도 확인", 3L, baselineHash));

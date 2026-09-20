@@ -1,7 +1,9 @@
 package com.example.toiletapi.toilet.dto;
 
 import com.example.toiletapi.toilet.model.Toilet;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
+import java.util.Map;
 
 /**
  * 화장실 상세 정보를 표현합니다.
@@ -35,8 +37,14 @@ public record ToiletDetailResponse(
         String diaperTableLocation,
         String dataBaseDate,
         String dataSource,
-        ToiletRegionResponse region
+        ToiletRegionResponse region,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+        Map<String, ToiletTranslationResponse> translations
 ) {
+
+    public ToiletDetailResponse {
+        translations = translations == null ? Map.of() : Map.copyOf(translations);
+    }
 
     /**
      * 엔티티를 API 상세 응답으로 변환합니다.
@@ -45,10 +53,18 @@ public record ToiletDetailResponse(
      * @return 화장실 상세 응답
      */
     public static ToiletDetailResponse from(Toilet toilet) {
-        return from(toilet, null);
+        return from(toilet, null, Map.of());
     }
 
     public static ToiletDetailResponse from(Toilet toilet, ToiletRegionResponse region) {
+        return from(toilet, region, Map.of());
+    }
+
+    public static ToiletDetailResponse from(
+            Toilet toilet,
+            ToiletRegionResponse region,
+            Map<String, ToiletTranslationResponse> translations
+    ) {
         return new ToiletDetailResponse(
                 toilet.getId(),
                 toilet.getName(),
@@ -78,7 +94,8 @@ public record ToiletDetailResponse(
                 toilet.getDiaperTableLocation(),
                 toilet.getDataBaseDate(),
                 toilet.getDataSource(),
-                region
+                region,
+                translations
         );
     }
 }

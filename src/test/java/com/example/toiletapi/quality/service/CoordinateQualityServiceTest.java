@@ -26,6 +26,7 @@ import com.example.toiletapi.report.repository.CoordinateRevisionRepository;
 import com.example.toiletapi.report.repository.ToiletReportRepository;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,7 @@ class CoordinateQualityServiceTest {
     @Mock NamedParameterJdbcTemplate jdbc;
     @Mock CoordinateQualityReviewRepository reviewRepository;
     @Mock ToiletRepository toiletRepository;
+    @Mock ToiletTranslationService translations;
     @Mock ToiletReportRepository reportRepository;
     @Mock CoordinateRevisionRepository revisionRepository;
     @Mock AuditLogService auditLogService;
@@ -56,7 +58,7 @@ class CoordinateQualityServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CoordinateQualityService(jdbc, reviewRepository, toiletRepository, reportRepository,
+        service = new CoordinateQualityService(jdbc, reviewRepository, toiletRepository, translations, reportRepository,
                 revisionRepository, auditLogService, addressResolver, displayGroupRepository);
     }
 
@@ -135,6 +137,7 @@ class CoordinateQualityServiceTest {
         verify(toilet).applyAdminConfirmedCoordinates(latitude, longitude, "대전광역시 유성구 노은로 101", "지번 주소");
         verify(displayGroupRepository).removeToilet(toiletId);
         verify(revisionRepository).save(any(CoordinateRevision.class));
+        verify(translations).synchronizeKoreanSource(toiletId);
         verify(auditLogService).record(eq(adminId), eq(AuditAction.TOILET_COORDINATE_CORRECTED),
                 eq("TOILET"), eq(toiletId), any(Map.class));
     }
@@ -198,6 +201,7 @@ class CoordinateQualityServiceTest {
         verify(displayGroupRepository).create("XXX문화원", latitude, longitude, adminId);
         verify(displayGroupRepository).replaceMembers(41L, List.of(toiletId, 202L, 203L));
         verify(revisionRepository).saveAll(anyList());
+        verify(translations).synchronizeKoreanSource(toiletId);
         verify(auditLogService).record(eq(adminId), eq(AuditAction.TOILET_DISPLAY_GROUP_SAVED),
                 eq("TOILET_DISPLAY_GROUP"), eq(41L), any(Map.class));
     }
@@ -243,6 +247,8 @@ class CoordinateQualityServiceTest {
         verify(toilet, never()).applyAdminConfirmedCoordinates(any(), any(), any(), any());
         verify(displayGroupRepository).replaceMembers(42L, List.of(currentToiletId, 202L, 203L));
         verify(revisionRepository).saveAll(anyList());
+        verify(translations).synchronizeKoreanSource(202L);
+        verify(translations).synchronizeKoreanSource(203L);
     }
 
     @Test
