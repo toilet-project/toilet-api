@@ -1,0 +1,182 @@
+name: Translation pilot provider run
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_count:
+        description: Number of fixed pilot rows to translate (maximum 1000)
+        required: true
+        default: "1000"
+      confirmation:
+        description: Type TRANSLATE_1000 to allow external provider calls
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: translation-pilot-provider-run
+  cancel-in-progress: false
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate explicit approval and offline tooling
+        shell: bash
+        env:
+          EXPECTED_COUNT: ${{ inputs.expected_count }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = 'TRANSLATE_1000'
+          [[ "$EXPECTED_COUNT" =~ ^[0-9]+$ ]]
+          test "$EXPECTED_COUNT" -ge 1
+          test "$EXPECTED_COUNT" -le 1000
+          bash -n scripts/collect-translation-pilot-source.sh
+          bash -n scripts/run-translation-pilot-remote.sh
+          python3 -B -m unittest scripts/test_translation_pilot.py
+
+      - name: Prepare pinned Tunnel SSH transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 10 --max-time 60 \
+            https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64.deb \
+            -o "$RUNNER_TEMP/cloudflared.deb"
+          printf '%s  %s\n' 660b348d473bba81997445b534e7eaefaf4c4e16331866922326c338a7013dd9 "$RUNNER_TEMP/cloudflared.deb" | sha256sum -c -
+          dpkg-deb --extract "$RUNNER_TEMP/cloudflared.deb" "$RUNNER_TEMP/cloudflared-package"
+
+      - name: Build encrypted transport bundle
+        shell: bash
+        env:
+          GOOGLE_TRANSLATION_API_KEY: ${{ secrets.GOOGLE_TRANSLATION_API_KEY }}
+          JUSO_ENGLISH_API_KEY: ${{ secrets.JUSO_ENGLISH_API_KEY }}
+          EXPORT_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
+          TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${GOOGLE_TRANSLATION_API_KEY:?missing Google Translation key}"
+          : "${JUSO_ENGLISH_API_KEY:?missing Juso English key}"
+          : "${EXPORT_SSH_KEY:?missing SSH key}"
+          : "${TUNNEL_KNOWN_HOSTS:?missing pinned host keys}"
+          bundle_dir="$RUNNER_TEMP/translation-pilot-bundle"
+          install -d -m 700 "$bundle_dir/scripts" "$bundle_dir/credentials"
+          install -m 700 scripts/collect-translation-pilot-source.sh "$bundle_dir/scripts/"
+          install -m 700 scripts/run-translation-pilot-remote.sh "$bundle_dir/scripts/"
+          install -m 600 scripts/translation_pilot.py "$bundle_dir/scripts/"
+          printf '%s' "$GOOGLE_TRANSLATION_API_KEY" > "$bundle_dir/credentials/google.key"
+          printf '%s' "$JUSO_ENGLISH_API_KEY" > "$bundle_dir/credentials/juso.key"
+          printf '%s\n' "$EXPORT_SSH_KEY" > "$RUNNER_TEMP/translation-pilot-key"
+          printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/translation-pilot-hosts"
+          ssh-keygen -y -P '' -f "$RUNNER_TEMP/translation-pilot-key" >/dev/null
+          tar -czf "$RUNNER_TEMP/translation-pilot-input.tgz" -C "$bundle_dir" .
+          rm -rf -- "$bundle_dir"
+
+      - name: Translate fixed sample inside production host
+        shell: bash
+        env:
+          EXPECTED_COUNT: ${{ inputs.expected_count }}
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
+          TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
+          TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${TUNNEL_SERVICE_TOKEN_ID:?missing Access ID}"
+          : "${TUNNEL_SERVICE_TOKEN_SECRET:?missing Access secret}"
+          test "$TUNNEL_SSH_HOST" = 'ssh-deploy.geupddong.com'
+          [[ "$TUNNEL_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
+          remote_dir="/tmp/toilet-translation-pilot-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+          ssh_options=(
+            -F /dev/null -i "$RUNNER_TEMP/translation-pilot-key"
+            -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/translation-pilot-hosts"
+            -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519
+            -o ForwardAgent=no -o ClearAllForwardings=yes
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3
+            -o 'ProxyCommand=cloudflared access ssh --hostname %h'
+          )
+          ssh "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+            "install -d -m 700 '$remote_dir'"
+          scp "${ssh_options[@]}" "$RUNNER_TEMP/translation-pilot-input.tgz" \
+            "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST:$remote_dir/input.tgz"
+          timeout 50m ssh "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+            "bash -s -- '$remote_dir' '$EXPECTED_COUNT'" \
+            < scripts/run-translation-pilot-remote.sh
+          scp "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST:$remote_dir/output.tgz" \
+            "$RUNNER_TEMP/translation-pilot-output.tgz"
+          install -d -m 700 translation-pilot-output
+          tar -xzf "$RUNNER_TEMP/translation-pilot-output.tgz" -C translation-pilot-output
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path('translation-pilot-output/translation-pilot-audit.json').read_text(encoding='utf-8'))
+          summary = {
+              'sourceCount': report.get('sourceCount'),
+              'resultCount': report.get('resultCount'),
+              'issueCount': report.get('issueCount'),
+              'issueCounts': report.get('issueCounts'),
+              'translatedAddressCount': report.get('translatedAddressCount'),
+              'addressLookupErrorCount': report.get('addressLookupErrorCount'),
+              'googleCharactersSubmitted': report.get('googleCharactersSubmitted'),
+              'estimatedGoogleNmtCostUsdBeforeFreeCredit': report.get('estimatedGoogleNmtCostUsdBeforeFreeCredit'),
+              'readyForHumanReview': report.get('readyForHumanReview'),
+          }
+          with Path(__import__('os').environ['GITHUB_STEP_SUMMARY']).open('a', encoding='utf-8') as handle:
+              handle.write('```json\n' + json.dumps(summary, ensure_ascii=False, indent=2) + '\n```\n')
+          PY
+
+      - name: Upload English results and aggregate audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: translation-pilot-results-${{ github.run_id }}
+          path: translation-pilot-output/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Remove ephemeral credentials and production work directory
+        if: always()
+        shell: bash
+        env:
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
+          TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
+          TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_TEMP:?}"
+          if [[ "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ ]] && [[ "${GITHUB_RUN_ATTEMPT:-}" =~ ^[0-9]+$ ]] \
+              && test -f "$RUNNER_TEMP/cloudflared-package/usr/bin/cloudflared" \
+              && test -f "$RUNNER_TEMP/translation-pilot-key" \
+              && test -f "$RUNNER_TEMP/translation-pilot-hosts" \
+              && test -n "${TUNNEL_SERVICE_TOKEN_ID:-}" && test -n "${TUNNEL_SERVICE_TOKEN_SECRET:-}" \
+              && test -n "${TUNNEL_SSH_USER:-}" && test -n "${TUNNEL_SSH_HOST:-}"; then
+            remote_dir="/tmp/toilet-translation-pilot-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+            ssh -F /dev/null -T -i "$RUNNER_TEMP/translation-pilot-key" \
+              -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
+              -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/translation-pilot-hosts" \
+              -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 \
+              -o ForwardAgent=no -o ClearAllForwardings=yes \
+              -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+              -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
+              "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+              "test '$remote_dir' != / && rm -rf -- '$remote_dir'" || true
+          fi
+          rm -rf -- "$RUNNER_TEMP/translation-pilot-bundle"
+          rm -f -- "$RUNNER_TEMP/translation-pilot-input.tgz" \
+            "$RUNNER_TEMP/translation-pilot-output.tgz" \
+            "$RUNNER_TEMP/translation-pilot-key" \
+            "$RUNNER_TEMP/translation-pilot-hosts"

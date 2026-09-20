@@ -59,6 +59,34 @@ class TranslationPilotTest(unittest.TestCase):
         report = pilot.audit_results([self.source()], [result])
         self.assertIn("NAME_NUMBER_LOSS", report["issueCounts"])
 
+    def test_result_audit_summarizes_provider_usage_without_raw_source(self):
+        result = {
+            "toiletId": 1,
+            "name": "City Hall 1F Restroom",
+            "roadAddress": "110 Sejong-daero, Jung-gu, Seoul",
+            "jibunAddress": None,
+            "expectedSourceHash": "a" * 64,
+            "addressError": None,
+        }
+        report = pilot.audit_results([self.source()], [result])
+        self.assertEqual(1, report["translatedAddressCount"])
+        self.assertEqual(0, report["addressLookupErrorCount"])
+        self.assertEqual(len("시청 1층 화장실"), report["googleCharactersSubmitted"])
+
+    def test_result_audit_counts_official_address_lookup_misses(self):
+        result = {
+            "toiletId": 1,
+            "name": "City Hall 1F Restroom",
+            "roadAddress": None,
+            "jibunAddress": None,
+            "expectedSourceHash": "a" * 64,
+            "addressError": "no official English address result",
+        }
+        report = pilot.audit_results([self.source()], [result])
+        self.assertEqual(0, report["translatedAddressCount"])
+        self.assertEqual(1, report["addressLookupErrorCount"])
+        self.assertNotIn("MISSING_ADDRESS_WITHOUT_ERROR", report["issueCounts"])
+
     def test_audit_source_records_fingerprint_without_retention(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.jsonl"
