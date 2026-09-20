@@ -1,3 +1,4 @@
+import collections
 import importlib.util
 import json
 import tempfile
@@ -9,6 +10,12 @@ from pathlib import Path
 SPEC = importlib.util.spec_from_file_location("translation_pilot", Path(__file__).with_name("translation_pilot.py"))
 pilot = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(pilot)
+
+REVIEW_SPEC = importlib.util.spec_from_file_location(
+    "prepare_translation_review_sample", Path(__file__).with_name("prepare_translation_review_sample.py")
+)
+review = importlib.util.module_from_spec(REVIEW_SPEC)
+REVIEW_SPEC.loader.exec_module(review)
 
 
 class TranslationPilotTest(unittest.TestCase):
@@ -142,6 +149,40 @@ class TranslationPilotTest(unittest.TestCase):
         self.assertNotIn("          scp ", content)
         self.assertIn("cat > '$remote_dir/input.tgz'", content)
         self.assertIn("cat '$remote_dir/output.tgz'", content)
+
+    def test_review_sample_uses_fixed_strata_and_unique_ids(self):
+        rows = []
+        toilet_id = 1
+        for category, count in {
+            "ROAD_SUCCESS": 602,
+            "JIBUN_SUCCESS": 43,
+            "ROAD_NO_RESULT": 216,
+            "JIBUN_NO_RESULT": 139,
+        }.items():
+            kind, status = category.split("_", 1)
+            for index in range(count):
+                rows.append({
+                    "toiletId": toilet_id,
+                    "addressKind": kind,
+                    "roadAddress": "English road" if kind == "ROAD" and status == "SUCCESS" else None,
+                    "jibunAddress": "English jibun" if kind == "JIBUN" and status == "SUCCESS" else None,
+                    "region": f"region-{index % 17}",
+                })
+                toilet_id += 1
+        selected = review.select(rows)
+        self.assertEqual(100, len(selected))
+        self.assertEqual(100, len({row["toiletId"] for row in selected}))
+        self.assertEqual(review.QUOTAS, dict(collections.Counter(row["reviewStratum"] for row in selected)))
+
+    def test_review_export_artifact_contains_ciphertext_only(self):
+        scripts = Path(__file__).parent
+        remote = (scripts / "run-translation-review-export-remote.sh").read_text(encoding="utf-8")
+        workflow = (scripts.parent / ".github" / "workflows" / "translation-pilot-review-export.yml").read_text(encoding="utf-8")
+        self.assertIn("openssl enc -aes-256-cbc -pbkdf2", remote)
+        self.assertIn("rm -f -- \"$work_dir/source-base64.tsv\"", remote)
+        self.assertNotIn("source-base64.tsv translation", remote)
+        self.assertIn("Upload encrypted review source only", workflow)
+        self.assertNotIn("source-base64.tsv\n", workflow)
 
 
 if __name__ == "__main__":
