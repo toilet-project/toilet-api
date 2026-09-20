@@ -17,14 +17,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate read-only export and pilot tooling
+      - name: Validate server-side aggregate and pilot tooling
         shell: bash
         run: |
           set -euo pipefail
           bash -n scripts/collect-translation-pilot-source.sh
+          bash -n scripts/collect-translation-pilot-report.sh
           python3 -B -m unittest scripts/test_translation_pilot.py
-          if grep -Ein '(^|[[:space:];])(insert|update|delete|replace|alter|drop|truncate|create|grant|revoke)[[:space:]]' scripts/collect-translation-pilot-source.sh; then
-            echo 'Mutating SQL is forbidden in the source export.' >&2
+          if grep -Ein '(^|[[:space:];])(insert|update|delete|replace|alter|drop|truncate|create|grant|revoke)[[:space:]]' \
+              scripts/collect-translation-pilot-source.sh scripts/collect-translation-pilot-report.sh; then
+            echo 'Mutating SQL is forbidden in translation pilot collection.' >&2
             exit 1
           fi
 
@@ -40,7 +42,7 @@ jobs:
           printf '%s  %s\n' 660b348d473bba81997445b534e7eaefaf4c4e16331866922326c338a7013dd9 "$RUNNER_TEMP/cloudflared.deb" | sha256sum -c -
           dpkg-deb --extract "$RUNNER_TEMP/cloudflared.deb" "$RUNNER_TEMP/cloudflared-package"
 
-      - name: Export fixed production sample through Tunnel
+      - name: Build aggregate report inside production host
         shell: bash
         env:
           TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
@@ -70,11 +72,26 @@ jobs:
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
             "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" 'bash -s' \
-            < scripts/collect-translation-pilot-source.sh \
-            > translation-pilot-source.jsonl
-          python3 -B scripts/translation_pilot.py audit-source \
-            translation-pilot-source.jsonl translation-pilot-source-report.json
-          rm -f -- translation-pilot-source.jsonl
+            < scripts/collect-translation-pilot-report.sh \
+            > translation-pilot-source-report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          report_path = Path('translation-pilot-source-report.json')
+          report = json.loads(report_path.read_text(encoding='utf-8'))
+          if report.get('sampleCount') != 1000:
+              raise SystemExit(f"unexpected sampleCount: {report.get('sampleCount')}")
+          if report.get('addressSelectionRule') != 'ROAD_THEN_JIBUN':
+              raise SystemExit('unexpected address selection rule')
+          if report.get('rawSourceRetained') is not False:
+              raise SystemExit('raw source retention must be false')
+          if report.get('rawSourceTransferred') is not False:
+              raise SystemExit('raw source transfer must be false')
+          if sum(report.get('addressKinds', {}).values()) != 1000:
+              raise SystemExit('address kind counts do not match sample count')
+          report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
           cat translation-pilot-source-report.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove ephemeral Tunnel credentials
