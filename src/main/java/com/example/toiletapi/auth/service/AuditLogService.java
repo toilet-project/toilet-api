@@ -8,6 +8,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +45,12 @@ public class AuditLogService {
     @Transactional
     public void record(Long actorUserId, AuditAction action, String targetType, Long targetId, Map<String, ?> details) {
         auditLogRepository.save(AuditLog.record(actorUserId, action, targetType, targetId, toMaskedJson(details)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AuditLog> openingHoursPatternHistory(String patternKey, int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 20));
+        return auditLogRepository.findOpeningHoursPatternHistory(patternKey, PageRequest.of(0, safeLimit));
     }
 
     private String toMaskedJson(Map<String, ?> details) {

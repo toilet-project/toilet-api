@@ -201,6 +201,21 @@ public class OpeningHoursRepository {
                         resultSet.getString("open_time"), resultSet.getString("open_time_detail")));
     }
 
+    public Optional<View> latestPatternConfirmation(String openTime, String openTimeDetail) {
+        List<Long> toiletIds = jdbc.query("""
+                SELECT t.toilet_id
+                  FROM toilet t JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
+                 WHERE t.visibility_status='VISIBLE'
+                   AND (TRIM(t.open_time)=:openTime OR (t.open_time IS NULL AND :openTime IS NULL))
+                   AND (TRIM(t.open_time_detail)=:openTimeDetail OR (t.open_time_detail IS NULL AND :openTimeDetail IS NULL))
+                   AND oh.manual_override=TRUE
+                 ORDER BY oh.confirmed_at DESC,t.toilet_id DESC
+                 LIMIT 1
+                """, patternParameters(openTime, openTimeDetail),
+                (resultSet, rowNumber) -> resultSet.getLong("toilet_id"));
+        return toiletIds.stream().findFirst().flatMap(this::find);
+    }
+
     private static MapSqlParameterSource patternParameters(String openTime, String openTimeDetail) {
         return new MapSqlParameterSource().addValue("openTime", openTime).addValue("openTimeDetail", openTimeDetail);
     }

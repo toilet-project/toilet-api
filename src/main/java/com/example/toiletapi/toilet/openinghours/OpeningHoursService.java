@@ -6,6 +6,7 @@ import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.Norma
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternApplyResult;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternDetail;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternItem;
+import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternHistoryItem;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternPage;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.Slot;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.View;
@@ -88,8 +89,14 @@ public class OpeningHoursService {
 
     @Transactional(readOnly = true)
     public Optional<PatternDetail> patternDetail(String patternKey) {
-        return findPattern(patternKey).map(row -> new PatternDetail(patternItem(row),
-                repository.patternMembers(row.openTime(), row.openTimeDetail(), 30)));
+        return findPattern(patternKey).map(row -> new PatternDetail(
+                patternItem(row),
+                repository.latestPatternConfirmation(row.openTime(), row.openTimeDetail()).orElse(null),
+                repository.patternMembers(row.openTime(), row.openTimeDetail(), 30),
+                audit.openingHoursPatternHistory(patternKey, 10).stream()
+                        .map(log -> new PatternHistoryItem(log.getId(), log.getActorUserId(),
+                                log.getCreatedAt(), log.getDetailJson()))
+                        .toList()));
     }
 
     @Transactional
@@ -104,7 +111,7 @@ public class OpeningHoursService {
                 Map.of("patternKey", patternKey, "appliedCount", targets.size(),
                         "protectedCount", pattern.protectedCount(), "openingPolicy", confirmed.openingPolicy(),
                         "open24h", confirmed.open24h(), "scheduleCount", confirmed.schedules().size(),
-                        "holidayPolicy", confirmed.holidayPolicy()));
+                        "holidayPolicy", confirmed.holidayPolicy(), "schedules", confirmed.schedules()));
         return new PatternApplyResult(patternKey, targets.size(), pattern.protectedCount());
     }
 
