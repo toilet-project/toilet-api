@@ -70,6 +70,12 @@ class TranslationPilotTest(unittest.TestCase):
             self.assertRegex(saved["sourceFingerprintSha256"], r"^[0-9a-f]{64}$")
             self.assertFalse(saved["rawSourceRetained"])
 
+    def test_collectors_attach_sql_to_mysql_container_stdin(self):
+        scripts = Path(__file__).parent
+        for filename in ("collect-translation-pilot-source.sh", "collect-translation-pilot-report.sh"):
+            content = (scripts / filename).read_text(encoding="utf-8")
+            self.assertIn('docker exec -i -e MYSQL_PWD="$mysql_password"', content)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,7 +15,7 @@ unset api_environment
 test -n "$mysql_user"
 test -n "$mysql_password"
 
-docker exec -e MYSQL_PWD="$mysql_password" toilet-mysql \
+docker exec -i -e MYSQL_PWD="$mysql_password" toilet-mysql \
   mysql --protocol=tcp -h 127.0.0.1 --default-character-set=utf8mb4 \
   --batch --raw --skip-column-names -u "$mysql_user" toilet_db <<SQL
 START TRANSACTION READ ONLY;
