@@ -3,6 +3,7 @@ package com.example.toiletapi.toilet.translation;
 import static org.junit.jupiter.api.Assertions.*;
 
 import javax.sql.DataSource;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -89,5 +90,22 @@ class ToiletTranslationMigrationMySqlTest {
         jdbc.update("DELETE FROM toilet WHERE toilet_id=1");
         assertEquals(0, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM toilet_translation WHERE toilet_id=1", Integer.class));
+    }
+
+    @Test void bulkReadReturnsOnlyTranslationsForTheCurrentKoreanSource() {
+        String currentHash = jdbc.queryForObject(
+                "SELECT source_hash FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", String.class);
+        jdbc.update("""
+                INSERT INTO toilet_translation(toilet_id,locale,name,source_hash,translation_status,
+                    translation_source,manual_override,created_at,updated_at)
+                VALUES(1,'en','Seoul Station Restroom',?,'REVIEWED','MANUAL',TRUE,NOW(),NOW()),
+                      (1,'ja','古い翻訳',?,'MACHINE_TRANSLATED','TEST',FALSE,NOW(),NOW())
+                """, currentHash, "b".repeat(64));
+
+        var translations = repository.findCurrentTranslations(List.of(1L));
+
+        assertEquals(1, translations.size());
+        assertEquals("en", translations.getFirst().locale());
+        assertEquals("Seoul Station Restroom", translations.getFirst().name());
     }
 }

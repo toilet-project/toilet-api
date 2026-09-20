@@ -18,6 +18,7 @@ import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.dto.ToiletRegionResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
+import com.example.toiletapi.toilet.dto.ToiletTranslationResponse;
 import com.example.toiletapi.toilet.service.ToiletService;
 import java.util.List;
 import java.time.Instant;
@@ -57,7 +58,8 @@ class ToiletControllerTest {
         when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean()))
                 .thenReturn(ToiletMapSearchResponse.markers(
                         3,
-                        List.of(new ToiletMapResponse(101L, "강남역 공중화장실", "공중화장실", 37.4979, 127.0276, null, null))
+                        List.of(new ToiletMapResponse(101L, "강남역 공중화장실", "공중화장실", 37.4979, 127.0276, null, null,
+                                Map.of("en", new ToiletTranslationResponse("Gangnam Station Restroom", "396 Gangnam-daero", null))))
                 ));
 
         mockMvc.perform(get("/api/v1/toilets")
@@ -76,6 +78,7 @@ class ToiletControllerTest {
                 .andExpect(jsonPath("$.toilets[0].toiletType").value("공중화장실"))
                 .andExpect(jsonPath("$.toilets[0].latitude").value(37.4979))
                 .andExpect(jsonPath("$.toilets[0].longitude").value(127.0276))
+                .andExpect(jsonPath("$.toilets[0].translations.en.name").value("Gangnam Station Restroom"))
                 .andExpect(jsonPath("$.clusters").doesNotExist());
 
         verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean());
@@ -189,7 +192,7 @@ class ToiletControllerTest {
                 101L, "강남역 공중화장실", "공중화장실", "서울특별시 강남구 강남대로 396", "서울특별시 강남구 역삼동 858", new java.math.BigDecimal("37.4979"), new java.math.BigDecimal("127.0276"),
                 3, 4, 1, 1, 0, 1, 6, 1, 1,
                 "강남구청", "02-3423-5900", "24시간", "연중무휴", "2018-05",
-                "Y", "화장실 내부", "Y", "Y", "여자화장실 입구", "2024-01-01", "PUBLIC_DATA", region, null
+                "Y", "화장실 내부", "Y", "Y", "여자화장실 입구", "2024-01-01", "PUBLIC_DATA", region, null, Map.of()
         );
     }
 }

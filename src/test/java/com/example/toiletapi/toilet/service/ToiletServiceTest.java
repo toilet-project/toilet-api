@@ -8,6 +8,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.ArgumentMatchers.anyCollection;
 
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
@@ -16,11 +18,15 @@ import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import com.example.toiletapi.toilet.repository.ToiletRegionProjection;
+import com.example.toiletapi.toilet.translation.ToiletTranslationModels.Text;
+import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -72,8 +78,16 @@ class ToiletServiceTest {
     @Mock
     private OpeningHoursService openingHoursService;
 
+    @Mock
+    private ToiletTranslationService translationService;
+
     @InjectMocks
     private ToiletService toiletService;
+
+    @BeforeEach
+    void noTranslationsByDefault() {
+        lenient().when(translationService.currentTranslations(anyCollection())).thenReturn(Map.of());
+    }
 
     @Test
     void shouldQueryRepositoryWithRequestedBounds() {
@@ -134,6 +148,30 @@ class ToiletServiceTest {
     }
 
     @Test
+    void shouldExposeCurrentTranslationsWithoutReplacingCanonicalMapName() {
+        BigDecimal southLat = new BigDecimal("37.4900");
+        BigDecimal northLat = new BigDecimal("37.5100");
+        BigDecimal westLng = new BigDecimal("127.0100");
+        BigDecimal eastLng = new BigDecimal("127.0300");
+        Toilet toilet = mock(Toilet.class);
+        when(toilet.getId()).thenReturn(101L);
+        when(toilet.getName()).thenReturn("서울역 화장실");
+        when(toilet.getToiletType()).thenReturn("공중화장실");
+        when(toilet.getLatitude()).thenReturn(new BigDecimal("37.5000"));
+        when(toilet.getLongitude()).thenReturn(new BigDecimal("127.0200"));
+        when(toiletRepository.findByLatitudeBetweenAndLongitudeBetween(southLat, northLat, westLng, eastLng))
+                .thenReturn(List.of(toilet));
+        when(displayGroupRepository.assignmentsFor(List.of(101L))).thenReturn(Map.of());
+        when(translationService.currentTranslations(List.of(101L))).thenReturn(Map.of(
+                101L, Map.of("en", translation(101L, "Seoul Station Restroom"))));
+
+        var result = toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, 3, false);
+
+        assertEquals("서울역 화장실", result.toilets().getFirst().name());
+        assertEquals("Seoul Station Restroom", result.toilets().getFirst().translations().get("en").name());
+    }
+
+    @Test
     void shouldRejectReversedBounds() {
         assertThrows(
                 IllegalArgumentException.class,
@@ -184,6 +222,22 @@ class ToiletServiceTest {
     }
 
     @Test
+    void shouldExposeCurrentTranslationsOnDetail() {
+        Toilet toilet = mock(Toilet.class);
+        when(toilet.isPubliclyVisible()).thenReturn(true);
+        when(toilet.getId()).thenReturn(101L);
+        when(toilet.getName()).thenReturn("서울역 화장실");
+        when(toiletRepository.findById(101L)).thenReturn(Optional.of(toilet));
+        when(translationService.currentTranslations(List.of(101L))).thenReturn(Map.of(
+                101L, Map.of("en", translation(101L, "Seoul Station Restroom"))));
+
+        ToiletDetailResponse response = toiletService.getToiletDetail(101L);
+
+        assertEquals("서울역 화장실", response.name());
+        assertEquals("Seoul Station Restroom", response.translations().get("en").name());
+    }
+
+    @Test
     void shouldThrowNotFoundWhenToiletDoesNotExist() {
         when(toiletRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -198,5 +252,10 @@ class ToiletServiceTest {
         when(toilet.isPubliclyVisible()).thenReturn(false);
         when(toiletRepository.findById(101L)).thenReturn(Optional.of(toilet));
         assertThrows(ToiletNotFoundException.class, () -> toiletService.getToiletDetail(101L));
+    }
+
+    private Text translation(long toiletId, String name) {
+        return new Text(toiletId, "en", name, "110 Sejong-daero", null, "a".repeat(64),
+                "REVIEWED", "MANUAL", true, 1, null, LocalDateTime.now(), true);
     }
 }

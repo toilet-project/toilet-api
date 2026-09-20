@@ -5,15 +5,19 @@ SELECT DATABASE() AS selected_database, CURRENT_USER() AS connected_account,
 SELECT TABLE_NAME, ENGINE
 FROM information_schema.TABLES
 WHERE TABLE_SCHEMA = DATABASE()
-  AND TABLE_NAME IN ('toilet', 'toilet_region', 'web_cache_invalidation');
+  AND TABLE_NAME IN ('toilet', 'toilet_region', 'toilet_translation', 'toilet_opening_hours', 'web_cache_invalidation');
 
 -- V2 expected: exactly twelve rows, AFTER / INSERT, UPDATE, DELETE on each source table.
 -- V3 additionally includes cache_toilet_visibility_update after cache_toilet_update.
+-- V4 adds three non-Korean translation invalidation triggers.
+-- V5 adds three normalized opening-hours invalidation triggers.
 SELECT TRIGGER_NAME, EVENT_OBJECT_TABLE, ACTION_TIMING, EVENT_MANIPULATION, DEFINER
 FROM information_schema.TRIGGERS
 WHERE TRIGGER_SCHEMA = DATABASE()
   AND TRIGGER_NAME IN (
     'cache_toilet_insert', 'cache_toilet_update', 'cache_toilet_delete', 'cache_toilet_visibility_update',
+    'cache_toilet_translation_insert', 'cache_toilet_translation_update', 'cache_toilet_translation_delete',
+    'cache_opening_hours_insert', 'cache_opening_hours_update', 'cache_opening_hours_delete',
     'cache_toilet_region_insert', 'cache_toilet_region_update', 'cache_toilet_region_delete',
     'cache_region_assignment_insert', 'cache_region_assignment_update', 'cache_region_assignment_delete',
     'cache_region_decision_insert', 'cache_region_decision_update', 'cache_region_decision_delete'

@@ -43,10 +43,12 @@ class CacheInvalidationPipelineMySqlTest {
         jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_opening_hours (toilet_id BIGINT PRIMARY KEY,is_open_24h BOOLEAN,normalization_status VARCHAR(24),source_changed BOOLEAN)");
+        jdbc.execute("CREATE TABLE toilet_translation (toilet_id BIGINT NOT NULL,locale VARCHAR(12) NOT NULL,name VARCHAR(255),PRIMARY KEY(toilet_id,locale))");
         Flyway.configure().dataSource(mysql.getJdbcUrl(),"root",mysql.getPassword())
                 .baselineOnMigrate(true).baselineVersion("0").locations("classpath:db/cache-revalidation").load().migrate();
     }
     @BeforeEach void prepare() throws Exception {
+        jdbc.update("DELETE FROM toilet_translation");
         jdbc.update("DELETE FROM toilet_region_decision");
         jdbc.update("DELETE FROM toilet_region_assignment");
         jdbc.update("DELETE FROM toilet_region");
