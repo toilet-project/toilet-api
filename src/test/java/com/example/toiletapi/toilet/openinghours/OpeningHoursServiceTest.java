@@ -141,4 +141,17 @@ class OpeningHoursServiceTest {
         verify(audit).record(eq(9L), eq(AuditAction.TOILET_OPENING_HOURS_CONFIRMED),
                 eq("TOILET_OPENING_HOURS_PATTERN"), eq(null), any());
     }
+
+    @Test
+    void malformedSourceDoesNotBreakThePatternReviewQueue() {
+        var malformed = new OpeningHoursRepository.PatternRow("정시", "손상된 원문", 4, 4, 0, 0, "표본 화장실");
+        when(repository.patterns()).thenReturn(List.of(malformed));
+        when(parser.parse("정시", "손상된 원문")).thenThrow(new IllegalArgumentException("invalid source"));
+
+        var result = service.patterns("REVIEW", "", 0, 15);
+
+        assertEquals(1, result.totalElements());
+        assertEquals("REVIEW_REQUIRED", result.items().getFirst().status());
+        assertEquals("UNKNOWN", result.items().getFirst().suggested().openingPolicy());
+    }
 }
