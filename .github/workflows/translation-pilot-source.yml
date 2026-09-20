@@ -74,6 +74,7 @@ jobs:
             > translation-pilot-source.jsonl
           python3 -B scripts/translation_pilot.py audit-source \
             translation-pilot-source.jsonl translation-pilot-source-report.json
+          rm -f -- translation-pilot-source.jsonl
           cat translation-pilot-source-report.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove ephemeral Tunnel credentials
@@ -83,14 +84,13 @@ jobs:
           set -euo pipefail
           test -n "${RUNNER_TEMP:?}"
           rm -f -- "$RUNNER_TEMP/translation-pilot-key" "$RUNNER_TEMP/translation-pilot-hosts"
+          rm -f -- translation-pilot-source.jsonl
 
-      - name: Upload fixed pilot source
+      - name: Upload aggregate pilot report only
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: translation-pilot-source-${{ github.run_id }}
-          path: |
-            translation-pilot-source.jsonl
-            translation-pilot-source-report.json
+          name: translation-pilot-source-report-${{ github.run_id }}
+          path: translation-pilot-source-report.json
           retention-days: 30
           if-no-files-found: error
