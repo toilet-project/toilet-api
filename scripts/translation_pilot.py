@@ -22,6 +22,7 @@ from typing import Iterable
 
 HANGUL = re.compile(r"[\uac00-\ud7a3]")
 NUMBER = re.compile(r"\d+(?:[.-]\d+)*")
+JUSO_UNSUPPORTED = re.compile(r"[%=><\[\]]+")
 HEX64 = re.compile(r"[0-9a-f]{64}")
 GOOGLE_ENDPOINT = "https://translation.googleapis.com/language/translate/v2"
 JUSO_ENDPOINT = "https://business.juso.go.kr/addrlink/addrEngApi.do"
@@ -156,11 +157,14 @@ def normalize_spaces(value: str) -> str:
 
 
 def translate_address(address: str, api_key: str, address_kind: str) -> str:
+    search_keyword = normalize_spaces(JUSO_UNSUPPORTED.sub(" ", address))
+    if not search_keyword:
+        raise LookupError("official English address search keyword is empty")
     response = get_json(JUSO_ENDPOINT, {
         "confmKey": api_key,
         "currentPage": "1",
         "countPerPage": "10",
-        "keyword": address,
+        "keyword": search_keyword,
         "resultType": "json",
     })
     results = response.get("results", {})

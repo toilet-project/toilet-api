@@ -126,6 +126,16 @@ class TranslationPilotTest(unittest.TestCase):
         translated = pilot.translate_address("서울특별시 중구 태평로1가 31", "key", "JIBUN")
         self.assertEqual("31 Taepyeongno 1-ga, Jung-gu, Seoul", translated)
 
+    @patch.object(pilot, "get_json")
+    def test_juso_search_removes_rejected_sql_special_characters(self, get_json):
+        get_json.return_value = {"results": {"common": {"errorCode": "0"}, "juso": [{
+            "korAddr": "서울특별시 중구 세종대로 110", "roadAddr": "110 Sejong-daero, Jung-gu, Seoul",
+            "jibunAddr": "31 Taepyeongno 1-ga, Jung-gu, Seoul",
+        }]}}
+        pilot.translate_address("서울특별시 중구 세종대로 110 [별관]=1%", "key", "ROAD")
+        params = get_json.call_args.args[1]
+        self.assertEqual("서울특별시 중구 세종대로 110 별관 1", params["keyword"])
+
     def test_audit_source_records_fingerprint_without_retention(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.jsonl"
