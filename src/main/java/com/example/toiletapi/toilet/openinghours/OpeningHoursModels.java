@@ -1,6 +1,7 @@
 package com.example.toiletapi.toilet.openinghours;
 
 import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public final class OpeningHoursModels {
@@ -88,9 +89,22 @@ public final class OpeningHoursModels {
         }
     }
 
-    public record PatternDetail(PatternItem pattern, List<ReviewItem> facilities) {
+    public record PatternHistoryItem(
+            long id,
+            Long actorUserId,
+            LocalDateTime createdAt,
+            String detailJson
+    ) {}
+
+    public record PatternDetail(
+            PatternItem pattern,
+            View confirmed,
+            List<ReviewItem> facilities,
+            List<PatternHistoryItem> history
+    ) {
         public PatternDetail {
             facilities = List.copyOf(facilities);
+            history = List.copyOf(history);
         }
     }
 

@@ -32,7 +32,7 @@ class OpeningHoursReviewRepositoryTest {
                     toilet_id BIGINT PRIMARY KEY,source_hash CHAR(64),opening_policy VARCHAR(24),
                     is_open_24h BOOLEAN,normalization_status VARCHAR(24),confidence DECIMAL(5,4),
                     parser_version VARCHAR(20),holiday_policy VARCHAR(16),manual_override BOOLEAN,
-                    source_changed BOOLEAN)
+                    source_changed BOOLEAN,confirmed_at TIMESTAMP)
                 """);
         jdbc.execute("""
                 CREATE TABLE toilet_opening_schedule(
@@ -49,10 +49,10 @@ class OpeningHoursReviewRepositoryTest {
                 """);
         jdbc.update("""
                 INSERT INTO toilet_opening_hours VALUES
-                    (1,'a','SCHEDULED',FALSE,'REVIEW_REQUIRED',NULL,'v1','OPEN',FALSE,FALSE),
-                    (2,'b','ALWAYS',TRUE,'CONFIRMED',1.0,'v1','OPEN',TRUE,FALSE),
-                    (3,'c','SCHEDULED',FALSE,'REVIEW_REQUIRED',NULL,'v1','UNKNOWN',FALSE,FALSE),
-                    (5,'e','SCHEDULED',FALSE,'CONFIRMED',1.0,'v1','OPEN',TRUE,FALSE)
+                    (1,'a','SCHEDULED',FALSE,'REVIEW_REQUIRED',NULL,'v1','OPEN',FALSE,FALSE,NULL),
+                    (2,'b','ALWAYS',TRUE,'CONFIRMED',1.0,'v1','OPEN',TRUE,FALSE,CURRENT_TIMESTAMP),
+                    (3,'c','SCHEDULED',FALSE,'REVIEW_REQUIRED',NULL,'v1','UNKNOWN',FALSE,FALSE,NULL),
+                    (5,'e','SCHEDULED',FALSE,'CONFIRMED',1.0,'v1','OPEN',TRUE,FALSE,CURRENT_TIMESTAMP)
                 """);
         repository = new OpeningHoursRepository(new NamedParameterJdbcTemplate(source));
     }
@@ -69,5 +69,14 @@ class OpeningHoursReviewRepositoryTest {
         assertEquals(2, targets.size());
         assertFalse(targets.stream().anyMatch(value -> value.toiletId() == 5L));
         assertEquals(3, repository.patternMembers(pattern.openTime(), pattern.openTimeDetail(), 30).size());
+    }
+
+    @Test
+    void latestPatternConfirmationReturnsStoredAdministratorValue() {
+        var confirmed = repository.latestPatternConfirmation("정시", "24시간").orElseThrow();
+
+        assertEquals("ALWAYS", confirmed.openingPolicy());
+        assertEquals(true, confirmed.open24h());
+        assertEquals("OPEN", confirmed.holidayPolicy());
     }
 }
