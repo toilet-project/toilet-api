@@ -237,6 +237,9 @@ def audit_results(source_rows: list[dict], result_rows: list[dict]) -> dict:
     sources = {row["toiletId"]: row for row in source_rows}
     results = {row["toiletId"]: row for row in result_rows}
     issues: list[dict] = []
+    translated_address_count = 0
+    address_error_counts: Counter[str] = Counter()
+    google_characters_submitted = 0
     for toilet_id, source in sources.items():
         result = results.get(toilet_id)
         if not result:
@@ -245,6 +248,7 @@ def audit_results(source_rows: list[dict], result_rows: list[dict]) -> dict:
         if result.get("expectedSourceHash") != str(source["sourceHash"]).lower():
             issues.append({"toiletId": toilet_id, "code": "SOURCE_HASH_MISMATCH"})
         name = clean(result.get("name"))
+        google_characters_submitted += len(str(source.get("name") or ""))
         if not name:
             issues.append({"toiletId": toilet_id, "code": "EMPTY_NAME"})
         elif HANGUL.search(name):
@@ -265,6 +269,13 @@ def audit_results(source_rows: list[dict], result_rows: list[dict]) -> dict:
         if kind == "NONE" and (road or jibun):
             issues.append({"toiletId": toilet_id, "code": "UNEXPECTED_ADDRESS"})
         translated_address = road or jibun
+        address_error = clean(result.get("addressError"))
+        if translated_address:
+            translated_address_count += 1
+            if HANGUL.search(translated_address):
+                issues.append({"toiletId": toilet_id, "code": "HANGUL_IN_ADDRESS"})
+        if address_error:
+            address_error_counts[address_error] += 1
         if source_address and not translated_address and not result.get("addressError"):
             issues.append({"toiletId": toilet_id, "code": "MISSING_ADDRESS_WITHOUT_ERROR"})
         if translated_address and len(translated_address) > 500:
@@ -275,6 +286,11 @@ def audit_results(source_rows: list[dict], result_rows: list[dict]) -> dict:
         "resultCount": len(result_rows),
         "issueCount": len(issues),
         "issueCounts": dict(sorted(issue_counts.items())),
+        "translatedAddressCount": translated_address_count,
+        "addressLookupErrorCount": sum(address_error_counts.values()),
+        "addressLookupErrorCounts": dict(sorted(address_error_counts.items())),
+        "googleCharactersSubmitted": google_characters_submitted,
+        "estimatedGoogleNmtCostUsdBeforeFreeCredit": round(google_characters_submitted * 20 / 1_000_000, 4),
         "issues": issues,
         "readyForHumanReview": len(result_rows) == len(source_rows) and not any(
             issue["code"] in {"MISSING_RESULT", "SOURCE_HASH_MISMATCH", "EMPTY_NAME"} for issue in issues
