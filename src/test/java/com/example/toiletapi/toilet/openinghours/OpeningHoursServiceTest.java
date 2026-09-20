@@ -143,6 +143,39 @@ class OpeningHoursServiceTest {
     }
 
     @Test
+    void scheduledPatternConfirmationPersistsSerializableAuditHistory() throws Exception {
+        var logs = org.mockito.Mockito.mock(com.example.toiletapi.auth.repository.AuditLogRepository.class);
+        var mapper = new com.example.toiletapi.auth.config.AuthConfiguration().objectMapper();
+        var realAudit = new AuditLogService(logs, mapper);
+        var subject = new OpeningHoursService(parser, repository, realAudit);
+        String key = OpeningHoursService.sourceHash("미개방", "월~금 09시~18시");
+        when(repository.patterns()).thenReturn(List.of(new OpeningHoursRepository.PatternRow(
+                "미개방", "월~금 09시~18시", 2, 1, 1, 0, "표본")));
+        when(repository.patternTargets("미개방", "월~금 09시~18시")).thenReturn(List.of(
+                new OpeningHoursRepository.RawSource(7L, "미개방", "월~금 09시~18시")));
+        var request = new OpeningHoursModels.ConfirmRequest("SCHEDULED", false, "CLOSED", List.of(
+                new OpeningHoursModels.ScheduleInput(1, 0, LocalTime.of(9, 0), LocalTime.of(18, 0), false, false),
+                new OpeningHoursModels.ScheduleInput(5, 0, LocalTime.of(22, 0), LocalTime.of(2, 0), true, false),
+                new OpeningHoursModels.ScheduleInput(7, 0, null, null, false, true)));
+
+        var result = subject.confirmPattern(9L, key, request);
+
+        assertEquals(1, result.appliedCount());
+        assertEquals(1, result.protectedCount());
+        verify(repository).saveManual(eq(9L), eq(7L), eq(key), any());
+        var captor = org.mockito.ArgumentCaptor.forClass(com.example.toiletapi.auth.model.AuditLog.class);
+        verify(logs).save(captor.capture());
+        var history = mapper.readTree(captor.getValue().getDetailJson());
+        assertEquals(key, history.get("patternKey").asText());
+        assertEquals("09:00", history.get("schedules").get(0).get("startTime").asText());
+        assertEquals("18:00", history.get("schedules").get(0).get("endTime").asText());
+        assertEquals(true, history.get("schedules").get(1).get("crossesMidnight").asBoolean());
+        assertEquals(true, history.get("schedules").get(2).get("closed").asBoolean());
+        assertEquals(true, history.get("schedules").get(2).get("startTime").isNull());
+        assertEquals(true, history.get("schedules").get(2).get("endTime").isNull());
+    }
+
+    @Test
     void malformedSourceDoesNotBreakThePatternReviewQueue() {
         var malformed = new OpeningHoursRepository.PatternRow("정시", "손상된 원문", 4, 4, 0, 0, "표본 화장실");
         when(repository.patterns()).thenReturn(List.of(malformed));

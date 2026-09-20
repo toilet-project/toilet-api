@@ -3,6 +3,7 @@ package com.example.toiletapi.toilet.translation;
 import static org.junit.jupiter.api.Assertions.*;
 
 import javax.sql.DataSource;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,12 +21,15 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ToiletTranslationMigrationMySqlTest {
     @Container
-    final MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.4");
+    final MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0");
     JdbcTemplate jdbc;
     ToiletTranslationRepository repository;
 
     @BeforeEach void setup() {
-        DataSource source = new DriverManagerDataSource(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword());
+        setup(new DriverManagerDataSource(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword()));
+    }
+
+    void setup(DataSource source) {
         jdbc = new JdbcTemplate(source);
         jdbc.execute("DROP TABLE IF EXISTS toilet_translation");
         jdbc.execute("DROP TABLE IF EXISTS toilet");
@@ -34,7 +38,9 @@ class ToiletTranslationMigrationMySqlTest {
                     toilet_id BIGINT NOT NULL PRIMARY KEY,
                     name VARCHAR(100), road_address VARCHAR(255), jibun_address VARCHAR(255),
                     open_time VARCHAR(50), open_time_detail VARCHAR(255),
-                    visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE'
+                    visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE',
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )
                 """);
         jdbc.update("INSERT INTO toilet(toilet_id,name,road_address,jibun_address,open_time) VALUES(1,?,?,?,?)",
@@ -52,6 +58,9 @@ class ToiletTranslationMigrationMySqlTest {
         String originalHash = jdbc.queryForObject(
                 "SELECT source_hash FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", String.class);
         assertNotNull(originalHash); assertEquals(64, originalHash.length());
+        LocalDateTime originalUpdatedAt = jdbc.queryForObject(
+                "SELECT updated_at FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", LocalDateTime.class);
+        LocalDateTime changedAt = originalUpdatedAt.plusMinutes(1);
 
         jdbc.update("INSERT INTO toilet(toilet_id,name,open_time) VALUES(2,'신규 화장실','09:00~18:00')");
         repository.synchronizeKoreanSource(2, java.time.LocalDateTime.now());
@@ -64,12 +73,14 @@ class ToiletTranslationMigrationMySqlTest {
                 VALUES(1,'en','Reviewed restroom',?,'REVIEWED','MANUAL',TRUE,NOW(),NOW())
                 """, originalHash);
         jdbc.update("UPDATE toilet SET name='서울역 공중화장실' WHERE toilet_id=1");
-        repository.synchronizeKoreanSource(1, java.time.LocalDateTime.now());
+        repository.synchronizeKoreanSource(1, changedAt);
         String changedHash = jdbc.queryForObject(
                 "SELECT source_hash FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", String.class);
         assertNotEquals(originalHash, changedHash);
         assertEquals(2L, jdbc.queryForObject(
                 "SELECT version FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", Long.class));
+        assertEquals(changedAt, jdbc.queryForObject(
+                "SELECT updated_at FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", LocalDateTime.class));
         assertEquals("Reviewed restroom", jdbc.queryForObject(
                 "SELECT name FROM toilet_translation WHERE toilet_id=1 AND locale='en'", String.class));
         assertTrue(jdbc.queryForObject(
@@ -78,14 +89,18 @@ class ToiletTranslationMigrationMySqlTest {
                 "SELECT source_hash FROM toilet_translation WHERE toilet_id=1 AND locale='en'", String.class));
 
         jdbc.update("UPDATE toilet SET visibility_status='HIDDEN_DUPLICATE' WHERE toilet_id=1");
-        repository.synchronizeKoreanSource(1, java.time.LocalDateTime.now());
+        repository.synchronizeKoreanSource(1, changedAt.plusMinutes(1));
         assertEquals(2L, jdbc.queryForObject(
                 "SELECT version FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", Long.class));
+        assertEquals(changedAt, jdbc.queryForObject(
+                "SELECT updated_at FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", LocalDateTime.class));
 
         jdbc.update("UPDATE toilet SET open_time='상시',open_time_detail='24시간' WHERE toilet_id=1");
-        repository.synchronizeKoreanSource(1, java.time.LocalDateTime.now());
+        repository.synchronizeKoreanSource(1, changedAt.plusMinutes(2));
         assertEquals(2L, jdbc.queryForObject(
                 "SELECT version FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", Long.class));
+        assertEquals(changedAt, jdbc.queryForObject(
+                "SELECT updated_at FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", LocalDateTime.class));
 
         jdbc.update("DELETE FROM toilet WHERE toilet_id=1");
         assertEquals(0, jdbc.queryForObject(

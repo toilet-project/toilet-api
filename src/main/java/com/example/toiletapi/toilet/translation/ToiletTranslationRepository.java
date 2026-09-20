@@ -84,8 +84,10 @@ public class ToiletTranslationRepository {
                        'SOURCE','SOURCE',FALSE,NULL,NULL,:now,:now
                   FROM toilet t WHERE t.toilet_id=:toiletId
                 ON DUPLICATE KEY UPDATE
-                    version=IF(source_hash<>VALUES(source_hash),version+1,version),
-                    updated_at=IF(source_hash<>VALUES(source_hash),VALUES(updated_at),updated_at),
+                    version=IF(toilet_translation.source_hash<>VALUES(source_hash),
+                               toilet_translation.version+1,toilet_translation.version),
+                    updated_at=IF(toilet_translation.source_hash<>VALUES(source_hash),
+                                  VALUES(updated_at),toilet_translation.updated_at),
                     name=VALUES(name),road_address=VALUES(road_address),jibun_address=VALUES(jibun_address),
                     source_hash=VALUES(source_hash),translation_status='SOURCE',translation_source='SOURCE'
                 """.formatted(SOURCE_HASH_SQL);
