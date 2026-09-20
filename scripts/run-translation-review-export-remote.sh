@@ -26,8 +26,10 @@ public_key="$bundle_dir/credentials/review-public.pem"
 test -s "$public_key"
 openssl pkey -pubin -in "$public_key" -noout
 
-mysql_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-mysql | sed -n 's/^MYSQL_USER=//p')"
-mysql_password="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-mysql | sed -n 's/^MYSQL_PASSWORD=//p')"
+api_environment="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-api)"
+mysql_user="$(sed -n 's/^SPRING_DB_USERNAME=//p' <<<"$api_environment")"
+mysql_password="$(sed -n 's/^SPRING_DB_PASSWORD=//p' <<<"$api_environment")"
+unset api_environment
 test -n "$mysql_user"
 test -n "$mysql_password"
 
@@ -42,7 +44,8 @@ SELECT t.toilet_id,
  ORDER BY FIELD(t.toilet_id,$ids);
 SQL
 docker exec -i -e MYSQL_PWD="$mysql_password" toilet-mysql \
-  mysql --protocol=socket --batch --raw --skip-column-names -u "$mysql_user" toilet_db \
+  mysql --protocol=tcp -h 127.0.0.1 --default-character-set=utf8mb4 \
+  --batch --raw --skip-column-names -u "$mysql_user" toilet_db \
   < "$work_dir/review.sql" > "$work_dir/source-base64.tsv"
 unset mysql_user mysql_password
 rm -f -- "$work_dir/review.sql"
