@@ -1,6 +1,8 @@
 package com.example.toiletapi.toilet.dto;
 
 import com.example.toiletapi.toilet.model.Toilet;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.Map;
 
 /**
  * 지도 마커 표시에 필요한 화장실 기본 정보 응답입니다.
@@ -20,8 +22,14 @@ public record ToiletMapResponse(
         double latitude,
         double longitude,
         Long displayGroupId,
-        String displayGroupName
+        String displayGroupName,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+        Map<String, ToiletTranslationResponse> translations
 ) {
+
+    public ToiletMapResponse {
+        translations = translations == null ? Map.of() : Map.copyOf(translations);
+    }
 
     /**
      * 엔티티를 지도 조회 응답으로 변환합니다.
@@ -30,10 +38,19 @@ public record ToiletMapResponse(
      * @return 지도 조회 응답
      */
     public static ToiletMapResponse from(Toilet toilet) {
-        return from(toilet, null, null);
+        return from(toilet, null, null, Map.of());
     }
 
     public static ToiletMapResponse from(Toilet toilet, Long displayGroupId, String displayGroupName) {
+        return from(toilet, displayGroupId, displayGroupName, Map.of());
+    }
+
+    public static ToiletMapResponse from(
+            Toilet toilet,
+            Long displayGroupId,
+            String displayGroupName,
+            Map<String, ToiletTranslationResponse> translations
+    ) {
         return new ToiletMapResponse(
                 toilet.getId(),
                 toilet.getName(),
@@ -41,7 +58,8 @@ public record ToiletMapResponse(
                 toilet.getLatitude().doubleValue(),
                 toilet.getLongitude().doubleValue(),
                 displayGroupId,
-                displayGroupName
+                displayGroupName,
+                translations
         );
     }
 }

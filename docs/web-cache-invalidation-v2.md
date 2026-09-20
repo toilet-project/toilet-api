@@ -47,6 +47,7 @@ API는 `WEB_CACHE_CONTRACT_VERSION=1`일 때 기존 `{ "toiletIds": [...] }`를 
 1. 격리 MySQL 8에서 V1→V2 설치, commit/rollback, revision, normalized region, 삭제, 전송 재시작 검사를 통과시킨다.
 2. 운영 백업과 트리거 이름 충돌, V18 정규화 테이블 존재를 읽기 전용으로 확인한다.
 3. 승인 후 V2 SQL과 [설치 검증 SQL](../src/main/resources/db/cache-revalidation/verify_installation.sql)을 실행한다.
+   번역 표시를 공개하기 전에는 V26 적용 여부를 확인한 뒤 V4 번역 트리거까지 같은 수동 절차로 설치한다.
 4. V2 컬럼을 읽는 API를 배포하되 `WEB_CACHE_CONTRACT_VERSION=1`을 유지한다.
 5. v1/v2 수신 Web과 공유 R2 binding·기능 플래그 준비를 완료한다.
 6. 공유 캐시를 표본 검증한 뒤 API 계약만 `2`로 바꾼다.
@@ -59,7 +60,7 @@ API 코드를 먼저 배포하면 V2 컬럼 조회가 실패하므로 SQL 선행
 ## 복구
 
 - 수신 문제: `WEB_CACHE_CONTRACT_VERSION=1`로 되돌린다. pending은 유지된다.
-- 트리거 문제: 승인 후 [rollback SQL](../src/main/resources/db/cache-revalidation/rollback_triggers.sql)로 이 기능의 12개 트리거만 제거한다. outbox와 원본 데이터는 삭제하지 않는다.
+- 트리거 문제: 승인 후 [rollback SQL](../src/main/resources/db/cache-revalidation/rollback_triggers.sql)로 이 기능의 트리거만 제거한다. outbox와 원본 데이터는 삭제하지 않는다.
 - Web 공유 캐시 문제: Web의 공유 캐시 기능 플래그를 끄면 기존 1시간 Next fetch로 돌아간다.
 - 전달 완료 ledger는 개인정보가 아니며 즉시 삭제할 필요가 없다. 임의 삭제하면 화장실 revision이 1부터 다시 시작하므로 Web 객체와 함께 명시적인 세대 전환 없이는 비우지 않는다.
 

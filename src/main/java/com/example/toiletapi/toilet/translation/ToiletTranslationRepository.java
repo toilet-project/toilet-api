@@ -5,6 +5,8 @@ import static com.example.toiletapi.toilet.translation.ToiletTranslationModels.*
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.dao.DuplicateKeyException;
@@ -39,6 +41,22 @@ public class ToiletTranslationRepository {
                 """ + suffix,
                 new MapSqlParameterSource("toiletId", toiletId).addValue("locale", locale),
                 (rs, row) -> map(rs)).stream().findFirst();
+    }
+
+    public List<Text> findCurrentTranslations(Collection<Long> toiletIds) {
+        if (toiletIds == null || toiletIds.isEmpty()) return List.of();
+        return jdbc.query("""
+                SELECT tr.toilet_id,tr.locale,tr.name,tr.road_address,tr.jibun_address,
+                       tr.source_hash,tr.translation_status,
+                       tr.translation_source,tr.manual_override,tr.version,tr.translated_at,tr.reviewed_at,
+                       TRUE AS is_current
+                  FROM toilet_translation tr
+                  JOIN toilet_translation ko ON ko.toilet_id=tr.toilet_id AND ko.locale='ko'
+                 WHERE tr.toilet_id IN (:toiletIds)
+                   AND tr.locale <> 'ko'
+                   AND tr.source_hash = ko.source_hash
+                 ORDER BY tr.toilet_id,tr.locale
+                """, new MapSqlParameterSource("toiletIds", toiletIds), (rs, row) -> map(rs));
     }
 
     public String currentSourceHash(long toiletId, boolean lock) {

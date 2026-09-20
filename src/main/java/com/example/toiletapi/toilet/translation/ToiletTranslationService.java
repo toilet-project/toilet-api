@@ -4,7 +4,10 @@ import static com.example.toiletapi.toilet.translation.ToiletTranslationModels.*
 
 import com.example.toiletapi.global.time.KoreanTime;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +32,16 @@ public class ToiletTranslationService {
         Text korean = repository.find(toiletId, KOREAN, false).orElseThrow(
                 () -> new IllegalArgumentException("표시할 화장실 정보를 찾지 못했습니다."));
         return new ResolvedText(korean, locale, !KOREAN.equals(locale));
+    }
+
+    public Map<Long, Map<String, Text>> currentTranslations(Collection<Long> toiletIds) {
+        Map<Long, Map<String, Text>> grouped = new LinkedHashMap<>();
+        for (Text text : repository.findCurrentTranslations(toiletIds)) {
+            grouped.computeIfAbsent(text.toiletId(), ignored -> new LinkedHashMap<>())
+                    .put(text.locale(), text);
+        }
+        grouped.replaceAll((ignored, translations) -> Map.copyOf(translations));
+        return Map.copyOf(grouped);
     }
 
     @Transactional

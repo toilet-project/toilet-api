@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +37,18 @@ class ToiletTranslationServiceTest {
         assertFalse(resolved.fallbackToKorean());
         assertEquals("Restroom", resolved.text().name());
         verify(repository, never()).find(1, "ko", false);
+    }
+
+    @Test void currentTranslationsAreGroupedForBulkPublicReads() {
+        Text english = text("en", "Restroom", hash, true, false);
+        Text japanese = new Text(2, "ja", "トイレ", null, null, hash,
+                "REVIEWED", "MANUAL", true, 1, null, LocalDateTime.now(), true);
+        when(repository.findCurrentTranslations(List.of(1L, 2L))).thenReturn(List.of(english, japanese));
+
+        Map<Long, Map<String, Text>> result = service.currentTranslations(List.of(1L, 2L));
+
+        assertEquals("Restroom", result.get(1L).get("en").name());
+        assertEquals("トイレ", result.get(2L).get("ja").name());
     }
 
     @Test void machineTranslationCannotOverwriteReviewedManualText() {
