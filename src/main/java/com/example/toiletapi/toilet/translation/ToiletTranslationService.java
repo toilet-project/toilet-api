@@ -61,6 +61,11 @@ public class ToiletTranslationService {
         return repository.auditKoreanRows();
     }
 
+    @Transactional
+    public void synchronizeKoreanSource(long toiletId) {
+        repository.synchronizeKoreanSource(toiletId, KoreanTime.now());
+    }
+
     static String normalizeLocale(String value) {
         if (value == null || value.isBlank()) return KOREAN;
         String normalized = value.trim().replace('_', '-').toLowerCase(Locale.ROOT);

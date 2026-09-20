@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.testcontainers.containers.MySQLContainer;
@@ -20,12 +21,11 @@ class ToiletTranslationMigrationMySqlTest {
     @Container
     final MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.4");
     JdbcTemplate jdbc;
+    ToiletTranslationRepository repository;
 
     @BeforeEach void setup() {
         DataSource source = new DriverManagerDataSource(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword());
         jdbc = new JdbcTemplate(source);
-        jdbc.execute("DROP TRIGGER IF EXISTS toilet_translation_after_update");
-        jdbc.execute("DROP TRIGGER IF EXISTS toilet_translation_after_insert");
         jdbc.execute("DROP TABLE IF EXISTS toilet_translation");
         jdbc.execute("DROP TABLE IF EXISTS toilet");
         jdbc.execute("""
@@ -40,9 +40,10 @@ class ToiletTranslationMigrationMySqlTest {
                 "서울역 화장실", "서울특별시 중구 한강대로 405", "서울특별시 중구 봉래동2가 122-21", "24시간");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V26__create_toilet_translation.sql"))
                 .execute(source);
+        repository = new ToiletTranslationRepository(new NamedParameterJdbcTemplate(source));
     }
 
-    @Test void migrationBackfillsKoreanAndTriggersKeepDirectWritesCurrent() {
+    @Test void migrationBackfillsKoreanAndExplicitSyncKeepsSourceCurrent() {
         assertEquals("서울역 화장실", jdbc.queryForObject(
                 "SELECT name FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", String.class));
         assertEquals("SOURCE", jdbc.queryForObject(
@@ -52,6 +53,7 @@ class ToiletTranslationMigrationMySqlTest {
         assertNotNull(originalHash); assertEquals(64, originalHash.length());
 
         jdbc.update("INSERT INTO toilet(toilet_id,name,open_time) VALUES(2,'신규 화장실','09:00~18:00')");
+        repository.synchronizeKoreanSource(2, java.time.LocalDateTime.now());
         assertEquals(1, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM toilet_translation WHERE toilet_id=2 AND locale='ko'", Integer.class));
 
@@ -61,6 +63,7 @@ class ToiletTranslationMigrationMySqlTest {
                 VALUES(1,'en','Reviewed restroom',?,'REVIEWED','MANUAL',TRUE,NOW(),NOW())
                 """, originalHash);
         jdbc.update("UPDATE toilet SET name='서울역 공중화장실' WHERE toilet_id=1");
+        repository.synchronizeKoreanSource(1, java.time.LocalDateTime.now());
         String changedHash = jdbc.queryForObject(
                 "SELECT source_hash FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", String.class);
         assertNotEquals(originalHash, changedHash);
@@ -74,6 +77,7 @@ class ToiletTranslationMigrationMySqlTest {
                 "SELECT source_hash FROM toilet_translation WHERE toilet_id=1 AND locale='en'", String.class));
 
         jdbc.update("UPDATE toilet SET visibility_status='HIDDEN_DUPLICATE' WHERE toilet_id=1");
+        repository.synchronizeKoreanSource(1, java.time.LocalDateTime.now());
         assertEquals(2L, jdbc.queryForObject(
                 "SELECT version FROM toilet_translation WHERE toilet_id=1 AND locale='ko'", Long.class));
 
