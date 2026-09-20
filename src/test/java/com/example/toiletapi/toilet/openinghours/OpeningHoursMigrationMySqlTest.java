@@ -36,15 +36,17 @@ class OpeningHoursMigrationMySqlTest {
         jdbc.execute("""
                 CREATE TABLE toilet(
                     toilet_id BIGINT NOT NULL PRIMARY KEY,
+                    name VARCHAR(200) NOT NULL,
+                    visibility_status VARCHAR(20) NOT NULL DEFAULT 'VISIBLE',
                     open_time VARCHAR(50),open_time_detail VARCHAR(255)
                 )
                 """);
         jdbc.update("""
-                INSERT INTO toilet(toilet_id,open_time,open_time_detail) VALUES
-                    (1,'정시','24시간'),
-                    (2,'상시','연중무휴 09:00~18:00'),
-                    (3,'미개방',NULL),
-                    (4,'상시',NULL)
+                INSERT INTO toilet(toilet_id,name,open_time,open_time_detail) VALUES
+                    (1,'첫 번째','정시','24시간'),
+                    (2,'두 번째','상시','연중무휴 09:00~18:00'),
+                    (3,'세 번째','미개방',NULL),
+                    (4,'네 번째','상시',NULL)
                 """);
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V27__normalize_toilet_opening_hours.sql"))
                 .execute(source);
@@ -99,5 +101,13 @@ class OpeningHoursMigrationMySqlTest {
                 "SELECT normalization_status FROM toilet_opening_hours WHERE toilet_id=4", String.class));
         assertTrue(jdbc.queryForObject(
                 "SELECT source_changed FROM toilet_opening_hours WHERE toilet_id=4", Boolean.class));
+    }
+
+    @Test
+    void patternQueueOrdersByTheSameNormalizedExpressionsUsedForGrouping() {
+        var page = service.patterns("ALL", "", 0, 15);
+
+        assertEquals(4, page.totalElements());
+        assertEquals(4, page.items().size());
     }
 }
