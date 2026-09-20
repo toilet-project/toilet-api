@@ -21,6 +21,25 @@ class OpeningHoursParserTest {
     }
 
     @Test
+    void parsesEveryPureTwentyFourHourVariantFoundByTheProductionAudit() {
+        for (String source : new String[]{"24시간 개방", "00:00 ~ 24:00", "00:00~23:59"}) {
+            var value = parser.parse("정시", source);
+            assertEquals("ALWAYS", value.openingPolicy(), source);
+            assertEquals(Boolean.TRUE, value.open24h(), source);
+            assertEquals("PARSED", value.status(), source);
+            assertTrue(value.schedules().isEmpty(), source);
+        }
+    }
+
+    @Test
+    void pureTwentyFourHourRepairDoesNotIncludeExceptionText() {
+        var value = parser.parse("정시", "24시간 개방, 공휴일 제외");
+
+        assertEquals("REVIEW_REQUIRED", value.status());
+        assertNull(value.open24h());
+    }
+
+    @Test
     void annualNoHolidayWithLimitedHoursIsNotTwentyFourHours() {
         var value = parser.parse("상시", "연중무휴 09:00~18:00");
         assertEquals("SCHEDULED", value.openingPolicy());
