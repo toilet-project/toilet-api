@@ -32,6 +32,8 @@ public class OpeningHoursService {
     private final AuditLogService audit;
     private static final Set<String> POLICIES = Set.of("ALWAYS", "SCHEDULED", "IRREGULAR", "CLOSED");
     private static final Set<String> HOLIDAY_POLICIES = Set.of("OPEN", "CLOSED", "UNKNOWN");
+    private static final Normalized REVIEW_FALLBACK =
+            new Normalized("UNKNOWN", null, "REVIEW_REQUIRED", null, "UNKNOWN", List.of());
 
     public OpeningHoursService(OpeningHoursParser parser, OpeningHoursRepository repository, AuditLogService audit) {
         this.parser = parser;
@@ -113,11 +115,20 @@ public class OpeningHoursService {
     }
 
     private PatternItem patternItem(OpeningHoursRepository.PatternRow row) {
-        Normalized suggested = parser.parse(row.openTime(), row.openTimeDetail());
+        Normalized suggested = safeParse(row.openTime(), row.openTimeDetail());
         String status = row.sourceChangedCount() > 0 ? "SOURCE_CHANGED"
                 : row.targetCount() == 0 ? "CONFIRMED" : suggested.status();
         return new PatternItem(sourceHash(row.openTime(), row.openTimeDetail()), row.openTime(), row.openTimeDetail(),
                 row.facilityCount(), row.targetCount(), row.protectedCount(), row.sampleName(), status, suggested);
+    }
+
+    private Normalized safeParse(String openTime, String openTimeDetail) {
+        try {
+            Normalized value = parser.parse(openTime, openTimeDetail);
+            return value == null ? REVIEW_FALLBACK : value;
+        } catch (RuntimeException exception) {
+            return REVIEW_FALLBACK;
+        }
     }
 
     @Transactional
