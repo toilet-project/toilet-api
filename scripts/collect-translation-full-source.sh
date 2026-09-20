@@ -57,6 +57,15 @@ else
        LIMIT ${batch_size};"
 fi
 
-docker exec -i -e MYSQL_PWD="$mysql_password" toilet-mysql \
+mysql_output="$(mktemp)"
+mysql_error="$(mktemp)"
+trap 'rm -f -- "$mysql_output" "$mysql_error"' EXIT
+if ! docker exec -i -e MYSQL_PWD="$mysql_password" toilet-mysql \
   mysql --protocol=tcp -h 127.0.0.1 --default-character-set=utf8mb4 \
-  --batch --raw --skip-column-names -u "$mysql_user" toilet_db -e "$sql"
+  --batch --raw --skip-column-names -u "$mysql_user" toilet_db -e "$sql" \
+  > "$mysql_output" 2> "$mysql_error"; then
+  echo 'translation-full-source: database query failed' >&2
+  sed -E 's/(using password:).*/\1 [redacted]/I' "$mysql_error" >&2
+  exit 1
+fi
+cat "$mysql_output"
