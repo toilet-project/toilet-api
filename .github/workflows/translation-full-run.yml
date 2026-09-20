@@ -1,0 +1,133 @@
+name: Full English translation rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type TRANSLATE_ALL_VISIBLE to translate and save all eligible visible toilets
+        required: true
+      max_google_characters:
+        description: Hard safety cap for Google NMT characters
+        required: true
+        default: "650000"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: translation-full-rollout
+  cancel-in-progress: false
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate explicit approval and tooling
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          MAX_GOOGLE_CHARACTERS: ${{ inputs.max_google_characters }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = 'TRANSLATE_ALL_VISIBLE'
+          [[ "$MAX_GOOGLE_CHARACTERS" =~ ^[0-9]+$ ]]
+          test "$MAX_GOOGLE_CHARACTERS" -ge 1
+          test "$MAX_GOOGLE_CHARACTERS" -le 650000
+          bash -n scripts/collect-translation-full-source.sh
+          bash -n scripts/apply-translation-full-results.sh
+          bash -n scripts/run-translation-full-remote.sh
+          python3 -B -m unittest scripts/test_translation_pilot.py scripts/test_translation_full.py
+
+      - name: Prepare pinned Tunnel SSH transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 10 --max-time 60 \
+            https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64.deb \
+            -o "$RUNNER_TEMP/cloudflared.deb"
+          printf '%s  %s\n' 660b348d473bba81997445b534e7eaefaf4c4e16331866922326c338a7013dd9 "$RUNNER_TEMP/cloudflared.deb" | sha256sum -c -
+          dpkg-deb --extract "$RUNNER_TEMP/cloudflared.deb" "$RUNNER_TEMP/cloudflared-package"
+
+      - name: Build encrypted transport bundle
+        shell: bash
+        env:
+          GOOGLE_TRANSLATION_API_KEY: ${{ secrets.GOOGLE_TRANSLATION_API_KEY }}
+          JUSO_ENGLISH_API_KEY: ${{ secrets.JUSO_ENGLISH_API_KEY }}
+          EXPORT_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
+          TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${GOOGLE_TRANSLATION_API_KEY:?missing Google Translation key}"
+          : "${JUSO_ENGLISH_API_KEY:?missing Juso English key}"
+          : "${EXPORT_SSH_KEY:?missing SSH key}"
+          : "${TUNNEL_KNOWN_HOSTS:?missing pinned host keys}"
+          bundle_dir="$RUNNER_TEMP/translation-full-bundle"
+          install -d -m 700 "$bundle_dir/scripts" "$bundle_dir/credentials"
+          install -m 700 scripts/collect-translation-full-source.sh scripts/apply-translation-full-results.sh scripts/run-translation-full-remote.sh "$bundle_dir/scripts/"
+          install -m 600 scripts/translation_pilot.py scripts/translation_full_sql.py "$bundle_dir/scripts/"
+          printf '%s' "$GOOGLE_TRANSLATION_API_KEY" > "$bundle_dir/credentials/google.key"
+          printf '%s' "$JUSO_ENGLISH_API_KEY" > "$bundle_dir/credentials/juso.key"
+          printf '%s\n' "$EXPORT_SSH_KEY" > "$RUNNER_TEMP/translation-full-key"
+          printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/translation-full-hosts"
+          ssh-keygen -y -P '' -f "$RUNNER_TEMP/translation-full-key" >/dev/null
+          tar -czf "$RUNNER_TEMP/translation-full-input.tgz" -C "$bundle_dir" .
+          rm -rf -- "$bundle_dir"
+
+      - name: Translate and save all eligible visible toilets
+        shell: bash
+        env:
+          MAX_GOOGLE_CHARACTERS: ${{ inputs.max_google_characters }}
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
+          TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
+          TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${TUNNEL_SERVICE_TOKEN_ID:?missing Access ID}"
+          : "${TUNNEL_SERVICE_TOKEN_SECRET:?missing Access secret}"
+          test "$TUNNEL_SSH_HOST" = 'ssh-deploy.geupddong.com'
+          [[ "$TUNNEL_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          remote_dir="/tmp/toilet-translation-full-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+          ssh_options=(-F /dev/null -i "$RUNNER_TEMP/translation-full-key" -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/translation-full-hosts" -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 -o ForwardAgent=no -o ClearAllForwardings=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o 'ProxyCommand=cloudflared access ssh --hostname %h')
+          ssh "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" "install -d -m 700 '$remote_dir'"
+          ssh -T "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" "umask 077; cat > '$remote_dir/input.tgz'" < "$RUNNER_TEMP/translation-full-input.tgz"
+          timeout 345m ssh "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+            "bash -s -- '$remote_dir' '100000' '$MAX_GOOGLE_CHARACTERS'" < scripts/run-translation-full-remote.sh
+          ssh -T "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" "cat '$remote_dir/output.tgz'" > "$RUNNER_TEMP/translation-full-output.tgz"
+          install -d -m 700 translation-full-output
+          tar -xzf "$RUNNER_TEMP/translation-full-output.tgz" -C translation-full-output
+          cat translation-full-output/translation-full-report.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate report only
+        uses: actions/upload-artifact@v4
+        with:
+          name: translation-full-report-${{ github.run_id }}
+          path: translation-full-output/translation-full-report.json
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Remove credentials and production work directory
+        if: always()
+        shell: bash
+        env:
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
+          TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
+          TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ ]] && [[ "${GITHUB_RUN_ATTEMPT:-}" =~ ^[0-9]+$ ]] && test -f "$RUNNER_TEMP/cloudflared-package/usr/bin/cloudflared" && test -f "$RUNNER_TEMP/translation-full-key" && test -f "$RUNNER_TEMP/translation-full-hosts" && test -n "${TUNNEL_SERVICE_TOKEN_ID:-}" && test -n "${TUNNEL_SERVICE_TOKEN_SECRET:-}" && test -n "${TUNNEL_SSH_USER:-}" && test -n "${TUNNEL_SSH_HOST:-}"; then
+            remote_dir="/tmp/toilet-translation-full-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+            ssh -F /dev/null -T -i "$RUNNER_TEMP/translation-full-key" -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/translation-full-hosts" -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 -o ForwardAgent=no -o ClearAllForwardings=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o 'ProxyCommand=cloudflared access ssh --hostname %h' "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" "test '$remote_dir' != / && rm -rf -- '$remote_dir'" || true
+          fi
+          rm -rf -- "$RUNNER_TEMP/translation-full-bundle"
+          rm -f -- "$RUNNER_TEMP/translation-full-input.tgz" "$RUNNER_TEMP/translation-full-output.tgz" "$RUNNER_TEMP/translation-full-key" "$RUNNER_TEMP/translation-full-hosts"
