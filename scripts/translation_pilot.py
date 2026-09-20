@@ -154,7 +154,7 @@ def normalize_spaces(value: str) -> str:
     return " ".join(value.split())
 
 
-def translate_address(address: str, api_key: str) -> str:
+def translate_address(address: str, api_key: str, address_kind: str) -> str:
     response = get_json(JUSO_ENDPOINT, {
         "confmKey": api_key,
         "currentPage": "1",
@@ -172,7 +172,8 @@ def translate_address(address: str, api_key: str) -> str:
     normalized = normalize_spaces(address)
     exact = next((item for item in candidates if normalize_spaces(str(item.get("korAddr", ""))) == normalized), None)
     selected = exact or candidates[0]
-    translated = clean(selected.get("engAddr"))
+    result_field = "roadAddr" if address_kind == "ROAD" else "jibunAddr"
+    translated = clean(selected.get(result_field))
     if not translated:
         raise LookupError("official English address is empty")
     return translated
@@ -196,7 +197,7 @@ def translate(args: argparse.Namespace) -> None:
             address_error = None
             if address:
                 try:
-                    translated_address = translate_address(address, juso_key)
+                    translated_address = translate_address(address, juso_key, kind)
                 except LookupError as exc:
                     address_error = str(exc)
             result = {
@@ -262,14 +263,14 @@ def audit_results(source_rows: list[dict], result_rows: list[dict]) -> dict:
         kind, source_address = selected_address(source)
         road = clean(result.get("roadAddress"))
         jibun = clean(result.get("jibunAddress"))
-        if kind == "ROAD" and (not road or jibun):
+        address_error = clean(result.get("addressError"))
+        if kind == "ROAD" and not address_error and (not road or jibun):
             issues.append({"toiletId": toilet_id, "code": "ROAD_PRIORITY_VIOLATION"})
-        if kind == "JIBUN" and (road or not jibun):
+        if kind == "JIBUN" and not address_error and (road or not jibun):
             issues.append({"toiletId": toilet_id, "code": "JIBUN_FALLBACK_VIOLATION"})
         if kind == "NONE" and (road or jibun):
             issues.append({"toiletId": toilet_id, "code": "UNEXPECTED_ADDRESS"})
         translated_address = road or jibun
-        address_error = clean(result.get("addressError"))
         if translated_address:
             translated_address_count += 1
             if HANGUL.search(translated_address):

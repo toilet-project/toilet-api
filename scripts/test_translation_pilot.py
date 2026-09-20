@@ -2,6 +2,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -86,6 +87,37 @@ class TranslationPilotTest(unittest.TestCase):
         self.assertEqual(0, report["translatedAddressCount"])
         self.assertEqual(1, report["addressLookupErrorCount"])
         self.assertNotIn("MISSING_ADDRESS_WITHOUT_ERROR", report["issueCounts"])
+        self.assertNotIn("ROAD_PRIORITY_VIOLATION", report["issueCounts"])
+
+    @patch.object(pilot, "get_json")
+    def test_juso_english_response_uses_road_address_field(self, get_json):
+        get_json.return_value = {
+            "results": {
+                "common": {"errorCode": "0"},
+                "juso": [{
+                    "korAddr": "서울특별시 중구 세종대로 110",
+                    "roadAddr": "110 Sejong-daero, Jung-gu, Seoul",
+                    "jibunAddr": "31 Taepyeongno 1-ga, Jung-gu, Seoul",
+                }],
+            }
+        }
+        translated = pilot.translate_address("서울특별시 중구 세종대로 110", "key", "ROAD")
+        self.assertEqual("110 Sejong-daero, Jung-gu, Seoul", translated)
+
+    @patch.object(pilot, "get_json")
+    def test_juso_english_response_uses_jibun_address_field(self, get_json):
+        get_json.return_value = {
+            "results": {
+                "common": {"errorCode": "0"},
+                "juso": [{
+                    "korAddr": "서울특별시 중구 세종대로 110",
+                    "roadAddr": "110 Sejong-daero, Jung-gu, Seoul",
+                    "jibunAddr": "31 Taepyeongno 1-ga, Jung-gu, Seoul",
+                }],
+            }
+        }
+        translated = pilot.translate_address("서울특별시 중구 태평로1가 31", "key", "JIBUN")
+        self.assertEqual("31 Taepyeongno 1-ga, Jung-gu, Seoul", translated)
 
     def test_audit_source_records_fingerprint_without_retention(self):
         with tempfile.TemporaryDirectory() as directory:
