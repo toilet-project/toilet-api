@@ -17,6 +17,7 @@ import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -111,8 +112,21 @@ public class OpeningHoursService {
                 Map.of("patternKey", patternKey, "appliedCount", targets.size(),
                         "protectedCount", pattern.protectedCount(), "openingPolicy", confirmed.openingPolicy(),
                         "open24h", confirmed.open24h(), "scheduleCount", confirmed.schedules().size(),
-                        "holidayPolicy", confirmed.holidayPolicy(), "schedules", confirmed.schedules()));
+                        "holidayPolicy", confirmed.holidayPolicy(), "schedules",
+                        confirmed.schedules().stream().map(OpeningHoursService::scheduleHistory).toList()));
         return new PatternApplyResult(patternKey, targets.size(), pattern.protectedCount());
+    }
+
+    private static Map<String, Object> scheduleHistory(Slot slot) {
+        // Audit JSON uses Jackson 2 without Java-time modules; keep times as ISO strings.
+        Map<String, Object> value = new LinkedHashMap<>();
+        value.put("dayOfWeek", slot.dayOfWeek());
+        value.put("slotIndex", slot.slotIndex());
+        value.put("startTime", slot.startTime() == null ? null : slot.startTime().toString());
+        value.put("endTime", slot.endTime() == null ? null : slot.endTime().toString());
+        value.put("crossesMidnight", slot.crossesMidnight());
+        value.put("closed", slot.closed());
+        return value;
     }
 
     private Optional<OpeningHoursRepository.PatternRow> findPattern(String patternKey) {
