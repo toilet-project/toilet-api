@@ -58,13 +58,13 @@ public class ToiletTranslationRepository {
                 "SELECT COUNT(*) FROM toilet WHERE toilet_id=:toiletId", Map.of("toiletId", toiletId), Long.class);
         if (sourceCount == null || sourceCount != 1L)
             throw new IllegalArgumentException("동기화할 화장실을 찾지 못했습니다.");
-        jdbc.update("""
+        String sql = """
                 INSERT INTO toilet_translation
                     (toilet_id,locale,name,road_address,jibun_address,open_time,open_time_detail,
                      source_hash,translation_status,translation_source,manual_override,
                      translated_at,reviewed_at,created_at,updated_at)
                 SELECT t.toilet_id,'ko',t.name,t.road_address,t.jibun_address,t.open_time,t.open_time_detail,
-                       """ + SOURCE_HASH_SQL + """,
+                       %s,
                        'SOURCE','SOURCE',FALSE,NULL,NULL,:now,:now
                   FROM toilet t WHERE t.toilet_id=:toiletId
                 ON DUPLICATE KEY UPDATE
@@ -73,7 +73,8 @@ public class ToiletTranslationRepository {
                     name=VALUES(name),road_address=VALUES(road_address),jibun_address=VALUES(jibun_address),
                     open_time=VALUES(open_time),open_time_detail=VALUES(open_time_detail),
                     source_hash=VALUES(source_hash),translation_status='SOURCE',translation_source='SOURCE'
-                """, new MapSqlParameterSource("toiletId", toiletId).addValue("now", now));
+                """.formatted(SOURCE_HASH_SQL);
+        jdbc.update(sql, new MapSqlParameterSource("toiletId", toiletId).addValue("now", now));
     }
 
     public void insert(TranslationInput input, String status, boolean manualOverride,
