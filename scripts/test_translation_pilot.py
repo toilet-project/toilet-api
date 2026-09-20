@@ -167,6 +167,22 @@ class TranslationPilotTest(unittest.TestCase):
         params = get_json.call_args.args[1]
         self.assertEqual("서울특별시 중구 세종대로 110 별관 1", params["keyword"])
 
+    @patch.object(pilot, "get_json")
+    def test_juso_rejects_incomplete_address_as_a_row_level_miss(self, get_json):
+        get_json.return_value = {"results": {"common": {
+            "errorCode": "E0005", "errorMessage": "Please enter your address in detail.",
+        }}}
+        with self.assertRaises(LookupError):
+            pilot.translate_address("서울특별시", "key", "ROAD")
+
+    @patch.object(pilot, "get_json")
+    def test_juso_authentication_error_still_aborts_the_run(self, get_json):
+        get_json.return_value = {"results": {"common": {
+            "errorCode": "E0001", "errorMessage": "Unauthorized API key",
+        }}}
+        with self.assertRaises(RuntimeError):
+            pilot.translate_address("서울특별시 중구 세종대로 110", "key", "ROAD")
+
     def test_audit_source_records_fingerprint_without_retention(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.jsonl"

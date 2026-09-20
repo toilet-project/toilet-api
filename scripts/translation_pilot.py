@@ -171,7 +171,12 @@ def translate_address(address: str, api_key: str, address_kind: str) -> str:
     results = response.get("results", {})
     common = results.get("common", {})
     if str(common.get("errorCode", "0")) != "0":
-        raise RuntimeError(f"Juso API error: {common.get('errorMessage', 'unknown')}")
+        code = str(common.get("errorCode", "unknown"))
+        message = str(common.get("errorMessage", "unknown"))
+        fatal_terms = ("key", "quota", "limit", "exceed", "service", "system", "temporar", "서버", "승인키", "일일")
+        if code.upper() == "E0001" or any(term in message.lower() for term in fatal_terms):
+            raise RuntimeError(f"Juso API error: {message}")
+        raise LookupError(f"official English address lookup rejected ({code})")
     candidates = results.get("juso") or []
     if not candidates:
         raise LookupError("no official English address result")
