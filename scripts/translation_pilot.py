@@ -232,7 +232,7 @@ def translate(args: argparse.Namespace) -> None:
                 "expectedSourceHash": source["sourceHash"].lower(),
                 "source": provider_source,
                 "nameProvider": "GOOGLE_CLOUD_TRANSLATION_BASIC",
-                "addressProvider": "MOIS_JUSO_ENGLISH" if address else None,
+                "addressProvider": "MOIS_JUSO_ENGLISH" if kind != "NONE" else None,
                 "addressKind": kind,
                 "addressError": address_error,
                 "region": source.get("region"),

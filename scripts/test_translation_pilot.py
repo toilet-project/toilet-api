@@ -55,6 +55,27 @@ class TranslationPilotTest(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             pilot.parser().parse_args(["translate", "source.jsonl", "results.jsonl", "--address-workers", "9"])
 
+    @patch.dict(pilot.os.environ, {
+        "GOOGLE_TRANSLATION_API_KEY": "google-key",
+        "JUSO_ENGLISH_API_KEY": "juso-key",
+        "TRANSLATION_PROVIDER_SOURCE": "FULL_GOOGLE_NMT_JUSO",
+    })
+    @patch.object(pilot, "translate_address", return_value="110 Sejong-daero, Jung-gu, Seoul")
+    @patch.object(pilot, "translate_names", return_value=["City Hall 1F Restroom"])
+    def test_parallel_translation_records_address_provider(self, _names, _address):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.jsonl"
+            output = Path(directory) / "results.jsonl"
+            source.write_text(json.dumps(self.source(), ensure_ascii=False) + "\n", encoding="utf-8")
+            args = pilot.parser().parse_args([
+                "translate", str(source), str(output), "--expected-count", "1",
+                "--address-workers", "4", "--request-interval", "0",
+            ])
+            pilot.translate(args)
+            result = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual("MOIS_JUSO_ENGLISH", result["addressProvider"])
+            self.assertEqual("FULL_GOOGLE_NMT_JUSO", result["source"])
+
     def test_result_audit_rejects_both_address_columns(self):
         result = {
             "toiletId": 1,
