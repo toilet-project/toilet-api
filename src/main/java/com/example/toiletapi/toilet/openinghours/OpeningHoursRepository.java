@@ -2,7 +2,6 @@ package com.example.toiletapi.toilet.openinghours;
 
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.Normalized;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ReviewItem;
-import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ReviewPage;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.Slot;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.View;
 
@@ -10,7 +9,6 @@ import java.sql.Time;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Locale;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -139,54 +137,6 @@ public class OpeningHoursRepository {
         return values.stream().findFirst().map(value -> new View(value.openingPolicy(), value.open24h(),
                 value.status(), value.confidence(), value.parserVersion(), value.holidayPolicy(),
                 value.manualOverride(), value.sourceChanged(), schedules(toiletId)));
-    }
-
-    public ReviewPage reviews(String filter, String keyword, int page, int size) {
-        String predicate = switch (filter.toUpperCase(Locale.ROOT)) {
-            case "REVIEW" -> "(oh.toilet_id IS NULL OR oh.normalization_status='REVIEW_REQUIRED' OR oh.source_changed=TRUE)";
-            case "SOURCE_CHANGED" -> "oh.source_changed=TRUE";
-            case "PARSED" -> "oh.normalization_status='PARSED' AND oh.source_changed=FALSE";
-            case "CONFIRMED" -> "oh.normalization_status='CONFIRMED' AND oh.source_changed=FALSE";
-            case "ALL" -> "TRUE";
-            default -> throw new IllegalArgumentException("지원하지 않는 개방시간 검토 상태입니다.");
-        };
-        String search = keyword == null ? "" : keyword.trim();
-        var parameters = new MapSqlParameterSource()
-                .addValue("keyword", "%" + search + "%")
-                .addValue("limit", size)
-                .addValue("offset", page * size);
-        String base = """
-                FROM toilet t
-                LEFT JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
-                WHERE t.visibility_status='VISIBLE'
-                  AND %s
-                  AND (:keyword='%%' OR t.name LIKE :keyword OR t.mng_no LIKE :keyword
-                       OR t.road_address LIKE :keyword OR t.jibun_address LIKE :keyword)
-                """.formatted(predicate);
-        long total = Optional.ofNullable(jdbc.queryForObject("SELECT COUNT(*) " + base, parameters, Long.class))
-                .orElse(0L);
-        List<ReviewItem> items = jdbc.query("""
-                SELECT t.toilet_id,t.name,t.mng_no,t.road_address,t.jibun_address,t.open_time,t.open_time_detail,
-                       oh.opening_policy,oh.is_open_24h,oh.normalization_status,oh.confidence,
-                       oh.parser_version,oh.holiday_policy,oh.manual_override,oh.source_changed
-                """ + base + """
-                ORDER BY COALESCE(oh.source_changed,FALSE) DESC,
-                         CASE WHEN oh.normalization_status='REVIEW_REQUIRED' OR oh.toilet_id IS NULL THEN 0 ELSE 1 END,
-                         t.toilet_id
-                LIMIT :limit OFFSET :offset
-                """, parameters, (resultSet, rowNumber) -> reviewItem(resultSet));
-        return new ReviewPage(items, page, size, total, total == 0 ? 0 : (int) ((total + size - 1) / size));
-    }
-
-    public Optional<ReviewItem> reviewItem(long toiletId) {
-        return jdbc.query("""
-                SELECT t.toilet_id,t.name,t.mng_no,t.road_address,t.jibun_address,t.open_time,t.open_time_detail,
-                       oh.opening_policy,oh.is_open_24h,oh.normalization_status,oh.confidence,
-                       oh.parser_version,oh.holiday_policy,oh.manual_override,oh.source_changed
-                  FROM toilet t LEFT JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
-                 WHERE t.toilet_id=:toiletId
-                """, Map.of("toiletId", toiletId), (resultSet, rowNumber) -> reviewItem(resultSet))
-                .stream().findFirst();
     }
 
     private static ReviewItem reviewItem(java.sql.ResultSet resultSet) throws java.sql.SQLException {

@@ -64,20 +64,6 @@ public final class OpeningHoursModels {
             boolean sourceChanged
     ) {}
 
-    public record ReviewPage(
-            List<ReviewItem> items,
-            int page,
-            int size,
-            long totalElements,
-            int totalPages
-    ) {
-        public ReviewPage {
-            items = List.copyOf(items);
-        }
-    }
-
-    public record ReviewDetail(ReviewItem item, View normalized) {}
-
     public record PatternItem(
             String patternKey,
             String openTime,

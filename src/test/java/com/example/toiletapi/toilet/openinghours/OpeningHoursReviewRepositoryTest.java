@@ -2,7 +2,6 @@ package com.example.toiletapi.toilet.openinghours;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,26 +58,6 @@ class OpeningHoursReviewRepositoryTest {
     }
 
     @Test
-    void reviewQueueSearchesRawFacilityDataAndExcludesHiddenRows() {
-        var page = repository.reviews("REVIEW", "대학", 0, 15);
-
-        assertEquals(2, page.totalElements());
-        assertEquals("충남대학교 중앙도서관", page.items().getFirst().name());
-        assertEquals("연중무휴", page.items().getFirst().openTimeDetail());
-    }
-
-    @Test
-    void confirmedFilterAndDetailExposeNormalizedDecision() {
-        var page = repository.reviews("CONFIRMED", "", 0, 15);
-        var detail = repository.reviewItem(2L).orElseThrow();
-
-        assertEquals(2, page.totalElements());
-        assertTrue(detail.open24h());
-        assertTrue(detail.manualOverride());
-        assertFalse(detail.sourceChanged());
-    }
-
-    @Test
     void patternGroupsSameRawValueAndProtectsExistingManualDecision() {
         var pattern = repository.patterns().stream()
                 .filter(value -> "연중무휴".equals(value.openTimeDetail())).findFirst().orElseThrow();
@@ -89,5 +68,6 @@ class OpeningHoursReviewRepositoryTest {
         assertEquals(1, pattern.protectedCount());
         assertEquals(2, targets.size());
         assertFalse(targets.stream().anyMatch(value -> value.toiletId() == 5L));
+        assertEquals(3, repository.patternMembers(pattern.openTime(), pattern.openTimeDetail(), 30).size());
     }
 }

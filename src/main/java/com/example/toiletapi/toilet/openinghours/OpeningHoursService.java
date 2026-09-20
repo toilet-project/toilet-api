@@ -7,8 +7,6 @@ import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.Patte
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternDetail;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternItem;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternPage;
-import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ReviewDetail;
-import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ReviewPage;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.Slot;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.View;
 
@@ -60,18 +58,6 @@ public class OpeningHoursService {
     @Transactional(readOnly = true)
     public Optional<View> find(long toiletId) {
         return repository.find(toiletId);
-    }
-
-    @Transactional(readOnly = true)
-    public ReviewPage reviews(String status, String keyword, int page, int size) {
-        if (page < 0) throw new IllegalArgumentException("페이지는 0 이상이어야 합니다.");
-        if (size < 1 || size > 100) throw new IllegalArgumentException("한 페이지에 1~100건까지 조회할 수 있습니다.");
-        return repository.reviews(status == null ? "REVIEW" : status, keyword, page, size);
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<ReviewDetail> reviewDetail(long toiletId) {
-        return repository.reviewItem(toiletId).map(item -> new ReviewDetail(item, repository.find(toiletId).orElse(null)));
     }
 
     @Transactional(readOnly = true)
