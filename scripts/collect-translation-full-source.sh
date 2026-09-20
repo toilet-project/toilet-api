@@ -62,7 +62,7 @@ mysql_output="$(mktemp)"
 mysql_error="$(mktemp)"
 echo 'translation-full-source: temporary output prepared' >&2
 trap 'rm -f -- "$mysql_output" "$mysql_error"' EXIT
-if ! docker exec -i -e MYSQL_PWD="$mysql_password" toilet-mysql \
+if ! docker exec -e MYSQL_PWD="$mysql_password" toilet-mysql \
   mysql --protocol=tcp -h 127.0.0.1 --default-character-set=utf8mb4 \
   --batch --raw --skip-column-names -u "$mysql_user" toilet_db -e "$sql" \
   > "$mysql_output" 2> "$mysql_error"; then
