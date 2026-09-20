@@ -104,6 +104,13 @@ class TranslationPilotTest(unittest.TestCase):
             content = (scripts / filename).read_text(encoding="utf-8")
             self.assertIn('docker exec -i -e MYSQL_PWD="$mysql_password"', content)
 
+    def test_provider_workflow_uses_ssh_stream_without_sftp_subsystem(self):
+        workflow = Path(__file__).parents[1] / ".github" / "workflows" / "translation-pilot-run.yml"
+        content = workflow.read_text(encoding="utf-8")
+        self.assertNotIn("          scp ", content)
+        self.assertIn("cat > '$remote_dir/input.tgz'", content)
+        self.assertIn("cat '$remote_dir/output.tgz'", content)
+
 
 if __name__ == "__main__":
     unittest.main()

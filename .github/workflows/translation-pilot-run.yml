@@ -109,13 +109,15 @@ jobs:
           )
           ssh "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
             "install -d -m 700 '$remote_dir'"
-          scp "${ssh_options[@]}" "$RUNNER_TEMP/translation-pilot-input.tgz" \
-            "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST:$remote_dir/input.tgz"
+          ssh -T "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+            "umask 077; cat > '$remote_dir/input.tgz'" \
+            < "$RUNNER_TEMP/translation-pilot-input.tgz"
           timeout 50m ssh "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
             "bash -s -- '$remote_dir' '$EXPECTED_COUNT'" \
             < scripts/run-translation-pilot-remote.sh
-          scp "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST:$remote_dir/output.tgz" \
-            "$RUNNER_TEMP/translation-pilot-output.tgz"
+          ssh -T "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+            "cat '$remote_dir/output.tgz'" \
+            > "$RUNNER_TEMP/translation-pilot-output.tgz"
           install -d -m 700 translation-pilot-output
           tar -xzf "$RUNNER_TEMP/translation-pilot-output.tgz" -C translation-pilot-output
           python3 - <<'PY'
