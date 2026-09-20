@@ -11,6 +11,7 @@ case "$max_google_chars" in ''|*[!0-9]*) exit 2;; esac
 test "$max_rows" -ge 1 && test "$max_rows" -le 100000
 test "$max_google_chars" -ge 1 && test "$max_google_chars" -le 650000
 test -f "$remote_dir/input.tgz"
+echo 'translation-full: remote script started' >&2
 
 umask 077
 bundle_dir="$remote_dir/bundle"
@@ -27,6 +28,11 @@ rm -rf -- "$bundle_dir/credentials"
 
 initial_plan="$(bash "$bundle_dir/scripts/collect-translation-full-source.sh" plan)"
 printf '%s\n' "$initial_plan" > "$work_dir/initial-plan.json"
+python3 - "$work_dir/initial-plan.json" <<'PY' >&2
+import json,sys
+plan=json.load(open(sys.argv[1],encoding='utf-8'))
+print(f"translation-full: plan rows={int(plan.get('targetCount') or 0)} chars={int(plan.get('googleCharacters') or 0)}")
+PY
 python3 - "$work_dir/initial-plan.json" "$max_rows" "$max_google_chars" <<'PY'
 import json, sys
 from pathlib import Path
@@ -47,6 +53,7 @@ while true; do
     bash "$bundle_dir/scripts/collect-translation-full-source.sh" batch > "$source_file"
   count="$(grep -c . "$source_file" || true)"
   if test "$count" -eq 0; then break; fi
+  echo "translation-full: processing after=$cursor count=$count" >&2
   next_cursor="$(python3 - "$source_file" <<'PY'
 import json,sys
 print(max(json.loads(line)['toiletId'] for line in open(sys.argv[1], encoding='utf-8') if line.strip()))
@@ -70,6 +77,7 @@ PY
   bash "$bundle_dir/scripts/apply-translation-full-results.sh" \
     "$results_file" "$bundle_dir/scripts/translation_full_sql.py" > "$work_dir/apply-last.json"
   processed=$((processed + count))
+  echo "translation-full: committed processed=$processed" >&2
   cursor="$next_cursor"
   rm -f -- "$source_file" "$results_file" "$audit_file" "$work_dir/source-audit.json" "$work_dir/apply-last.json"
 done
@@ -101,3 +109,5 @@ PY
 
 rm -rf -- "$work_dir"
 tar -czf "$remote_dir/output.tgz" -C "$output_dir" translation-full-report.json
+test -s "$remote_dir/output.tgz"
+echo "translation-full: completed processed=$processed" >&2
