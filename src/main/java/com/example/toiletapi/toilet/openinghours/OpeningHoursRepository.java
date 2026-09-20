@@ -164,7 +164,7 @@ public class OpeningHoursRepository {
                   FROM toilet t LEFT JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
                  WHERE t.visibility_status='VISIBLE'
                  GROUP BY TRIM(t.open_time),TRIM(t.open_time_detail)
-                 ORDER BY facility_count DESC,t.open_time,t.open_time_detail
+                 ORDER BY facility_count DESC,TRIM(t.open_time),TRIM(t.open_time_detail)
                 """, Map.of(), (resultSet, rowNumber) -> new PatternRow(
                 resultSet.getString("open_time"), resultSet.getString("open_time_detail"),
                 resultSet.getLong("facility_count"), resultSet.getLong("target_count"),
