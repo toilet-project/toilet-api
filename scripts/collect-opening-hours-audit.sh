@@ -67,6 +67,23 @@ FROM toilet t JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id;
 "
 printf '%s\n' '```'
 
+printf '%s\n' '' '## 명시적 24시간 표현이 있으나 자동 24시간 판정에서 제외된 주요 원문' '' '```text'
+mysql_query "
+SELECT COALESCE(NULLIF(TRIM(t.open_time),''),'<EMPTY>') AS open_time,
+       COALESCE(NULLIF(TRIM(t.open_time_detail),''),'<EMPTY>') AS open_time_detail,
+       oh.opening_policy,COALESCE(CAST(oh.is_open_24h AS CHAR),'NULL') AS is_open_24h,
+       oh.normalization_status,COUNT(*) AS row_count
+FROM toilet t JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
+WHERE oh.manual_override=FALSE AND COALESCE(oh.is_open_24h,FALSE)=FALSE AND
+      CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) REGEXP
+       '24[[:space:]]*시간|00(:00)?[[:space:]]*(~|-)[[:space:]]*(24(:00)?|23:59)|00~24' AND NOT
+      (CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) REGEXP
+       '미개방|폐쇄|운영[[:space:]]*안함|이용[[:space:]]*불가|공휴일[[:space:]]*(제외|휴무)|휴관|동절기|하절기|계절|임시|주말[[:space:]]*제외')
+GROUP BY open_time,open_time_detail,oh.opening_policy,oh.is_open_24h,oh.normalization_status
+ORDER BY row_count DESC LIMIT 100;
+"
+printf '%s\n' '```'
+
 quality="$(mysql_query "
 SELECT SUM(oh.toilet_id IS NULL) AS missing_normalized,
        SUM(oh.is_open_24h=TRUE AND oh.manual_override=FALSE AND NOT
