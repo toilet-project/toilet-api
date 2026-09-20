@@ -3,6 +3,10 @@ package com.example.toiletapi.toilet.openinghours;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.BackfillResult;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ConfirmRequest;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.Normalized;
+import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternApplyResult;
+import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternDetail;
+import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternItem;
+import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternPage;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ReviewDetail;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ReviewPage;
 import static com.example.toiletapi.toilet.openinghours.OpeningHoursModels.Slot;
@@ -19,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Locale;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +72,66 @@ public class OpeningHoursService {
     @Transactional(readOnly = true)
     public Optional<ReviewDetail> reviewDetail(long toiletId) {
         return repository.reviewItem(toiletId).map(item -> new ReviewDetail(item, repository.find(toiletId).orElse(null)));
+    }
+
+    @Transactional(readOnly = true)
+    public PatternPage patterns(String status, String keyword, int page, int size) {
+        if (page < 0) throw new IllegalArgumentException("페이지는 0 이상이어야 합니다.");
+        if (size < 1 || size > 100) throw new IllegalArgumentException("한 페이지에 1~100개 유형까지 조회할 수 있습니다.");
+        String filter = status == null ? "REVIEW" : status.toUpperCase(Locale.ROOT);
+        if (!Set.of("REVIEW", "SOURCE_CHANGED", "PARSED", "CONFIRMED", "ALL").contains(filter)) {
+            throw new IllegalArgumentException("지원하지 않는 개방시간 유형 상태입니다.");
+        }
+        String search = clean(keyword).toLowerCase(Locale.ROOT);
+        List<PatternItem> filtered = repository.patterns().stream().map(this::patternItem)
+                .filter(item -> search.isEmpty() || clean(item.openTime()).toLowerCase(Locale.ROOT).contains(search)
+                        || clean(item.openTimeDetail()).toLowerCase(Locale.ROOT).contains(search)
+                        || clean(item.sampleName()).toLowerCase(Locale.ROOT).contains(search))
+                .filter(item -> switch (filter) {
+                    case "REVIEW" -> "REVIEW_REQUIRED".equals(item.status()) || "SOURCE_CHANGED".equals(item.status());
+                    case "ALL" -> true;
+                    default -> filter.equals(item.status());
+                }).toList();
+        int from = Math.min(page * size, filtered.size());
+        int to = Math.min(from + size, filtered.size());
+        int totalPages = filtered.isEmpty() ? 0 : (filtered.size() + size - 1) / size;
+        return new PatternPage(filtered.subList(from, to), page, size, filtered.size(), totalPages);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<PatternDetail> patternDetail(String patternKey) {
+        return findPattern(patternKey).map(row -> new PatternDetail(patternItem(row),
+                repository.patternMembers(row.openTime(), row.openTimeDetail(), 30)));
+    }
+
+    @Transactional
+    public PatternApplyResult confirmPattern(long adminId, String patternKey, ConfirmRequest request) {
+        var pattern = findPattern(patternKey).orElseThrow(() -> new IllegalArgumentException("개방시간 유형을 찾지 못했습니다."));
+        Normalized confirmed = validateConfirmation(request);
+        var targets = repository.patternTargets(pattern.openTime(), pattern.openTimeDetail());
+        for (var source : targets) {
+            repository.saveManual(adminId, source.toiletId(), sourceHash(source.openTime(), source.openTimeDetail()), confirmed);
+        }
+        audit.record(adminId, AuditAction.TOILET_OPENING_HOURS_CONFIRMED, "TOILET_OPENING_HOURS_PATTERN", null,
+                Map.of("patternKey", patternKey, "appliedCount", targets.size(),
+                        "protectedCount", pattern.protectedCount(), "openingPolicy", confirmed.openingPolicy(),
+                        "open24h", confirmed.open24h(), "scheduleCount", confirmed.schedules().size(),
+                        "holidayPolicy", confirmed.holidayPolicy()));
+        return new PatternApplyResult(patternKey, targets.size(), pattern.protectedCount());
+    }
+
+    private Optional<OpeningHoursRepository.PatternRow> findPattern(String patternKey) {
+        if (patternKey == null || !patternKey.matches("[a-f0-9]{64}")) return Optional.empty();
+        return repository.patterns().stream()
+                .filter(row -> sourceHash(row.openTime(), row.openTimeDetail()).equals(patternKey)).findFirst();
+    }
+
+    private PatternItem patternItem(OpeningHoursRepository.PatternRow row) {
+        Normalized suggested = parser.parse(row.openTime(), row.openTimeDetail());
+        String status = row.sourceChangedCount() > 0 ? "SOURCE_CHANGED"
+                : row.targetCount() == 0 ? "CONFIRMED" : suggested.status();
+        return new PatternItem(sourceHash(row.openTime(), row.openTimeDetail()), row.openTime(), row.openTimeDetail(),
+                row.facilityCount(), row.targetCount(), row.protectedCount(), row.sampleName(), status, suggested);
     }
 
     @Transactional

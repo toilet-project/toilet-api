@@ -204,6 +204,57 @@ public class OpeningHoursRepository {
                 resultSet.getBoolean("manual_override"), resultSet.getBoolean("source_changed"));
     }
 
+    public List<PatternRow> patterns() {
+        return jdbc.query("""
+                SELECT TRIM(t.open_time) AS open_time,TRIM(t.open_time_detail) AS open_time_detail,COUNT(*) AS facility_count,
+                       SUM(CASE WHEN oh.manual_override=TRUE THEN 1 ELSE 0 END) AS protected_count,
+                       SUM(CASE WHEN oh.manual_override IS NULL OR oh.manual_override=FALSE THEN 1 ELSE 0 END) AS target_count,
+                       SUM(CASE WHEN oh.source_changed=TRUE THEN 1 ELSE 0 END) AS source_changed_count,
+                       MIN(t.name) AS sample_name
+                  FROM toilet t LEFT JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
+                 WHERE t.visibility_status='VISIBLE'
+                 GROUP BY TRIM(t.open_time),TRIM(t.open_time_detail)
+                 ORDER BY facility_count DESC,t.open_time,t.open_time_detail
+                """, Map.of(), (resultSet, rowNumber) -> new PatternRow(
+                resultSet.getString("open_time"), resultSet.getString("open_time_detail"),
+                resultSet.getLong("facility_count"), resultSet.getLong("target_count"),
+                resultSet.getLong("protected_count"), resultSet.getLong("source_changed_count"),
+                resultSet.getString("sample_name")));
+    }
+
+    public List<ReviewItem> patternMembers(String openTime, String openTimeDetail, int limit) {
+        var parameters = patternParameters(openTime, openTimeDetail).addValue("limit", limit);
+        return jdbc.query("""
+                SELECT t.toilet_id,t.name,t.mng_no,t.road_address,t.jibun_address,t.open_time,t.open_time_detail,
+                       oh.opening_policy,oh.is_open_24h,oh.normalization_status,oh.confidence,
+                       oh.parser_version,oh.holiday_policy,oh.manual_override,oh.source_changed
+                  FROM toilet t LEFT JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
+                 WHERE t.visibility_status='VISIBLE'
+                   AND (TRIM(t.open_time)=:openTime OR (t.open_time IS NULL AND :openTime IS NULL))
+                   AND (TRIM(t.open_time_detail)=:openTimeDetail OR (t.open_time_detail IS NULL AND :openTimeDetail IS NULL))
+                 ORDER BY COALESCE(oh.manual_override,FALSE),t.toilet_id
+                 LIMIT :limit
+                """, parameters, (resultSet, rowNumber) -> reviewItem(resultSet));
+    }
+
+    public List<RawSource> patternTargets(String openTime, String openTimeDetail) {
+        return jdbc.query("""
+                SELECT t.toilet_id,t.open_time,t.open_time_detail
+                  FROM toilet t LEFT JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
+                 WHERE t.visibility_status='VISIBLE'
+                   AND (TRIM(t.open_time)=:openTime OR (t.open_time IS NULL AND :openTime IS NULL))
+                   AND (TRIM(t.open_time_detail)=:openTimeDetail OR (t.open_time_detail IS NULL AND :openTimeDetail IS NULL))
+                   AND (oh.manual_override IS NULL OR oh.manual_override=FALSE)
+                 ORDER BY t.toilet_id
+                """, patternParameters(openTime, openTimeDetail),
+                (resultSet, rowNumber) -> new RawSource(resultSet.getLong("toilet_id"),
+                        resultSet.getString("open_time"), resultSet.getString("open_time_detail")));
+    }
+
+    private static MapSqlParameterSource patternParameters(String openTime, String openTimeDetail) {
+        return new MapSqlParameterSource().addValue("openTime", openTime).addValue("openTimeDetail", openTimeDetail);
+    }
+
     private List<Slot> schedules(long toiletId) {
         return jdbc.query("""
                 SELECT day_of_week,slot_index,start_time,end_time,crosses_midnight,is_closed
@@ -235,6 +286,8 @@ public class OpeningHoursRepository {
     }
 
     public record RawSource(long toiletId, String openTime, String openTimeDetail) {}
+    public record PatternRow(String openTime, String openTimeDetail, long facilityCount, long targetCount,
+                             long protectedCount, long sourceChangedCount, String sampleName) {}
     public record CurrentState(String sourceHash, boolean manualOverride, String parserVersion) {}
     private record Header(String openingPolicy, Boolean open24h, String status, Double confidence,
                           String parserVersion, String holidayPolicy, boolean manualOverride,

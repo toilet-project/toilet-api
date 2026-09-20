@@ -78,6 +78,42 @@ public final class OpeningHoursModels {
 
     public record ReviewDetail(ReviewItem item, View normalized) {}
 
+    public record PatternItem(
+            String patternKey,
+            String openTime,
+            String openTimeDetail,
+            long facilityCount,
+            long targetCount,
+            long protectedCount,
+            String sampleName,
+            String status,
+            Normalized suggested
+    ) {}
+
+    public record PatternPage(
+            List<PatternItem> items,
+            int page,
+            int size,
+            long totalElements,
+            int totalPages
+    ) {
+        public PatternPage {
+            items = List.copyOf(items);
+        }
+    }
+
+    public record PatternDetail(PatternItem pattern, List<ReviewItem> facilities) {
+        public PatternDetail {
+            facilities = List.copyOf(facilities);
+        }
+    }
+
+    public record PatternApplyResult(
+            String patternKey,
+            int appliedCount,
+            long protectedCount
+    ) {}
+
     public record ConfirmRequest(
             String openingPolicy,
             Boolean open24h,

@@ -3,8 +3,10 @@ package com.example.toiletapi.toilet.openinghours;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -119,5 +121,24 @@ class OpeningHoursServiceTest {
         when(repository.source(7L)).thenReturn(Optional.of(
                 new OpeningHoursRepository.RawSource(7L, "상시", "")));
         assertThrows(IllegalArgumentException.class, () -> service.confirm(9L, 7L, request));
+    }
+
+    @Test
+    void patternConfirmationAppliesOnlyRepositorySelectedTargets() {
+        var pattern = new OpeningHoursRepository.PatternRow("정시", "24시간", 3, 2, 1, 0, "대표 화장실");
+        String key = OpeningHoursService.sourceHash("정시", "24시간");
+        var request = new OpeningHoursModels.ConfirmRequest("ALWAYS", true, "OPEN", List.of());
+        when(repository.patterns()).thenReturn(List.of(pattern));
+        when(repository.patternTargets("정시", "24시간")).thenReturn(List.of(
+                new OpeningHoursRepository.RawSource(1L, "정시", "24시간"),
+                new OpeningHoursRepository.RawSource(2L, "정시", "24시간")));
+
+        var result = service.confirmPattern(9L, key, request);
+
+        assertEquals(2, result.appliedCount());
+        assertEquals(1, result.protectedCount());
+        verify(repository, times(2)).saveManual(eq(9L), anyLong(), eq(key), any());
+        verify(audit).record(eq(9L), eq(AuditAction.TOILET_OPENING_HOURS_CONFIRMED),
+                eq("TOILET_OPENING_HOURS_PATTERN"), eq(null), any());
     }
 }

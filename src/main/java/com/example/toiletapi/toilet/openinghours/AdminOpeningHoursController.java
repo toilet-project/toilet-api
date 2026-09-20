@@ -4,6 +4,9 @@ import com.example.toiletapi.toilet.openinghours.OpeningHoursModels.BackfillResu
 import com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ConfirmRequest;
 import com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ReviewDetail;
 import com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ReviewPage;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternApplyResult;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternDetail;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursModels.PatternPage;
 import com.example.toiletapi.toilet.openinghours.OpeningHoursModels.View;
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +44,26 @@ public class AdminOpeningHoursController {
     @GetMapping("/reviews/{toiletId}")
     public ReviewDetail reviewDetail(@PathVariable long toiletId) {
         return service.reviewDetail(toiletId).orElseThrow(() -> new ToiletNotFoundException(toiletId));
+    }
+
+    @GetMapping("/patterns")
+    public PatternPage patterns(@RequestParam(defaultValue = "REVIEW") String status,
+                                @RequestParam(defaultValue = "") String keyword,
+                                @RequestParam(defaultValue = "0") int page,
+                                @RequestParam(defaultValue = "15") int size) {
+        return service.patterns(status, keyword, page, size);
+    }
+
+    @GetMapping("/patterns/{patternKey}")
+    public PatternDetail patternDetail(@PathVariable String patternKey) {
+        return service.patternDetail(patternKey)
+                .orElseThrow(() -> new IllegalArgumentException("개방시간 유형을 찾지 못했습니다."));
+    }
+
+    @PutMapping("/patterns/{patternKey}")
+    public PatternApplyResult confirmPattern(@PathVariable String patternKey, @RequestBody ConfirmRequest request,
+                                             @AuthenticationPrincipal Jwt jwt) {
+        return service.confirmPattern(Long.parseLong(jwt.getSubject()), patternKey, request);
     }
 
     @GetMapping("/{toiletId}")
