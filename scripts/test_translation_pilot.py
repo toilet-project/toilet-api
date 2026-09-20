@@ -1,5 +1,7 @@
 import collections
+import contextlib
 import importlib.util
+import io
 import json
 import tempfile
 import unittest
@@ -44,6 +46,14 @@ class TranslationPilotTest(unittest.TestCase):
         self.assertEqual(len("시청 1층 화장실"), report["googleBillableCharacters"])
         self.assertEqual({"ROAD": 1}, report["addressKinds"])
         self.assertEqual("ROAD_THEN_JIBUN", report["addressPriority"])
+
+    def test_full_run_can_use_bounded_address_workers(self):
+        args = pilot.parser().parse_args([
+            "translate", "source.jsonl", "results.jsonl", "--address-workers", "4",
+        ])
+        self.assertEqual(4, args.address_workers)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            pilot.parser().parse_args(["translate", "source.jsonl", "results.jsonl", "--address-workers", "9"])
 
     def test_result_audit_rejects_both_address_columns(self):
         result = {

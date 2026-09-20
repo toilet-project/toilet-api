@@ -17,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Iterable
 
@@ -199,7 +200,8 @@ def translate(args: argparse.Namespace) -> None:
     for offset in range(0, len(pending), args.batch_size):
         batch = pending[offset: offset + args.batch_size]
         translated_names = translate_names([str(row["name"]) for row in batch], google_key)
-        for source, translated_name in zip(batch, translated_names, strict=True):
+
+        def address_result(source: dict) -> tuple[str, str | None, str | None]:
             kind, address = selected_address(source)
             translated_address = None
             address_error = None
@@ -208,6 +210,19 @@ def translate(args: argparse.Namespace) -> None:
                     translated_address = translate_address(address, juso_key, kind)
                 except LookupError as exc:
                     address_error = str(exc)
+                finally:
+                    if args.request_interval:
+                        time.sleep(args.request_interval)
+            return kind, translated_address, address_error
+
+        if args.address_workers == 1:
+            address_results = [address_result(source) for source in batch]
+        else:
+            with ThreadPoolExecutor(max_workers=args.address_workers, thread_name_prefix="juso-address") as executor:
+                address_results = list(executor.map(address_result, batch))
+
+        for source, translated_name, address_values in zip(batch, translated_names, address_results, strict=True):
+            kind, translated_address, address_error = address_values
             result = {
                 "toiletId": source["toiletId"],
                 "locale": "en",
@@ -225,8 +240,6 @@ def translate(args: argparse.Namespace) -> None:
                 "translatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
             }
             completed[result["toiletId"]] = result
-            if args.request_interval:
-                time.sleep(args.request_interval)
         write_jsonl(args.output, (completed[key] for key in sorted(completed)))
 
 
@@ -343,6 +356,7 @@ def parser() -> argparse.ArgumentParser:
     translate_command.add_argument("--expected-count", type=int, default=1000)
     translate_command.add_argument("--batch-size", type=int, default=50, choices=range(1, 101))
     translate_command.add_argument("--request-interval", type=float, default=0.05)
+    translate_command.add_argument("--address-workers", type=int, default=1, choices=range(1, 9))
     translate_command.set_defaults(handler=translate)
     audit_result = commands.add_parser("audit-results")
     audit_result.add_argument("source", type=Path)

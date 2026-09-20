@@ -67,7 +67,7 @@ PY
   TRANSLATION_PROVIDER_SOURCE='FULL_GOOGLE_NMT_JUSO' \
     python3 -B "$bundle_dir/scripts/translation_pilot.py" translate \
       "$source_file" "$results_file" --expected-count "$count" \
-      --batch-size 50 --request-interval 0.08
+      --batch-size 50 --address-workers 4 --request-interval 0.4
   python3 -B "$bundle_dir/scripts/translation_pilot.py" audit-results \
     "$source_file" "$results_file" "$audit_file"
   python3 - "$audit_file" <<'PY' >> "$work_dir/audit-parts.jsonl"
