@@ -16,6 +16,7 @@ import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
 import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import com.example.toiletapi.toilet.repository.ToiletRegionProjection;
 import com.example.toiletapi.toilet.translation.ToiletTranslationModels.Text;
 import com.example.toiletapi.toilet.translation.ToiletTranslationService;
@@ -75,6 +76,9 @@ class ToiletServiceTest {
     private ToiletDisplayGroupRepository displayGroupRepository;
 
     @Mock
+    private OpeningHoursService openingHoursService;
+
+    @Mock
     private ToiletTranslationService translationService;
 
     @InjectMocks
@@ -124,6 +128,23 @@ class ToiletServiceTest {
 
         assertEquals(7L, result.toilets().getFirst().displayGroupId());
         assertEquals("XXX문화원", result.toilets().getFirst().displayGroupName());
+    }
+
+    @Test
+    void shouldUseOnlyConfirmedTwentyFourHourRowsWhenFilterIsEnabled() {
+        BigDecimal southLat = new BigDecimal("37.4900");
+        BigDecimal northLat = new BigDecimal("37.5100");
+        BigDecimal westLng = new BigDecimal("127.0100");
+        BigDecimal eastLng = new BigDecimal("127.0300");
+        when(toiletRepository.findOpen24hByBounds(southLat, northLat, westLng, eastLng))
+                .thenReturn(List.of());
+        when(displayGroupRepository.assignmentsFor(List.of())).thenReturn(Map.of());
+
+        var response = toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng,
+                3, false, true);
+
+        assertTrue(response.toilets().isEmpty());
+        verify(toiletRepository).findOpen24hByBounds(southLat, northLat, westLng, eastLng);
     }
 
     @Test

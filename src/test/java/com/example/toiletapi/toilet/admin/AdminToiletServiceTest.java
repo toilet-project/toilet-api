@@ -6,6 +6,7 @@ import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.model.ToiletEditableData;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import com.example.toiletapi.toilet.translation.ToiletTranslationService;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +27,8 @@ class AdminToiletServiceTest {
     ToiletRepository toilets = mock(ToiletRepository.class);
     AuditLogService audit = mock(AuditLogService.class);
     ToiletTranslationService translations = mock(ToiletTranslationService.class);
-    AdminToiletService service = new AdminToiletService(jdbc, toilets, audit, translations);
+    OpeningHoursService openingHours = mock(OpeningHoursService.class);
+    AdminToiletService service = new AdminToiletService(jdbc, toilets, audit, translations, openingHours);
     Toilet toilet = mock(Toilet.class);
 
     @BeforeEach void setup() {
@@ -104,6 +106,20 @@ class AdminToiletServiceTest {
         verify(toilet, never()).applyAdminUpdate(any());
         verifyNoInteractions(translations);
         verifyNoInteractions(audit);
+    }
+
+    @Test void openingHoursUpdateSynchronizesLanguageNeutralSchedule() {
+        ToiletEditableData before = new ToiletEditableData("기존 화장실", null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null);
+        Editable after = new Editable("기존 화장실", null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, "정시", "평일 09:00~18:00",
+                null, null, null, null, null, null);
+
+        service.update(9, 1, new UpdateRequest(AdminToiletService.snapshotToken(before), after));
+
+        verify(openingHours).synchronize(1L, "정시", "평일 09:00~18:00");
+        verifyNoInteractions(translations);
     }
 
     private static Editable emptyEditable(String name) {

@@ -15,6 +15,7 @@ import com.example.toiletapi.report.repository.ToiletReportRepository;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import com.example.toiletapi.toilet.translation.ToiletTranslationService;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Optional;
@@ -27,7 +28,7 @@ class ReportAuthorDisplayTest {
     private final ToiletReportService service = new ToiletReportService(reports,
             mock(CoordinateRevisionRepository.class), toilets, users, mock(AuditLogService.class),
             mock(UserNotificationService.class), mock(CoordinateAddressResolver.class),
-            mock(ToiletTranslationService.class));
+            mock(ToiletTranslationService.class), mock(OpeningHoursService.class));
 
     private void detailFixture(Long reporterId) {
         var report = ToiletReport.createOpenTimeCorrection(10L, reporterId, "09:00", "합성 사유", "synthetic");

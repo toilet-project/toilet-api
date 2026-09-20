@@ -31,6 +31,7 @@ class CacheInvalidationMySqlTest {
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
+        jdbc.execute("CREATE TABLE toilet_opening_hours (toilet_id BIGINT PRIMARY KEY,is_open_24h BOOLEAN,normalization_status VARCHAR(24),source_changed BOOLEAN)");
         jdbc.execute("CREATE TABLE toilet_translation (toilet_id BIGINT NOT NULL,locale VARCHAR(12) NOT NULL,name VARCHAR(255),PRIMARY KEY(toilet_id,locale))");
         // DDL is an explicit DBA operation; application writes below keep the regular test user.
         var ddlDataSource=new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword());
@@ -38,10 +39,10 @@ class CacheInvalidationMySqlTest {
                 .locations("classpath:db/cache-revalidation").load().migrate();
         repository=new CacheInvalidationRepository(jdbc);
     }
-    @BeforeEach void clear() {jdbc.update("DELETE FROM toilet_translation");jdbc.update("DELETE FROM toilet_region_decision");jdbc.update("DELETE FROM toilet_region_assignment");jdbc.update("DELETE FROM toilet_region");jdbc.update("DELETE FROM toilet");jdbc.update("DELETE FROM web_cache_invalidation");}
+    @BeforeEach void clear() {jdbc.update("DELETE FROM toilet_translation");jdbc.update("DELETE FROM toilet_region_decision");jdbc.update("DELETE FROM toilet_region_assignment");jdbc.update("DELETE FROM toilet_region");jdbc.update("DELETE FROM toilet_opening_hours");jdbc.update("DELETE FROM toilet");jdbc.update("DELETE FROM web_cache_invalidation");}
     @AfterAll static void rollbackRetainsQueueButRemovesOnlyOwnedTriggers() throws Exception {
         long before = repository.pendingCount();
-        assertEquals(16, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
+        assertEquals(19, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
         try (var connection = new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword()).getConnection()) {
             ScriptUtils.executeSqlScript(connection,new ClassPathResource("db/cache-revalidation/rollback_triggers.sql"));
         }
@@ -91,6 +92,17 @@ class CacheInvalidationMySqlTest {
         jdbc.update("INSERT INTO toilet_region_decision VALUES (1,'VERIFIED')"); assertEquals(1,repository.pendingCount());
         repository.acknowledge(repository.due().getFirst());
         jdbc.update("DELETE FROM toilet_region_assignment WHERE toilet_id=1"); assertEquals(1,repository.pendingCount());
+    }
+    @Test void normalizedOpeningHoursRefreshDetailAndFilteredCatalog() {
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)");
+        repository.acknowledge(repository.due().getFirst());
+        jdbc.update("INSERT INTO toilet_opening_hours VALUES (1,TRUE,'PARSED',FALSE)");
+        var inserted=repository.due().getFirst();
+        assertEquals(CacheInvalidationEvent.Action.UPSERT,inserted.action());
+        assertTrue(inserted.catalogChanged());
+        repository.acknowledge(inserted);
+        jdbc.update("UPDATE toilet_opening_hours SET is_open_24h=FALSE WHERE toilet_id=1");
+        assertTrue(repository.due().getFirst().catalogChanged());
     }
     @Test void visibilityChangesInvalidateBothDetailAndCatalog() {
         jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)");

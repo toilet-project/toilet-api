@@ -38,6 +38,7 @@ public record ToiletDetailResponse(
         String dataBaseDate,
         String dataSource,
         ToiletRegionResponse region,
+        OpeningHoursResponse normalizedOpeningHours,
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         Map<String, ToiletTranslationResponse> translations
 ) {
@@ -53,16 +54,27 @@ public record ToiletDetailResponse(
      * @return 화장실 상세 응답
      */
     public static ToiletDetailResponse from(Toilet toilet) {
-        return from(toilet, null, Map.of());
+        return from(toilet, null, null, Map.of());
     }
 
     public static ToiletDetailResponse from(Toilet toilet, ToiletRegionResponse region) {
-        return from(toilet, region, Map.of());
+        return from(toilet, region, null, Map.of());
+    }
+
+    public static ToiletDetailResponse from(Toilet toilet, ToiletRegionResponse region,
+                                            OpeningHoursResponse normalizedOpeningHours) {
+        return from(toilet, region, normalizedOpeningHours, Map.of());
+    }
+
+    public static ToiletDetailResponse from(Toilet toilet, ToiletRegionResponse region,
+                                            Map<String, ToiletTranslationResponse> translations) {
+        return from(toilet, region, null, translations);
     }
 
     public static ToiletDetailResponse from(
             Toilet toilet,
             ToiletRegionResponse region,
+            OpeningHoursResponse normalizedOpeningHours,
             Map<String, ToiletTranslationResponse> translations
     ) {
         return new ToiletDetailResponse(
@@ -95,6 +107,7 @@ public record ToiletDetailResponse(
                 toilet.getDataBaseDate(),
                 toilet.getDataSource(),
                 region,
+                normalizedOpeningHours,
                 translations
         );
     }
