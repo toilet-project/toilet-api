@@ -26,6 +26,7 @@ HEX64 = re.compile(r"[0-9a-f]{64}")
 GOOGLE_ENDPOINT = "https://translation.googleapis.com/language/translate/v2"
 JUSO_ENDPOINT = "https://business.juso.go.kr/addrlink/addrEngApi.do"
 PROVIDER_SOURCE = "PILOT_GOOGLE_NMT_JUSO"
+PROVIDER_SOURCE_PATTERN = re.compile(r"[A-Z0-9_]{1,40}")
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -184,6 +185,9 @@ def translate(args: argparse.Namespace) -> None:
     juso_key = os.environ.get("JUSO_ENGLISH_API_KEY", "").strip()
     if not google_key or not juso_key:
         raise RuntimeError("GOOGLE_TRANSLATION_API_KEY and JUSO_ENGLISH_API_KEY are required")
+    provider_source = os.environ.get("TRANSLATION_PROVIDER_SOURCE", PROVIDER_SOURCE).strip()
+    if not PROVIDER_SOURCE_PATTERN.fullmatch(provider_source):
+        raise RuntimeError("TRANSLATION_PROVIDER_SOURCE is invalid")
     rows = read_jsonl(args.source)
     validate_source(rows, args.expected_count)
     completed = {row["toiletId"]: row for row in read_jsonl(args.output)} if args.output.exists() else {}
@@ -207,7 +211,7 @@ def translate(args: argparse.Namespace) -> None:
                 "roadAddress": translated_address if kind == "ROAD" else None,
                 "jibunAddress": translated_address if kind == "JIBUN" else None,
                 "expectedSourceHash": source["sourceHash"].lower(),
-                "source": PROVIDER_SOURCE,
+                "source": provider_source,
                 "nameProvider": "GOOGLE_CLOUD_TRANSLATION_BASIC",
                 "addressProvider": "MOIS_JUSO_ENGLISH" if address else None,
                 "addressKind": kind,
@@ -217,9 +221,9 @@ def translate(args: argparse.Namespace) -> None:
                 "translatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
             }
             completed[result["toiletId"]] = result
-            write_jsonl(args.output, (completed[key] for key in sorted(completed)))
             if args.request_interval:
                 time.sleep(args.request_interval)
+        write_jsonl(args.output, (completed[key] for key in sorted(completed)))
 
 
 def balanced_review_sample(source_rows: list[dict], result_rows: list[dict], count: int) -> list[tuple[dict, dict]]:
