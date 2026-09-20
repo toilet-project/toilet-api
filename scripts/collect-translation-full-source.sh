@@ -10,6 +10,7 @@ case "$after_id" in ''|*[!0-9]*) echo 'after id must be an integer' >&2; exit 2;
 case "$batch_size" in ''|*[!0-9]*) echo 'batch size must be an integer' >&2; exit 2;; esac
 test "$batch_size" -ge 1
 test "$batch_size" -le 1000
+echo "translation-full-source: mode=$mode after=$after_id limit=$batch_size" >&2
 
 api_environment="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-api)"
 mysql_user="$(sed -n 's/^SPRING_DB_USERNAME=//p' <<<"$api_environment")"
@@ -17,6 +18,7 @@ mysql_password="$(sed -n 's/^SPRING_DB_PASSWORD=//p' <<<"$api_environment")"
 unset api_environment
 test -n "$mysql_user"
 test -n "$mysql_password"
+echo 'translation-full-source: database credentials loaded' >&2
 
 common_sql="
   FROM toilet t
@@ -54,7 +56,18 @@ else
        ORDER BY t.toilet_id
        LIMIT ${batch_size};"
 fi
+echo 'translation-full-source: query prepared' >&2
 
-docker exec -i -e MYSQL_PWD="$mysql_password" toilet-mysql \
+mysql_output="$(mktemp)"
+mysql_error="$(mktemp)"
+echo 'translation-full-source: temporary output prepared' >&2
+trap 'rm -f -- "$mysql_output" "$mysql_error"' EXIT
+if ! docker exec -e MYSQL_PWD="$mysql_password" toilet-mysql \
   mysql --protocol=tcp -h 127.0.0.1 --default-character-set=utf8mb4 \
-  --batch --raw --skip-column-names -u "$mysql_user" toilet_db -e "$sql"
+  --batch --raw --skip-column-names -u "$mysql_user" toilet_db -e "$sql" \
+  > "$mysql_output" 2> "$mysql_error"; then
+  echo 'translation-full-source: database query failed' >&2
+  sed -E 's/(using password:).*/\1 [redacted]/I' "$mysql_error" >&2
+  exit 1
+fi
+cat "$mysql_output"

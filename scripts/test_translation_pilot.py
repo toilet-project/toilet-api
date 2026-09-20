@@ -1,5 +1,7 @@
 import collections
+import contextlib
 import importlib.util
+import io
 import json
 import tempfile
 import unittest
@@ -44,6 +46,35 @@ class TranslationPilotTest(unittest.TestCase):
         self.assertEqual(len("시청 1층 화장실"), report["googleBillableCharacters"])
         self.assertEqual({"ROAD": 1}, report["addressKinds"])
         self.assertEqual("ROAD_THEN_JIBUN", report["addressPriority"])
+
+    def test_full_run_can_use_bounded_address_workers(self):
+        args = pilot.parser().parse_args([
+            "translate", "source.jsonl", "results.jsonl", "--address-workers", "4",
+        ])
+        self.assertEqual(4, args.address_workers)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            pilot.parser().parse_args(["translate", "source.jsonl", "results.jsonl", "--address-workers", "9"])
+
+    @patch.dict(pilot.os.environ, {
+        "GOOGLE_TRANSLATION_API_KEY": "google-key",
+        "JUSO_ENGLISH_API_KEY": "juso-key",
+        "TRANSLATION_PROVIDER_SOURCE": "FULL_GOOGLE_NMT_JUSO",
+    })
+    @patch.object(pilot, "translate_address", return_value="110 Sejong-daero, Jung-gu, Seoul")
+    @patch.object(pilot, "translate_names", return_value=["City Hall 1F Restroom"])
+    def test_parallel_translation_records_address_provider(self, _names, _address):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.jsonl"
+            output = Path(directory) / "results.jsonl"
+            source.write_text(json.dumps(self.source(), ensure_ascii=False) + "\n", encoding="utf-8")
+            args = pilot.parser().parse_args([
+                "translate", str(source), str(output), "--expected-count", "1",
+                "--address-workers", "4", "--request-interval", "0",
+            ])
+            pilot.translate(args)
+            result = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual("MOIS_JUSO_ENGLISH", result["addressProvider"])
+            self.assertEqual("FULL_GOOGLE_NMT_JUSO", result["source"])
 
     def test_result_audit_rejects_both_address_columns(self):
         result = {
@@ -125,6 +156,32 @@ class TranslationPilotTest(unittest.TestCase):
         }
         translated = pilot.translate_address("서울특별시 중구 태평로1가 31", "key", "JIBUN")
         self.assertEqual("31 Taepyeongno 1-ga, Jung-gu, Seoul", translated)
+
+    @patch.object(pilot, "get_json")
+    def test_juso_search_removes_rejected_sql_special_characters(self, get_json):
+        get_json.return_value = {"results": {"common": {"errorCode": "0"}, "juso": [{
+            "korAddr": "서울특별시 중구 세종대로 110", "roadAddr": "110 Sejong-daero, Jung-gu, Seoul",
+            "jibunAddr": "31 Taepyeongno 1-ga, Jung-gu, Seoul",
+        }]}}
+        pilot.translate_address("서울특별시 중구 세종대로 110 [별관]=1%", "key", "ROAD")
+        params = get_json.call_args.args[1]
+        self.assertEqual("서울특별시 중구 세종대로 110 별관 1", params["keyword"])
+
+    @patch.object(pilot, "get_json")
+    def test_juso_rejects_incomplete_address_as_a_row_level_miss(self, get_json):
+        get_json.return_value = {"results": {"common": {
+            "errorCode": "E0005", "errorMessage": "Please enter your address in detail.",
+        }}}
+        with self.assertRaises(LookupError):
+            pilot.translate_address("서울특별시", "key", "ROAD")
+
+    @patch.object(pilot, "get_json")
+    def test_juso_authentication_error_still_aborts_the_run(self, get_json):
+        get_json.return_value = {"results": {"common": {
+            "errorCode": "E0001", "errorMessage": "Unauthorized API key",
+        }}}
+        with self.assertRaises(RuntimeError):
+            pilot.translate_address("서울특별시 중구 세종대로 110", "key", "ROAD")
 
     def test_audit_source_records_fingerprint_without_retention(self):
         with tempfile.TemporaryDirectory() as directory:

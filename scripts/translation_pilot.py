@@ -17,11 +17,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Iterable
 
 HANGUL = re.compile(r"[\uac00-\ud7a3]")
 NUMBER = re.compile(r"\d+(?:[.-]\d+)*")
+JUSO_UNSUPPORTED = re.compile(r"[%=><\[\]]+")
 HEX64 = re.compile(r"[0-9a-f]{64}")
 GOOGLE_ENDPOINT = "https://translation.googleapis.com/language/translate/v2"
 JUSO_ENDPOINT = "https://business.juso.go.kr/addrlink/addrEngApi.do"
@@ -156,17 +158,25 @@ def normalize_spaces(value: str) -> str:
 
 
 def translate_address(address: str, api_key: str, address_kind: str) -> str:
+    search_keyword = normalize_spaces(JUSO_UNSUPPORTED.sub(" ", address))
+    if not search_keyword:
+        raise LookupError("official English address search keyword is empty")
     response = get_json(JUSO_ENDPOINT, {
         "confmKey": api_key,
         "currentPage": "1",
         "countPerPage": "10",
-        "keyword": address,
+        "keyword": search_keyword,
         "resultType": "json",
     })
     results = response.get("results", {})
     common = results.get("common", {})
     if str(common.get("errorCode", "0")) != "0":
-        raise RuntimeError(f"Juso API error: {common.get('errorMessage', 'unknown')}")
+        code = str(common.get("errorCode", "unknown"))
+        message = str(common.get("errorMessage", "unknown"))
+        fatal_terms = ("key", "quota", "limit", "exceed", "service", "system", "temporar", "서버", "승인키", "일일")
+        if code.upper() == "E0001" or any(term in message.lower() for term in fatal_terms):
+            raise RuntimeError(f"Juso API error: {message}")
+        raise LookupError(f"official English address lookup rejected ({code})")
     candidates = results.get("juso") or []
     if not candidates:
         raise LookupError("no official English address result")
@@ -195,7 +205,8 @@ def translate(args: argparse.Namespace) -> None:
     for offset in range(0, len(pending), args.batch_size):
         batch = pending[offset: offset + args.batch_size]
         translated_names = translate_names([str(row["name"]) for row in batch], google_key)
-        for source, translated_name in zip(batch, translated_names, strict=True):
+
+        def address_result(source: dict) -> tuple[str, str | None, str | None]:
             kind, address = selected_address(source)
             translated_address = None
             address_error = None
@@ -204,6 +215,19 @@ def translate(args: argparse.Namespace) -> None:
                     translated_address = translate_address(address, juso_key, kind)
                 except LookupError as exc:
                     address_error = str(exc)
+                finally:
+                    if args.request_interval:
+                        time.sleep(args.request_interval)
+            return kind, translated_address, address_error
+
+        if args.address_workers == 1:
+            address_results = [address_result(source) for source in batch]
+        else:
+            with ThreadPoolExecutor(max_workers=args.address_workers, thread_name_prefix="juso-address") as executor:
+                address_results = list(executor.map(address_result, batch))
+
+        for source, translated_name, address_values in zip(batch, translated_names, address_results, strict=True):
+            kind, translated_address, address_error = address_values
             result = {
                 "toiletId": source["toiletId"],
                 "locale": "en",
@@ -213,7 +237,7 @@ def translate(args: argparse.Namespace) -> None:
                 "expectedSourceHash": source["sourceHash"].lower(),
                 "source": provider_source,
                 "nameProvider": "GOOGLE_CLOUD_TRANSLATION_BASIC",
-                "addressProvider": "MOIS_JUSO_ENGLISH" if address else None,
+                "addressProvider": "MOIS_JUSO_ENGLISH" if kind != "NONE" else None,
                 "addressKind": kind,
                 "addressError": address_error,
                 "region": source.get("region"),
@@ -221,8 +245,6 @@ def translate(args: argparse.Namespace) -> None:
                 "translatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
             }
             completed[result["toiletId"]] = result
-            if args.request_interval:
-                time.sleep(args.request_interval)
         write_jsonl(args.output, (completed[key] for key in sorted(completed)))
 
 
@@ -339,6 +361,7 @@ def parser() -> argparse.ArgumentParser:
     translate_command.add_argument("--expected-count", type=int, default=1000)
     translate_command.add_argument("--batch-size", type=int, default=50, choices=range(1, 101))
     translate_command.add_argument("--request-interval", type=float, default=0.05)
+    translate_command.add_argument("--address-workers", type=int, default=1, choices=range(1, 9))
     translate_command.set_defaults(handler=translate)
     audit_result = commands.add_parser("audit-results")
     audit_result.add_argument("source", type=Path)
