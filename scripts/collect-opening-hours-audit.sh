@@ -10,7 +10,8 @@ test -n "$mysql_password"
 
 mysql_query() {
   docker exec -e MYSQL_PWD="$mysql_password" toilet-mysql \
-    mysql --protocol=tcp -h 127.0.0.1 --batch --raw -u "$mysql_user" toilet_db \
+    mysql --protocol=tcp -h 127.0.0.1 --default-character-set=utf8mb4 --batch --raw \
+    -u "$mysql_user" toilet_db \
     -e "START TRANSACTION READ ONLY; $1 ROLLBACK;"
 }
 
