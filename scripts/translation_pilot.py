@@ -284,6 +284,8 @@ def audit_results(source_rows: list[dict], result_rows: list[dict]) -> dict:
 
 def command_audit_source(args: argparse.Namespace) -> None:
     report = validate_source(read_jsonl(args.source), args.expected_count)
+    report["sourceFingerprintSha256"] = hashlib.sha256(args.source.read_bytes()).hexdigest()
+    report["rawSourceRetained"] = False
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 

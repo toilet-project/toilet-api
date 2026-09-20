@@ -59,6 +59,17 @@ class TranslationPilotTest(unittest.TestCase):
         report = pilot.audit_results([self.source()], [result])
         self.assertIn("NAME_NUMBER_LOSS", report["issueCounts"])
 
+    def test_audit_source_records_fingerprint_without_retention(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.jsonl"
+            report = Path(directory) / "report.json"
+            source.write_text(json.dumps(self.source(), ensure_ascii=False) + "\n", encoding="utf-8")
+            args = type("Args", (), {"source": source, "output": report, "expected_count": 1})()
+            pilot.command_audit_source(args)
+            saved = json.loads(report.read_text(encoding="utf-8"))
+            self.assertRegex(saved["sourceFingerprintSha256"], r"^[0-9a-f]{64}$")
+            self.assertFalse(saved["rawSourceRetained"])
+
 
 if __name__ == "__main__":
     unittest.main()
