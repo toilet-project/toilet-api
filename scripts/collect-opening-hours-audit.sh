@@ -59,15 +59,15 @@ SELECT SUM(CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) 
        SUM(CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) REGEXP '공휴일|연중무휴') AS holiday_rows,
        SUM(oh.manual_override=TRUE) AS manual_rows,
        SUM(oh.manual_override=TRUE AND COALESCE(oh.is_open_24h,FALSE)=FALSE AND
-           CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) REGEXP
-            '24[[:space:]]*시간|00(:00)?[[:space:]]*(~|-)[[:space:]]*(24(:00)?|23:59)|00~24') AS manual_24h_source_overrides,
+           REGEXP_LIKE(COALESCE(NULLIF(TRIM(t.open_time_detail),''),TRIM(t.open_time),''),
+            '^(24[[:space:]]*시간([[:space:]]*개방)?|00(:00)?[[:space:]]*(~|〜|～|–|—|-)[[:space:]]*(24(:00)?|23:59))$', 'c')) AS manual_24h_source_overrides,
        SUM(oh.source_changed=TRUE) AS source_changed_rows,
        SUM(oh.is_open_24h=TRUE AND oh.normalization_status IN ('PARSED','CONFIRMED') AND oh.source_changed=FALSE) AS filter_eligible
 FROM toilet t JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id;
 "
 printf '%s\n' '```'
 
-printf '%s\n' '' '## 명시적 24시간 표현이 있으나 자동 24시간 판정에서 제외된 주요 원문' '' '```text'
+printf '%s\n' '' '## 순수 24시간 원문이지만 자동 24시간 판정에서 제외된 유형' '' '```text'
 mysql_query "
 SELECT COALESCE(NULLIF(TRIM(t.open_time),''),'<EMPTY>') AS open_time,
        COALESCE(NULLIF(TRIM(t.open_time_detail),''),'<EMPTY>') AS open_time_detail,
@@ -75,10 +75,8 @@ SELECT COALESCE(NULLIF(TRIM(t.open_time),''),'<EMPTY>') AS open_time,
        oh.normalization_status,COUNT(*) AS row_count
 FROM toilet t JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
 WHERE oh.manual_override=FALSE AND COALESCE(oh.is_open_24h,FALSE)=FALSE AND
-      CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) REGEXP
-       '24[[:space:]]*시간|00(:00)?[[:space:]]*(~|-)[[:space:]]*(24(:00)?|23:59)|00~24' AND NOT
-      (CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) REGEXP
-       '미개방|폐쇄|운영[[:space:]]*안함|이용[[:space:]]*불가|공휴일[[:space:]]*(제외|휴무)|휴관|동절기|하절기|계절|임시|주말[[:space:]]*제외')
+      REGEXP_LIKE(COALESCE(NULLIF(TRIM(t.open_time_detail),''),TRIM(t.open_time),''),
+       '^(24[[:space:]]*시간([[:space:]]*개방)?|00(:00)?[[:space:]]*(~|〜|～|–|—|-)[[:space:]]*(24(:00)?|23:59))$', 'c')
 GROUP BY open_time,open_time_detail,oh.opening_policy,oh.is_open_24h,oh.normalization_status
 ORDER BY row_count DESC LIMIT 100;
 "
@@ -87,13 +85,11 @@ printf '%s\n' '```'
 quality="$(mysql_query "
 SELECT SUM(oh.toilet_id IS NULL) AS missing_normalized,
        SUM(oh.is_open_24h=TRUE AND oh.manual_override=FALSE AND NOT
-           (CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) REGEXP
-            '24[[:space:]]*시간|00(:00)?[[:space:]]*(~|-)[[:space:]]*(24(:00)?|23:59)|00~24')) AS auto_true_without_explicit_source,
+           REGEXP_LIKE(CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')),
+            '(^|[^0-9])(24[[:space:]]*시간|00(:00)?[[:space:]]*(~|〜|～|–|—|-)[[:space:]]*(24(:00)?|23:59))([^0-9]|$)', 'c')) AS auto_true_without_explicit_source,
        SUM(oh.manual_override=FALSE AND COALESCE(oh.is_open_24h,FALSE)=FALSE AND
-           CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) REGEXP
-            '24[[:space:]]*시간|00(:00)?[[:space:]]*(~|-)[[:space:]]*(24(:00)?|23:59)|00~24' AND NOT
-           (CONCAT(COALESCE(t.open_time,''),' ',COALESCE(t.open_time_detail,'')) REGEXP
-            '미개방|폐쇄|운영[[:space:]]*안함|이용[[:space:]]*불가|공휴일[[:space:]]*(제외|휴무)|휴관|동절기|하절기|계절|임시|주말[[:space:]]*제외')) AS explicit_24h_not_true_without_exception,
+           REGEXP_LIKE(COALESCE(NULLIF(TRIM(t.open_time_detail),''),TRIM(t.open_time),''),
+            '^(24[[:space:]]*시간([[:space:]]*개방)?|00(:00)?[[:space:]]*(~|〜|～|–|—|-)[[:space:]]*(24(:00)?|23:59))$', 'c')) AS explicit_24h_not_true_without_exception,
        SUM(oh.opening_policy='SCHEDULED' AND NOT EXISTS
            (SELECT 1 FROM toilet_opening_schedule s WHERE s.toilet_id=oh.toilet_id)) AS scheduled_without_slots,
        SUM(oh.opening_policy<>'SCHEDULED' AND EXISTS
@@ -111,7 +107,7 @@ cat <<MARKDOWN
 | --- | ---: |
 | 정형 행 누락 | $missing_normalized |
 | 관리자 확정이 아닌 24시간 판정에 명시적 근거 없음 | $auto_true_without_explicit |
-| 관리자 확정이 아닌, 예외 없는 명시적 24시간 원문이 24시간으로 판정되지 않음 | $explicit_24h_not_true |
+| 관리자 확정이 아닌 순수 24시간 원문이 24시간으로 판정되지 않음 | $explicit_24h_not_true |
 | 요일별 운영인데 일정 없음 | $scheduled_without_slots |
 | 요일별 운영이 아닌데 일정이 남음 | $non_scheduled_with_slots |
 | 요일별 운영과 24시간 판정이 동시에 설정됨 | $scheduled_marked_24h |
