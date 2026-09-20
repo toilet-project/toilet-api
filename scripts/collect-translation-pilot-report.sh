@@ -17,7 +17,7 @@ test -n "$mysql_password"
 
 # The selected names and addresses never leave the database container. Only this
 # aggregate JSON document is written to stdout and returned to the workflow.
-docker exec -e MYSQL_PWD="$mysql_password" toilet-mysql \
+docker exec -i -e MYSQL_PWD="$mysql_password" toilet-mysql \
   mysql --protocol=tcp -h 127.0.0.1 --default-character-set=utf8mb4 \
   --batch --raw --skip-column-names -u "$mysql_user" toilet_db <<SQL
 SET SESSION group_concat_max_len = 1048576;
