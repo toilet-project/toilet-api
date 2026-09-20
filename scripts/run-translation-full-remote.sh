@@ -20,14 +20,16 @@ output_dir="$remote_dir/output"
 mkdir -p "$bundle_dir" "$work_dir" "$output_dir"
 tar -xzf "$remote_dir/input.tgz" -C "$bundle_dir"
 rm -f -- "$remote_dir/input.tgz"
+echo 'translation-full: bundle extracted' >&2
 
 google_key="$(cat "$bundle_dir/credentials/google.key")"
 juso_key="$(cat "$bundle_dir/credentials/juso.key")"
 test -n "$google_key" && test -n "$juso_key"
 rm -rf -- "$bundle_dir/credentials"
+echo 'translation-full: credentials loaded and source files removed' >&2
 
-initial_plan="$(bash "$bundle_dir/scripts/collect-translation-full-source.sh" plan)"
-printf '%s\n' "$initial_plan" > "$work_dir/initial-plan.json"
+bash "$bundle_dir/scripts/collect-translation-full-source.sh" plan > "$work_dir/initial-plan.json"
+echo 'translation-full: initial plan collected' >&2
 python3 - "$work_dir/initial-plan.json" <<'PY' >&2
 import json,sys
 plan=json.load(open(sys.argv[1],encoding='utf-8'))

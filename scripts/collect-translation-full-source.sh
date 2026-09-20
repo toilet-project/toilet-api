@@ -10,6 +10,7 @@ case "$after_id" in ''|*[!0-9]*) echo 'after id must be an integer' >&2; exit 2;
 case "$batch_size" in ''|*[!0-9]*) echo 'batch size must be an integer' >&2; exit 2;; esac
 test "$batch_size" -ge 1
 test "$batch_size" -le 1000
+echo "translation-full-source: mode=$mode after=$after_id limit=$batch_size" >&2
 
 api_environment="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-api)"
 mysql_user="$(sed -n 's/^SPRING_DB_USERNAME=//p' <<<"$api_environment")"
@@ -17,6 +18,7 @@ mysql_password="$(sed -n 's/^SPRING_DB_PASSWORD=//p' <<<"$api_environment")"
 unset api_environment
 test -n "$mysql_user"
 test -n "$mysql_password"
+echo 'translation-full-source: database credentials loaded' >&2
 
 common_sql="
   FROM toilet t
