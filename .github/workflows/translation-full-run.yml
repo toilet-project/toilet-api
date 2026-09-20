@@ -99,8 +99,9 @@ jobs:
           ssh_options=(-F /dev/null -i "$RUNNER_TEMP/translation-full-key" -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/translation-full-hosts" -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 -o ForwardAgent=no -o ClearAllForwardings=yes -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o 'ProxyCommand=cloudflared access ssh --hostname %h')
           ssh "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" "install -d -m 700 '$remote_dir'"
           ssh -T "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" "umask 077; cat > '$remote_dir/input.tgz'" < "$RUNNER_TEMP/translation-full-input.tgz"
-          timeout 345m ssh "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
-            "bash -s -- '$remote_dir' '100000' '$MAX_GOOGLE_CHARACTERS'" < scripts/run-translation-full-remote.sh
+          timeout 345m ssh -T "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+            "bash -s -- '$remote_dir' '100000' '$MAX_GOOGLE_CHARACTERS'; status=\$?; test \$status -eq 0 || exit \$status; test -s '$remote_dir/output.tgz'" \
+            < scripts/run-translation-full-remote.sh
           ssh -T "${ssh_options[@]}" "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" "cat '$remote_dir/output.tgz'" > "$RUNNER_TEMP/translation-full-output.tgz"
           install -d -m 700 translation-full-output
           tar -xzf "$RUNNER_TEMP/translation-full-output.tgz" -C translation-full-output
