@@ -22,8 +22,9 @@ case "$ids" in
   ''|*[!0-9,]*) echo 'invalid review ID list' >&2; exit 2 ;;
 esac
 test "$(printf '%s' "$ids" | tr ',' '\n' | sort -u | wc -l)" -eq 100
-export_key="$bundle_dir/credentials/review-export.key"
-test -s "$export_key"
+public_key="$bundle_dir/credentials/review-public.pem"
+test -s "$public_key"
+openssl pkey -pubin -in "$public_key" -noout
 
 mysql_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-mysql | sed -n 's/^MYSQL_USER=//p')"
 mysql_password="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-mysql | sed -n 's/^MYSQL_PASSWORD=//p')"
@@ -47,22 +48,26 @@ unset mysql_user mysql_password
 rm -f -- "$work_dir/review.sql"
 test "$(wc -l < "$work_dir/source-base64.tsv")" -eq 100
 
+openssl rand -base64 64 > "$work_dir/data.key"
 openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
   -in "$work_dir/source-base64.tsv" \
   -out "$output_dir/source-base64.tsv.enc" \
-  -pass file:"$export_key"
-rm -f -- "$work_dir/source-base64.tsv" "$export_key"
+  -pass file:"$work_dir/data.key"
+openssl pkeyutl -encrypt -pubin -inkey "$public_key" \
+  -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 \
+  -in "$work_dir/data.key" -out "$output_dir/data-key.enc"
+rm -f -- "$work_dir/source-base64.tsv" "$work_dir/data.key" "$public_key"
 rm -rf -- "$bundle_dir"
 
 cipher_sha256="$(sha256sum "$output_dir/source-base64.tsv.enc" | cut -d' ' -f1)"
 cat > "$output_dir/review-export-manifest.json" <<JSON
 {
   "sampleCount": 100,
-  "cipher": "AES-256-CBC-PBKDF2-SHA256",
+  "cipher": "AES-256-CBC-PBKDF2-SHA256 with RSA-OAEP-SHA256 wrapped data key",
   "iterations": 200000,
   "cipherSha256": "$cipher_sha256",
   "containsPlaintextSource": false
 }
 JSON
 tar -czf "$remote_dir/output.tgz" -C "$output_dir" \
-  source-base64.tsv.enc review-export-manifest.json
+  source-base64.tsv.enc data-key.enc review-export-manifest.json

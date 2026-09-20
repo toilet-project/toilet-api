@@ -179,9 +179,12 @@ class TranslationPilotTest(unittest.TestCase):
         remote = (scripts / "run-translation-review-export-remote.sh").read_text(encoding="utf-8")
         workflow = (scripts.parent / ".github" / "workflows" / "translation-pilot-review-export.yml").read_text(encoding="utf-8")
         self.assertIn("openssl enc -aes-256-cbc -pbkdf2", remote)
+        self.assertIn("openssl pkeyutl -encrypt -pubin", remote)
         self.assertIn("rm -f -- \"$work_dir/source-base64.tsv\"", remote)
         self.assertNotIn("source-base64.tsv translation", remote)
         self.assertIn("Upload encrypted review source only", workflow)
+        self.assertIn("export_public_key_base64", workflow)
+        self.assertNotIn("TRANSLATION_REVIEW_EXPORT_KEY", workflow)
         self.assertNotIn("source-base64.tsv\n", workflow)
 
 

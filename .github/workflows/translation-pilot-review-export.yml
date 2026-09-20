@@ -9,6 +9,9 @@ on:
       confirmation:
         description: Type EXPORT_REVIEW_100 to export the encrypted review sample
         required: true
+      export_public_key_base64:
+        description: One-time RSA public key encoded as base64 PEM
+        required: true
 
 permissions:
   actions: read
@@ -59,19 +62,20 @@ jobs:
       - name: Build encrypted transport bundle
         shell: bash
         env:
-          REVIEW_EXPORT_KEY: ${{ secrets.TRANSLATION_REVIEW_EXPORT_KEY }}
+          EXPORT_PUBLIC_KEY_BASE64: ${{ inputs.export_public_key_base64 }}
           EXPORT_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
           TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           umask 077
-          : "${REVIEW_EXPORT_KEY:?missing review export key}"
+          : "${EXPORT_PUBLIC_KEY_BASE64:?missing review export public key}"
           : "${EXPORT_SSH_KEY:?missing SSH key}"
           : "${TUNNEL_KNOWN_HOSTS:?missing pinned host keys}"
           bundle_dir="$RUNNER_TEMP/review-bundle"
           install -d -m 700 "$bundle_dir/input" "$bundle_dir/credentials"
           install -m 600 "$RUNNER_TEMP/review-input/ids.txt" "$bundle_dir/input/ids.txt"
-          printf '%s' "$REVIEW_EXPORT_KEY" > "$bundle_dir/credentials/review-export.key"
+          printf '%s' "$EXPORT_PUBLIC_KEY_BASE64" | base64 -d > "$bundle_dir/credentials/review-public.pem"
+          openssl pkey -pubin -in "$bundle_dir/credentials/review-public.pem" -noout
           printf '%s\n' "$EXPORT_SSH_KEY" > "$RUNNER_TEMP/review-key"
           printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/review-hosts"
           ssh-keygen -y -P '' -f "$RUNNER_TEMP/review-key" >/dev/null
