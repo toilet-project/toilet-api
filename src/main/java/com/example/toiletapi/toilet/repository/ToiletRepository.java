@@ -46,6 +46,23 @@ public interface ToiletRepository extends JpaRepository<Toilet, Long> {
             BigDecimal eastLng
     );
 
+    @Query(value = """
+            SELECT t.* FROM toilet t
+            JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
+            WHERE t.visibility_status='VISIBLE'
+              AND oh.is_open_24h=TRUE
+              AND oh.normalization_status IN ('PARSED','CONFIRMED')
+              AND oh.source_changed=FALSE
+              AND t.latitude BETWEEN :southLat AND :northLat
+              AND t.longitude BETWEEN :westLng AND :eastLng
+            """, nativeQuery = true)
+    List<Toilet> findOpen24hByBounds(
+            @Param("southLat") BigDecimal southLat,
+            @Param("northLat") BigDecimal northLat,
+            @Param("westLng") BigDecimal westLng,
+            @Param("eastLng") BigDecimal eastLng
+    );
+
     /**
      * 좌표가 등록된 화장실 한 건을 조회합니다.
      *
@@ -73,6 +90,28 @@ public interface ToiletRepository extends JpaRepository<Toilet, Long> {
             GROUP BY FLOOR(latitude / :gridSize), FLOOR(longitude / :gridSize)
             """, nativeQuery = true)
     List<ToiletClusterProjection> findClustersByBounds(
+            @Param("southLat") BigDecimal southLat,
+            @Param("northLat") BigDecimal northLat,
+            @Param("westLng") BigDecimal westLng,
+            @Param("eastLng") BigDecimal eastLng,
+            @Param("gridSize") BigDecimal gridSize
+    );
+
+    @Query(value = """
+            SELECT AVG(t.latitude) AS latitude,
+                   AVG(t.longitude) AS longitude,
+                   COUNT(*) AS toiletCount
+            FROM toilet t
+            JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
+            WHERE t.visibility_status='VISIBLE'
+              AND oh.is_open_24h=TRUE
+              AND oh.normalization_status IN ('PARSED','CONFIRMED')
+              AND oh.source_changed=FALSE
+              AND t.latitude BETWEEN :southLat AND :northLat
+              AND t.longitude BETWEEN :westLng AND :eastLng
+            GROUP BY FLOOR(t.latitude / :gridSize), FLOOR(t.longitude / :gridSize)
+            """, nativeQuery = true)
+    List<ToiletClusterProjection> findOpen24hClustersByBounds(
             @Param("southLat") BigDecimal southLat,
             @Param("northLat") BigDecimal northLat,
             @Param("westLng") BigDecimal westLng,

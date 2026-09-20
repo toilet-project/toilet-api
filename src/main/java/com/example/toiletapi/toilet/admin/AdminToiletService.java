@@ -8,6 +8,7 @@ import com.example.toiletapi.toilet.model.ToiletEditableData;
 import com.example.toiletapi.toilet.repository.ToiletRegionProjection;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import com.example.toiletapi.toilet.translation.ToiletTranslationService;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -47,6 +48,7 @@ public class AdminToiletService {
     private final ToiletRepository toilets;
     private final AuditLogService audit;
     private final ToiletTranslationService translations;
+    private final OpeningHoursService openingHours;
 
     public Page<Item> search(String keyword, String sidoCode, String sigunguCode, int page, int size) {
         validatePage(page, size);
@@ -143,6 +145,9 @@ public class AdminToiletService {
             toilets.flush();
             if (changedFields.stream().anyMatch(AdminToiletService::isTranslationSourceField)) {
                 translations.synchronizeKoreanSource(id);
+            }
+            if (changedFields.contains("openTime") || changedFields.contains("openTimeDetail")) {
+                openingHours.synchronize(id, after.openTime(), after.openTimeDetail());
             }
             audit.record(adminId, AuditAction.TOILET_ADMIN_UPDATED, "TOILET", id,
                     Map.of("changedFields", changedFields, "changedFieldCount", changedFields.size()));

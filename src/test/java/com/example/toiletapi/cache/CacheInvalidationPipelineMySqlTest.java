@@ -42,6 +42,7 @@ class CacheInvalidationPipelineMySqlTest {
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
+        jdbc.execute("CREATE TABLE toilet_opening_hours (toilet_id BIGINT PRIMARY KEY,is_open_24h BOOLEAN,normalization_status VARCHAR(24),source_changed BOOLEAN)");
         Flyway.configure().dataSource(mysql.getJdbcUrl(),"root",mysql.getPassword())
                 .baselineOnMigrate(true).baselineVersion("0").locations("classpath:db/cache-revalidation").load().migrate();
     }
@@ -49,6 +50,7 @@ class CacheInvalidationPipelineMySqlTest {
         jdbc.update("DELETE FROM toilet_region_decision");
         jdbc.update("DELETE FROM toilet_region_assignment");
         jdbc.update("DELETE FROM toilet_region");
+        jdbc.update("DELETE FROM toilet_opening_hours");
         jdbc.update("DELETE FROM toilet");
         jdbc.update("DELETE FROM web_cache_invalidation");
         repository = new CacheInvalidationRepository(jdbc);

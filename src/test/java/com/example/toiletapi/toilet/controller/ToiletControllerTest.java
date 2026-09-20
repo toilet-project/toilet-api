@@ -54,7 +54,7 @@ class ToiletControllerTest {
 
     @Test
     void shouldReturnToiletsWithinMapBounds() throws Exception {
-        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean()))
+        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean()))
                 .thenReturn(ToiletMapSearchResponse.markers(
                         3,
                         List.of(new ToiletMapResponse(101L, "강남역 공중화장실", "공중화장실", 37.4979, 127.0276, null, null))
@@ -78,12 +78,30 @@ class ToiletControllerTest {
                 .andExpect(jsonPath("$.toilets[0].longitude").value(127.0276))
                 .andExpect(jsonPath("$.clusters").doesNotExist());
 
-        verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean());
+        verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean());
+    }
+
+    @Test
+    void shouldPassTwentyFourHourFilterToService() throws Exception {
+        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean()))
+                .thenReturn(ToiletMapSearchResponse.markers(3, List.of()));
+
+        mockMvc.perform(get("/api/v1/toilets")
+                        .param("southLat", "37.4900")
+                        .param("northLat", "37.5100")
+                        .param("westLng", "127.0100")
+                        .param("eastLng", "127.0300")
+                        .param("zoom", "3")
+                        .param("open24h", "true"))
+                .andExpect(status().isOk());
+
+        verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(),
+                org.mockito.ArgumentMatchers.eq(true));
     }
 
     @Test
     void shouldReturnStandardErrorResponseForInvalidRequest() throws Exception {
-        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean()))
+        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean()))
                 .thenThrow(new IllegalArgumentException("카카오맵 레벨은 1부터 14 사이여야 합니다."));
 
         mockMvc.perform(get("/api/v1/toilets")
@@ -171,7 +189,7 @@ class ToiletControllerTest {
                 101L, "강남역 공중화장실", "공중화장실", "서울특별시 강남구 강남대로 396", "서울특별시 강남구 역삼동 858", new java.math.BigDecimal("37.4979"), new java.math.BigDecimal("127.0276"),
                 3, 4, 1, 1, 0, 1, 6, 1, 1,
                 "강남구청", "02-3423-5900", "24시간", "연중무휴", "2018-05",
-                "Y", "화장실 내부", "Y", "Y", "여자화장실 입구", "2024-01-01", "PUBLIC_DATA", region
+                "Y", "화장실 내부", "Y", "Y", "여자화장실 입구", "2024-01-01", "PUBLIC_DATA", region, null
         );
     }
 }

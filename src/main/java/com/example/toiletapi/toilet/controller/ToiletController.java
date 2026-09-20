@@ -38,9 +38,10 @@ public class ToiletController {
             @RequestParam BigDecimal westLng,
             @RequestParam BigDecimal eastLng,
             @RequestParam(required = false) Integer zoom,
-            @RequestParam(defaultValue = "false") boolean includeList
+            @RequestParam(defaultValue = "false") boolean includeList,
+            @RequestParam(defaultValue = "false") boolean open24h
     ) {
-        return toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom, includeList);
+        return toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom, includeList, open24h);
     }
 
     /**

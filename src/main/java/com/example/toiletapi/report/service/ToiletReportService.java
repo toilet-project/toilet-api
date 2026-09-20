@@ -13,6 +13,7 @@ import com.example.toiletapi.report.repository.*;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import com.example.toiletapi.toilet.translation.ToiletTranslationService;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import java.math.BigDecimal; import java.nio.charset.StandardCharsets; import java.security.MessageDigest; import java.time.LocalDate; import java.time.LocalDateTime; import java.util.*;
 import lombok.RequiredArgsConstructor; import org.springframework.stereotype.Service; import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page; import org.springframework.data.domain.PageRequest; import org.springframework.data.domain.Pageable; import org.springframework.data.domain.Sort;
@@ -24,6 +25,7 @@ public class ToiletReportService {
     private final UserNotificationService notificationService;
     private final CoordinateAddressResolver addressResolver;
     private final ToiletTranslationService translations;
+    private final OpeningHoursService openingHours;
     public ToiletReportResponse submit(Long userId, CreateToiletReportRequest request) {
         validateRequest(request); Toilet toilet = toiletRepository.findById(request.toiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
         userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
@@ -98,6 +100,8 @@ public class ToiletReportService {
             translationSourceChanged = true;
         } else if ("OPEN_TIME_CORRECTION".equals(report.getReportType())) {
             toilet.applyReportedOpenTime(report.getProposedOpenTime());
+            toiletRepository.flush();
+            openingHours.synchronize(report.getToiletId(), report.getProposedOpenTime(), toilet.getOpenTimeDetail());
         } else throw new IllegalArgumentException("처리할 수 없는 제보 유형입니다.");
         if (translationSourceChanged) {
             toiletRepository.flush();

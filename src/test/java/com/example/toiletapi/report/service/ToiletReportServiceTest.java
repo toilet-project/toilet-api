@@ -30,6 +30,7 @@ import com.example.toiletapi.report.repository.ToiletReportRepository;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import com.example.toiletapi.toilet.translation.ToiletTranslationService;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -55,6 +56,7 @@ class ToiletReportServiceTest {
     @Mock private UserNotificationService notificationService;
     @Mock private CoordinateAddressResolver addressResolver;
     @Mock private ToiletTranslationService translations;
+    @Mock private OpeningHoursService openingHours;
     @InjectMocks private ToiletReportService service;
 
     @Test
@@ -135,6 +137,8 @@ class ToiletReportServiceTest {
         service.approve(9L, 12L, new ReviewToiletReportRequest("운영 안내 확인", null, null, null));
 
         verify(toilet).applyReportedOpenTime("24시간");
+        verify(toiletRepository).flush();
+        verify(openingHours).synchronize(10L, "24시간", null);
         verify(translations, never()).synchronizeKoreanSource(anyLong());
     }
 

@@ -5,9 +5,11 @@ import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.dto.ToiletRegionResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapResponse;
+import com.example.toiletapi.toilet.dto.OpeningHoursResponse;
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import java.math.BigDecimal;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class ToiletService {
 
     private final ToiletRepository toiletRepository;
     private final ToiletDisplayGroupRepository displayGroupRepository;
+    private final OpeningHoursService openingHoursService;
 
     /**
      * 지도 화면의 경계 안에 있는 화장실 마커 정보를 조회합니다.
@@ -46,17 +49,28 @@ public class ToiletService {
             Integer zoom,
             boolean includeList
     ) {
+        return getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom, includeList, false);
+    }
+
+    public ToiletMapSearchResponse getToiletsInBounds(
+            BigDecimal southLat,
+            BigDecimal northLat,
+            BigDecimal westLng,
+            BigDecimal eastLng,
+            Integer zoom,
+            boolean includeList,
+            boolean open24h
+    ) {
         int mapLevel = normalizeMapLevel(zoom);
         validateBounds(southLat, northLat, westLng, eastLng, mapLevel);
 
         if (mapLevel >= CLUSTER_MIN_ZOOM_LEVEL && !includeList) {
-            List<ToiletClusterResponse> clusters = toiletRepository.findClustersByBounds(
-                            southLat,
-                            northLat,
-                            westLng,
-                            eastLng,
-                            resolveGridSize(mapLevel)
-                    )
+            var projections = open24h
+                    ? toiletRepository.findOpen24hClustersByBounds(southLat, northLat, westLng, eastLng,
+                            resolveGridSize(mapLevel))
+                    : toiletRepository.findClustersByBounds(southLat, northLat, westLng, eastLng,
+                            resolveGridSize(mapLevel));
+            List<ToiletClusterResponse> clusters = projections
                     .stream()
                     .map(ToiletClusterResponse::from)
                     .toList();
@@ -64,7 +78,9 @@ public class ToiletService {
             return ToiletMapSearchResponse.clusters(mapLevel, clusters);
         }
 
-        var toilets = toiletRepository.findByLatitudeBetweenAndLongitudeBetween(southLat, northLat, westLng, eastLng);
+        var toilets = open24h
+                ? toiletRepository.findOpen24hByBounds(southLat, northLat, westLng, eastLng)
+                : toiletRepository.findByLatitudeBetweenAndLongitudeBetween(southLat, northLat, westLng, eastLng);
         var displayGroups = displayGroupRepository.assignmentsFor(toilets.stream().map(toilet -> toilet.getId()).toList());
         List<ToiletMapResponse> markers = toilets
                 .stream()
@@ -88,7 +104,8 @@ public class ToiletService {
         return toiletRepository.findById(toiletId)
                 .filter(com.example.toiletapi.toilet.model.Toilet::isPubliclyVisible)
                 .map(toilet -> ToiletDetailResponse.from(toilet,
-                        toiletRepository.findCurrentRegion(toiletId).map(ToiletRegionResponse::from).orElse(null)))
+                        toiletRepository.findCurrentRegion(toiletId).map(ToiletRegionResponse::from).orElse(null),
+                        openingHoursService.find(toiletId).map(OpeningHoursResponse::from).orElse(null)))
                 .orElseThrow(() -> new ToiletNotFoundException(toiletId));
     }
 

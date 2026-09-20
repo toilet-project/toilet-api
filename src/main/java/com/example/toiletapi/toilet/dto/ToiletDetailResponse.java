@@ -35,7 +35,8 @@ public record ToiletDetailResponse(
         String diaperTableLocation,
         String dataBaseDate,
         String dataSource,
-        ToiletRegionResponse region
+        ToiletRegionResponse region,
+        OpeningHoursResponse normalizedOpeningHours
 ) {
 
     /**
@@ -45,10 +46,15 @@ public record ToiletDetailResponse(
      * @return 화장실 상세 응답
      */
     public static ToiletDetailResponse from(Toilet toilet) {
-        return from(toilet, null);
+        return from(toilet, null, null);
     }
 
     public static ToiletDetailResponse from(Toilet toilet, ToiletRegionResponse region) {
+        return from(toilet, region, null);
+    }
+
+    public static ToiletDetailResponse from(Toilet toilet, ToiletRegionResponse region,
+                                            OpeningHoursResponse normalizedOpeningHours) {
         return new ToiletDetailResponse(
                 toilet.getId(),
                 toilet.getName(),
@@ -78,7 +84,8 @@ public record ToiletDetailResponse(
                 toilet.getDiaperTableLocation(),
                 toilet.getDataBaseDate(),
                 toilet.getDataSource(),
-                region
+                region,
+                normalizedOpeningHours
         );
     }
 }
