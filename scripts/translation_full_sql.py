@@ -51,6 +51,7 @@ def load_rows(path: Path) -> list[dict]:
 def source_relation(rows: list[dict]) -> str:
     selects: list[str] = []
     for row in rows:
+        has_address = bool(str(row.get("roadAddress") or "").strip() or str(row.get("jibunAddress") or "").strip())
         values = (
             str(int(row["toiletId"])),
             sql_text(row["name"]),
@@ -58,11 +59,14 @@ def source_relation(rows: list[dict]) -> str:
             sql_text(row.get("jibunAddress")),
             f"'{str(row['expectedSourceHash']).lower()}'",
             f"'{row['source']}'",
+            "'TRANSLATED'" if has_address else "'NO_RESULT'",
+            "'MOIS_JUSO_ORIGINAL'" if has_address else "'MOIS_JUSO_NO_RESULT'",
         )
         selects.append(
             "SELECT " + values[0] + " AS toilet_id," + values[1] + " AS name," +
             values[2] + " AS road_address," + values[3] + " AS jibun_address," +
-            values[4] + " AS source_hash," + values[5] + " AS translation_source"
+            values[4] + " AS source_hash," + values[5] + " AS translation_source," +
+            values[6] + " AS address_translation_status," + values[7] + " AS address_translation_source"
         )
     return "\nUNION ALL\n".join(selects)
 
@@ -74,10 +78,11 @@ def build_sql(rows: list[dict]) -> str:
 START TRANSACTION;
 INSERT INTO toilet_translation
     (toilet_id,locale,name,road_address,jibun_address,source_hash,
-     translation_status,translation_source,manual_override,
+     translation_status,translation_source,address_translation_status,address_translation_source,manual_override,
      translated_at,reviewed_at,created_at,updated_at)
 SELECT s.toilet_id,'en',s.name,s.road_address,s.jibun_address,s.source_hash,
-       'MACHINE_TRANSLATED',s.translation_source,FALSE,NOW(),NULL,NOW(),NOW()
+       'MACHINE_TRANSLATED',s.translation_source,s.address_translation_status,
+       s.address_translation_source,FALSE,NOW(),NULL,NOW(),NOW()
   FROM (
 {relation}
        ) s
@@ -90,6 +95,8 @@ ON DUPLICATE KEY UPDATE
     source_hash=IF(toilet_translation.manual_override,toilet_translation.source_hash,VALUES(source_hash)),
     translation_status=IF(toilet_translation.manual_override,toilet_translation.translation_status,VALUES(translation_status)),
     translation_source=IF(toilet_translation.manual_override,toilet_translation.translation_source,VALUES(translation_source)),
+    address_translation_status=IF(toilet_translation.manual_override,toilet_translation.address_translation_status,VALUES(address_translation_status)),
+    address_translation_source=IF(toilet_translation.manual_override,toilet_translation.address_translation_source,VALUES(address_translation_source)),
     translated_at=IF(toilet_translation.manual_override,toilet_translation.translated_at,VALUES(translated_at)),
     version=IF(toilet_translation.manual_override,toilet_translation.version,toilet_translation.version+1),
     updated_at=IF(toilet_translation.manual_override,toilet_translation.updated_at,VALUES(updated_at));

@@ -20,6 +20,8 @@ class TranslationFullSqlTest(unittest.TestCase):
         self.assertIn("manual_override", sql)
         self.assertIn("ko.source_hash=s.source_hash", sql)
         self.assertIn("MACHINE_TRANSLATED", sql)
+        self.assertIn("address_translation_status", sql)
+        self.assertIn("MOIS_JUSO_ORIGINAL", sql)
         self.assertNotIn("Central Library Restroom", sql)
         self.assertIn("CONVERT(0x", sql)
 

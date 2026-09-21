@@ -256,6 +256,6 @@ class ToiletServiceTest {
 
     private Text translation(long toiletId, String name) {
         return new Text(toiletId, "en", name, "110 Sejong-daero", null, "a".repeat(64),
-                "REVIEWED", "MANUAL", true, 1, null, LocalDateTime.now(), true);
+                "REVIEWED", "MANUAL", "TRANSLATED", "MANUAL", true, 1, null, LocalDateTime.now(), true);
     }
 }

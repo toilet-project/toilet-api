@@ -45,7 +45,9 @@ class ToiletTranslationMigrationMySqlTest {
                 """);
         jdbc.update("INSERT INTO toilet(toilet_id,name,road_address,jibun_address,open_time) VALUES(1,?,?,?,?)",
                 "서울역 화장실", "서울특별시 중구 한강대로 405", "서울특별시 중구 봉래동2가 122-21", "24시간");
-        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V26__create_toilet_translation.sql"))
+        new ResourceDatabasePopulator(
+                new ClassPathResource("db/migration/V26__create_toilet_translation.sql"),
+                new ClassPathResource("db/migration/V29__track_translation_address_status.sql"))
                 .execute(source);
         repository = new ToiletTranslationRepository(new NamedParameterJdbcTemplate(source));
     }

@@ -42,7 +42,7 @@ class ToiletTranslationServiceTest {
     @Test void currentTranslationsAreGroupedForBulkPublicReads() {
         Text english = text("en", "Restroom", hash, true, false);
         Text japanese = new Text(2, "ja", "トイレ", null, null, hash,
-                "REVIEWED", "MANUAL", true, 1, null, LocalDateTime.now(), true);
+                "REVIEWED", "MANUAL", "NO_RESULT", "MANUAL", true, 1, null, LocalDateTime.now(), true);
         when(repository.findCurrentTranslations(List.of(1L, 2L))).thenReturn(List.of(english, japanese));
 
         Map<Long, Map<String, Text>> result = service.currentTranslations(List.of(1L, 2L));
@@ -96,6 +96,7 @@ class ToiletTranslationServiceTest {
     private Text text(String locale, String name, String sourceHash, boolean current, boolean manual) {
         return new Text(1, locale, name, null, null, sourceHash,
                 manual ? "REVIEWED" : "MACHINE_TRANSLATED", manual ? "MANUAL" : "GOOGLE_CLOUD",
+                "NO_RESULT", manual ? "MANUAL" : "GOOGLE_CLOUD",
                 manual, 1, null, null, current);
     }
 }
