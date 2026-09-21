@@ -39,6 +39,8 @@ test('API candidate requires the private profile credential file and couples Kak
   assert.ok(out.includes('SERVICE_ANALYTICS_ENABLED=true'))
   assert.ok(out.includes('ANALYTICS_VISITOR_HMAC_SECRET=${{ secrets.JWT_SECRET }}'))
   assert.ok(out.includes('SERVICE_ANALYTICS_DAILY_CRON=0 30 2 * * *'))
+  assert.ok(out.includes('GOOGLE_TRANSLATION_API_KEY=${{ secrets.GOOGLE_TRANSLATION_API_KEY }}'))
+  assert.ok(out.includes('DISPLAY_GROUP_TRANSLATION_ENABLED=true'))
   assert.ok(out.includes('- /home/luha/.config/geupddong/profile-photo.env'))
   assert.ok(out.indexOf('profile_photo_env=/home/luha/.config/geupddong/profile-photo.env')<out.indexOf('mkdir -p ~/toilet-api'))
 })
