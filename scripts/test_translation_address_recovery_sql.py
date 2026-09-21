@@ -32,6 +32,8 @@ class TranslationAddressRecoverySqlTest(unittest.TestCase):
         self.assertIn("en.manual_override=FALSE", sql)
         self.assertIn("ko.source_hash=s.source_hash", sql)
         self.assertIn("address_translation_status='NO_RESULT'", sql)
+        self.assertIn("SUM(en.address_translation_status='TRANSLATED')", sql)
+        self.assertIn("SUM(en.address_translation_status='NEEDS_REVIEW')", sql)
         self.assertIn("@applied_count", sql)
         self.assertNotIn("110 Sejong-daero", sql)
         self.assertIn("CONVERT(0x", sql)
