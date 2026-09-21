@@ -22,23 +22,33 @@ public class ToiletDisplayGroupRepository {
     public Map<Long, Assignment> assignmentsFor(Collection<Long> toiletIds) {
         if (toiletIds.isEmpty()) return Map.of();
         var parameters = new MapSqlParameterSource("toiletIds", toiletIds);
-        Map<Long, Assignment> assignments = new LinkedHashMap<>();
-        jdbc.query("""
-                SELECT m.toilet_id, g.group_id, g.display_name,
-                       en.display_name AS english_display_name
+        return jdbc.query("""
+                SELECT m.toilet_id, g.group_id, g.display_name AS group_name,
+                       tr.locale AS translation_locale, tr.display_name AS translated_group_name
                   FROM toilet_display_group_member m
                   JOIN toilet_display_group g ON g.group_id = m.group_id
-                  LEFT JOIN toilet_display_group_translation en
-                    ON en.group_id = g.group_id AND en.locale = 'en'
-                   AND (en.source_name = g.display_name OR en.manual_override = TRUE)
+                  LEFT JOIN toilet_display_group_translation tr
+                    ON tr.group_id = g.group_id AND tr.locale <> 'ko'
+                   AND (BINARY tr.source_name = BINARY g.display_name OR tr.manual_override = TRUE)
                   JOIN toilet t ON t.toilet_id = m.toilet_id
                  WHERE m.toilet_id IN (:toiletIds)
                    AND t.latitude = g.latitude AND t.longitude = g.longitude
-                """, parameters, (rs, rowNumber) -> Map.entry(rs.getLong("toilet_id"),
-                new Assignment(rs.getLong("group_id"), rs.getString("display_name"),
-                        rs.getString("english_display_name"))))
-                .forEach(entry -> assignments.put(entry.getKey(), entry.getValue()));
-        return assignments;
+                """, parameters, rs -> {
+            Map<Long, Assignment> assignments = new LinkedHashMap<>();
+            while (rs.next()) {
+                long toiletId = rs.getLong("toilet_id");
+                Assignment existing = assignments.get(toiletId);
+                Map<String, String> translations = new LinkedHashMap<>(
+                        existing == null ? Map.of() : existing.translations());
+                String locale = rs.getString("translation_locale");
+                String translatedName = rs.getString("translated_group_name");
+                if (locale != null && translatedName != null && !translatedName.isBlank())
+                    translations.put(locale, translatedName);
+                assignments.put(toiletId, new Assignment(rs.getLong("group_id"),
+                        rs.getString("group_name"), translations));
+            }
+            return assignments;
+        });
     }
 
     public List<Long> matchingToiletIds(Collection<Long> toiletIds, BigDecimal latitude, BigDecimal longitude) {
@@ -187,15 +197,18 @@ public class ToiletDisplayGroupRepository {
                 """);
     }
 
-    public record Assignment(Long groupId, String displayName, String englishDisplayName) {
-        public Assignment(Long groupId, String displayName) {
-            this(groupId, displayName, null);
+    public record Assignment(Long groupId, String displayName, Map<String, String> translations) {
+        public Assignment {
+            translations = translations == null ? Map.of() : Map.copyOf(translations);
         }
 
-        public Map<String, String> translations() {
-            return englishDisplayName == null || englishDisplayName.isBlank()
-                    ? Map.of()
-                    : Map.of("en", englishDisplayName);
+        public Assignment(Long groupId, String displayName) {
+            this(groupId, displayName, Map.of());
+        }
+
+        public Assignment(Long groupId, String displayName, String englishDisplayName) {
+            this(groupId, displayName, englishDisplayName == null || englishDisplayName.isBlank()
+                    ? Map.of() : Map.of("en", englishDisplayName));
         }
     }
 
