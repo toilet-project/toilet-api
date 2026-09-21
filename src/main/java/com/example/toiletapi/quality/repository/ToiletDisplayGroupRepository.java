@@ -23,14 +23,18 @@ public class ToiletDisplayGroupRepository {
         var parameters = new MapSqlParameterSource("toiletIds", toiletIds);
         Map<Long, Assignment> assignments = new LinkedHashMap<>();
         jdbc.query("""
-                SELECT m.toilet_id, g.group_id, g.display_name
+                SELECT m.toilet_id, g.group_id, g.display_name,
+                       en.display_name AS english_display_name
                   FROM toilet_display_group_member m
                   JOIN toilet_display_group g ON g.group_id = m.group_id
+                  LEFT JOIN toilet_display_group_translation en
+                    ON en.group_id = g.group_id AND en.locale = 'en'
                   JOIN toilet t ON t.toilet_id = m.toilet_id
                  WHERE m.toilet_id IN (:toiletIds)
                    AND t.latitude = g.latitude AND t.longitude = g.longitude
                 """, parameters, (rs, rowNumber) -> Map.entry(rs.getLong("toilet_id"),
-                new Assignment(rs.getLong("group_id"), rs.getString("display_name"))))
+                new Assignment(rs.getLong("group_id"), rs.getString("display_name"),
+                        rs.getString("english_display_name"))))
                 .forEach(entry -> assignments.put(entry.getKey(), entry.getValue()));
         return assignments;
     }
@@ -56,6 +60,12 @@ public class ToiletDisplayGroupRepository {
                 SELECT COUNT(*) FROM toilet_display_group
                  WHERE group_id = :groupId AND latitude = :latitude AND longitude = :longitude
                 """, parameters, Long.class);
+        return count != null && count == 1;
+    }
+
+    public boolean exists(Long groupId) {
+        Long count = jdbc.queryForObject("SELECT COUNT(*) FROM toilet_display_group WHERE group_id = :groupId",
+                new MapSqlParameterSource("groupId", groupId), Long.class);
         return count != null && count == 1;
     }
 
@@ -94,6 +104,23 @@ public class ToiletDisplayGroupRepository {
                  WHERE group_id = :groupId
                 """, new MapSqlParameterSource("groupId", groupId)
                 .addValue("displayName", displayName).addValue("adminId", adminId));
+    }
+
+    public void saveEnglishDisplayName(Long groupId, String englishDisplayName) {
+        if (englishDisplayName == null) {
+            jdbc.update("""
+                    DELETE FROM toilet_display_group_translation
+                     WHERE group_id = :groupId AND locale = 'en'
+                    """, new MapSqlParameterSource("groupId", groupId));
+            return;
+        }
+        jdbc.update("""
+                INSERT INTO toilet_display_group_translation
+                    (group_id, locale, display_name, manual_override)
+                VALUES (:groupId, 'en', :displayName, TRUE)
+                ON DUPLICATE KEY UPDATE
+                    display_name = VALUES(display_name), manual_override = TRUE, updated_at = CURRENT_TIMESTAMP
+                """, new MapSqlParameterSource("groupId", groupId).addValue("displayName", englishDisplayName));
     }
 
     public void replaceMembers(Long groupId, List<Long> toiletIds) {
@@ -141,6 +168,15 @@ public class ToiletDisplayGroupRepository {
                 """);
     }
 
-    public record Assignment(Long groupId, String displayName) {
+    public record Assignment(Long groupId, String displayName, String englishDisplayName) {
+        public Assignment(Long groupId, String displayName) {
+            this(groupId, displayName, null);
+        }
+
+        public Map<String, String> translations() {
+            return englishDisplayName == null || englishDisplayName.isBlank()
+                    ? Map.of()
+                    : Map.of("en", englishDisplayName);
+        }
     }
 }

@@ -24,11 +24,27 @@ public record ToiletMapResponse(
         Long displayGroupId,
         String displayGroupName,
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
+        Map<String, String> displayGroupTranslations,
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
         Map<String, ToiletTranslationResponse> translations
 ) {
 
     public ToiletMapResponse {
+        displayGroupTranslations = displayGroupTranslations == null ? Map.of() : Map.copyOf(displayGroupTranslations);
         translations = translations == null ? Map.of() : Map.copyOf(translations);
+    }
+
+    public ToiletMapResponse(
+            Long id,
+            String name,
+            String toiletType,
+            double latitude,
+            double longitude,
+            Long displayGroupId,
+            String displayGroupName,
+            Map<String, ToiletTranslationResponse> translations
+    ) {
+        this(id, name, toiletType, latitude, longitude, displayGroupId, displayGroupName, Map.of(), translations);
     }
 
     /**
@@ -38,17 +54,18 @@ public record ToiletMapResponse(
      * @return 지도 조회 응답
      */
     public static ToiletMapResponse from(Toilet toilet) {
-        return from(toilet, null, null, Map.of());
+        return from(toilet, null, null, Map.of(), Map.of());
     }
 
     public static ToiletMapResponse from(Toilet toilet, Long displayGroupId, String displayGroupName) {
-        return from(toilet, displayGroupId, displayGroupName, Map.of());
+        return from(toilet, displayGroupId, displayGroupName, Map.of(), Map.of());
     }
 
     public static ToiletMapResponse from(
             Toilet toilet,
             Long displayGroupId,
             String displayGroupName,
+            Map<String, String> displayGroupTranslations,
             Map<String, ToiletTranslationResponse> translations
     ) {
         return new ToiletMapResponse(
@@ -59,6 +76,7 @@ public record ToiletMapResponse(
                 toilet.getLongitude().doubleValue(),
                 displayGroupId,
                 displayGroupName,
+                displayGroupTranslations,
                 translations
         );
     }

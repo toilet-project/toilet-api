@@ -5,6 +5,7 @@ import java.util.List;
 public record ToiletDisplayGroupResponse(
         Long id,
         String displayName,
+        String englishDisplayName,
         List<Long> toiletIds
 ) {
 }

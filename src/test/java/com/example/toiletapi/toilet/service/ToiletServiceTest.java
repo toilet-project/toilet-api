@@ -122,12 +122,13 @@ class ToiletServiceTest {
         when(toiletRepository.findByLatitudeBetweenAndLongitudeBetween(southLat, northLat, westLng, eastLng))
                 .thenReturn(List.of(toilet));
         when(displayGroupRepository.assignmentsFor(List.of(101L))).thenReturn(Map.of(101L,
-                new ToiletDisplayGroupRepository.Assignment(7L, "XXX문화원")));
+                new ToiletDisplayGroupRepository.Assignment(7L, "XXX문화원", "XXX Cultural Center")));
 
         var result = toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, 3, false);
 
         assertEquals(7L, result.toilets().getFirst().displayGroupId());
         assertEquals("XXX문화원", result.toilets().getFirst().displayGroupName());
+        assertEquals("XXX Cultural Center", result.toilets().getFirst().displayGroupTranslations().get("en"));
     }
 
     @Test

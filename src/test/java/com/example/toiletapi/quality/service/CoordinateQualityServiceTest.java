@@ -18,6 +18,7 @@ import com.example.toiletapi.quality.dto.CorrectToiletCoordinateRequest;
 import com.example.toiletapi.quality.dto.CreateMapDisplayGroupRequest;
 import com.example.toiletapi.quality.dto.DuplicateCoordinateGroupResponse;
 import com.example.toiletapi.quality.dto.SaveToiletDisplayGroupRequest;
+import com.example.toiletapi.quality.dto.UpdateDisplayGroupTranslationRequest;
 import com.example.toiletapi.quality.model.CoordinateQualityStatus;
 import com.example.toiletapi.quality.repository.CoordinateQualityReviewRepository;
 import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
@@ -322,10 +323,13 @@ class CoordinateQualityServiceTest {
         when(displayGroupRepository.create("XXX문화원", latitude, longitude, 7L)).thenReturn(21L);
 
         var result = service.saveDisplayGroup(7L, "group-key",
-                new SaveToiletDisplayGroupRequest(null, " XXX문화원 ", List.of(11L, 12L, 13L)));
+                new SaveToiletDisplayGroupRequest(null, " XXX문화원 ", " XXX Cultural Center ",
+                        List.of(11L, 12L, 13L)));
 
         org.junit.jupiter.api.Assertions.assertEquals(21L, result.id());
         org.junit.jupiter.api.Assertions.assertEquals("XXX문화원", result.displayName());
+        org.junit.jupiter.api.Assertions.assertEquals("XXX Cultural Center", result.englishDisplayName());
+        verify(displayGroupRepository).saveEnglishDisplayName(21L, "XXX Cultural Center");
         verify(displayGroupRepository).replaceMembers(21L, List.of(11L, 12L, 13L));
         verify(auditLogService).record(eq(7L), eq(AuditAction.TOILET_DISPLAY_GROUP_SAVED),
                 eq("TOILET_DISPLAY_GROUP"), eq(21L), any(Map.class));
@@ -371,5 +375,18 @@ class CoordinateQualityServiceTest {
         verify(displayGroupRepository).update(21L, "XXX문화원 본관", 7L);
         verify(displayGroupRepository).replaceMembers(21L, List.of(11L, 12L, 13L, 14L));
         verify(displayGroupRepository, never()).create(anyString(), any(), any(), any());
+    }
+
+    @Test
+    void updatesAnExistingDisplayGroupsEnglishNameWithoutChangingMembers() {
+        when(displayGroupRepository.exists(21L)).thenReturn(true);
+
+        service.updateDisplayGroupTranslation(7L, 21L,
+                new UpdateDisplayGroupTranslationRequest(" XXX Cultural Center "));
+
+        verify(displayGroupRepository).saveEnglishDisplayName(21L, "XXX Cultural Center");
+        verify(displayGroupRepository, never()).replaceMembers(any(), anyList());
+        verify(auditLogService).record(eq(7L), eq(AuditAction.TOILET_DISPLAY_GROUP_SAVED),
+                eq("TOILET_DISPLAY_GROUP"), eq(21L), any(Map.class));
     }
 }

@@ -15,6 +15,7 @@ import com.example.toiletapi.quality.dto.DuplicateCoordinateToiletResponse;
 import com.example.toiletapi.quality.dto.ReviewCoordinateGroupRequest;
 import com.example.toiletapi.quality.dto.SaveToiletDisplayGroupRequest;
 import com.example.toiletapi.quality.dto.ToiletDisplayGroupResponse;
+import com.example.toiletapi.quality.dto.UpdateDisplayGroupTranslationRequest;
 import com.example.toiletapi.quality.model.CoordinateQualityReview;
 import com.example.toiletapi.quality.model.CoordinateQualityStatus;
 import com.example.toiletapi.quality.repository.CoordinateQualityReviewRepository;
@@ -212,6 +213,7 @@ public class CoordinateQualityService {
                                                              CreateMapDisplayGroupRequest request) {
         String displayName = trim(request.displayName());
         if (displayName == null) throw new IllegalArgumentException("지도에 표시할 그룹 이름을 입력해 주세요.");
+        String englishDisplayName = trim(request.englishDisplayName());
         List<Long> markerToiletIds = request.markerToiletIds() == null ? List.of() : request.markerToiletIds().stream()
                 .filter(Objects::nonNull).distinct().toList();
         if (markerToiletIds.isEmpty() || markerToiletIds.size() != request.markerToiletIds().size()) {
@@ -274,6 +276,9 @@ public class CoordinateQualityService {
         }
 
         Long displayGroupId = displayGroupRepository.create(displayName, targetLatitude, targetLongitude, adminId);
+        if (englishDisplayName != null) {
+            displayGroupRepository.saveEnglishDisplayName(displayGroupId, englishDisplayName);
+        }
         displayGroupRepository.replaceMembers(displayGroupId, finalToiletIds);
         revisionRepository.saveAll(revisions);
         movedToiletIds.forEach(toiletId -> auditLogService.record(adminId,
@@ -283,7 +288,7 @@ public class CoordinateQualityService {
         auditLogService.record(adminId, AuditAction.TOILET_DISPLAY_GROUP_SAVED, "TOILET_DISPLAY_GROUP",
                 displayGroupId, Map.of("displayName", displayName, "memberCount", finalToiletIds.size(),
                         "direction", request.direction().name(), "currentToiletId", currentToiletId));
-        return new ToiletDisplayGroupResponse(displayGroupId, displayName, finalToiletIds);
+        return new ToiletDisplayGroupResponse(displayGroupId, displayName, englishDisplayName, finalToiletIds);
     }
 
     private CoordinateRevision coordinateRevision(Toilet toilet, Long toiletId,
@@ -315,6 +320,7 @@ public class CoordinateQualityService {
 
         String displayName = trim(request.displayName());
         if (displayName == null) throw new IllegalArgumentException("지도에 표시할 이름을 입력해 주세요.");
+        String englishDisplayName = trim(request.englishDisplayName());
         Long displayGroupId = request.displayGroupId();
         if (displayGroupId == null) {
             displayGroupId = displayGroupRepository.create(displayName, coordinateGroup.latitude(),
@@ -326,16 +332,30 @@ public class CoordinateQualityService {
             }
             displayGroupRepository.update(displayGroupId, displayName, adminId);
         }
+        if (request.englishDisplayName() != null) {
+            displayGroupRepository.saveEnglishDisplayName(displayGroupId, englishDisplayName);
+        }
         displayGroupRepository.replaceMembers(displayGroupId, toiletIds);
         auditLogService.record(adminId, AuditAction.TOILET_DISPLAY_GROUP_SAVED, "TOILET_DISPLAY_GROUP",
                 displayGroupId, Map.of("displayName", displayName, "memberCount", toiletIds.size(), "groupKey", groupKey));
-        return new ToiletDisplayGroupResponse(displayGroupId, displayName, toiletIds);
+        return new ToiletDisplayGroupResponse(displayGroupId, displayName, englishDisplayName, toiletIds);
     }
 
     public void deleteDisplayGroup(Long adminId, Long displayGroupId) {
         displayGroupRepository.delete(displayGroupId);
         auditLogService.record(adminId, AuditAction.TOILET_DISPLAY_GROUP_DELETED, "TOILET_DISPLAY_GROUP",
                 displayGroupId, Map.of());
+    }
+
+    public void updateDisplayGroupTranslation(Long adminId, Long displayGroupId,
+                                              UpdateDisplayGroupTranslationRequest request) {
+        if (!displayGroupRepository.exists(displayGroupId)) {
+            throw new IllegalArgumentException("지도 노출 그룹을 찾을 수 없습니다.");
+        }
+        String englishDisplayName = trim(request.englishDisplayName());
+        displayGroupRepository.saveEnglishDisplayName(displayGroupId, englishDisplayName);
+        auditLogService.record(adminId, AuditAction.TOILET_DISPLAY_GROUP_SAVED, "TOILET_DISPLAY_GROUP",
+                displayGroupId, Map.of("locale", "en", "cleared", englishDisplayName == null));
     }
 
     private DuplicateCoordinateGroupResponse findGroup(String groupKey) {
