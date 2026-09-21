@@ -213,6 +213,7 @@ public class CoordinateQualityService {
                                                              CreateMapDisplayGroupRequest request) {
         String displayName = trim(request.displayName());
         if (displayName == null) throw new IllegalArgumentException("지도에 표시할 그룹 이름을 입력해 주세요.");
+        String englishDisplayName = displayGroupTranslator.translate(displayName);
         List<Long> markerToiletIds = request.markerToiletIds() == null ? List.of() : request.markerToiletIds().stream()
                 .filter(Objects::nonNull).distinct().toList();
         if (markerToiletIds.isEmpty() || markerToiletIds.size() != request.markerToiletIds().size()) {
@@ -274,7 +275,6 @@ public class CoordinateQualityService {
             throw new IllegalArgumentException("선택한 방향으로 좌표를 통일하지 못했습니다.");
         }
 
-        String englishDisplayName = displayGroupTranslator.translate(displayName);
         Long displayGroupId = displayGroupRepository.create(displayName, targetLatitude, targetLongitude, adminId);
         displayGroupRepository.saveMachineEnglishDisplayName(displayGroupId, displayName, englishDisplayName);
         displayGroupRepository.replaceMembers(displayGroupId, finalToiletIds);
@@ -304,6 +304,13 @@ public class CoordinateQualityService {
     }
 
     public ToiletDisplayGroupResponse saveDisplayGroup(Long adminId, String groupKey, SaveToiletDisplayGroupRequest request) {
+        String displayName = trim(request.displayName());
+        if (displayName == null) throw new IllegalArgumentException("지도에 표시할 이름을 입력해 주세요.");
+        Long displayGroupId = request.displayGroupId();
+        String englishDisplayName = displayGroupId == null
+                ? displayGroupTranslator.translate(displayName)
+                : displayGroupRepository.findCurrentEnglishDisplayName(displayGroupId, displayName)
+                        .orElseGet(() -> displayGroupTranslator.translate(displayName));
         DuplicateCoordinateGroupResponse coordinateGroup = findGroup(groupKey);
         List<Long> toiletIds = request.toiletIds() == null ? List.of() : request.toiletIds().stream()
                 .filter(Objects::nonNull).distinct().toList();
@@ -316,12 +323,7 @@ public class CoordinateQualityService {
             throw new IllegalArgumentException("현재 중복 좌표 그룹에 속한 화장실만 묶을 수 있습니다.");
         }
 
-        String displayName = trim(request.displayName());
-        if (displayName == null) throw new IllegalArgumentException("지도에 표시할 이름을 입력해 주세요.");
-        Long displayGroupId = request.displayGroupId();
-        String englishDisplayName;
         if (displayGroupId == null) {
-            englishDisplayName = displayGroupTranslator.translate(displayName);
             displayGroupId = displayGroupRepository.create(displayName, coordinateGroup.latitude(),
                     coordinateGroup.longitude(), adminId);
         } else {
@@ -329,8 +331,6 @@ public class CoordinateQualityService {
                     coordinateGroup.latitude(), coordinateGroup.longitude())) {
                 throw new IllegalArgumentException("현재 좌표에 속한 지도 노출 그룹을 찾을 수 없습니다.");
             }
-            englishDisplayName = displayGroupRepository.findCurrentEnglishDisplayName(displayGroupId, displayName)
-                    .orElseGet(() -> displayGroupTranslator.translate(displayName));
             displayGroupRepository.update(displayGroupId, displayName, adminId);
         }
         displayGroupRepository.saveMachineEnglishDisplayName(displayGroupId, displayName, englishDisplayName);
