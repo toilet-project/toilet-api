@@ -90,8 +90,8 @@ COMMIT;
 SELECT JSON_OBJECT(
          'stagedCount',{len(rows)},
          'appliedCount',@applied_count,
-         'translatedCount',SUM(address_translation_status='TRANSLATED'),
-         'needsReviewCount',SUM(address_translation_status='NEEDS_REVIEW'),
+         'translatedCount',SUM(en.address_translation_status='TRANSLATED'),
+         'needsReviewCount',SUM(en.address_translation_status='NEEDS_REVIEW'),
          'currentCount',SUM(en.source_hash=ko.source_hash),
          'manualProtectedCount',SUM(en.manual_override=TRUE)
        )
