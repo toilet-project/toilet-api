@@ -33,7 +33,8 @@ public class ToiletTranslationRepository {
         return jdbc.query("""
                 SELECT tr.toilet_id,tr.locale,tr.name,tr.road_address,tr.jibun_address,
                        tr.source_hash,tr.translation_status,
-                       tr.translation_source,tr.manual_override,tr.version,tr.translated_at,tr.reviewed_at,
+                       tr.translation_source,tr.address_translation_status,tr.address_translation_source,
+                       tr.manual_override,tr.version,tr.translated_at,tr.reviewed_at,
                        CASE WHEN tr.locale='ko' OR tr.source_hash=ko.source_hash THEN TRUE ELSE FALSE END AS is_current
                   FROM toilet_translation tr
                   JOIN toilet_translation ko ON ko.toilet_id=tr.toilet_id AND ko.locale='ko'
@@ -48,7 +49,8 @@ public class ToiletTranslationRepository {
         return jdbc.query("""
                 SELECT tr.toilet_id,tr.locale,tr.name,tr.road_address,tr.jibun_address,
                        tr.source_hash,tr.translation_status,
-                       tr.translation_source,tr.manual_override,tr.version,tr.translated_at,tr.reviewed_at,
+                       tr.translation_source,tr.address_translation_status,tr.address_translation_source,
+                       tr.manual_override,tr.version,tr.translated_at,tr.reviewed_at,
                        TRUE AS is_current
                   FROM toilet_translation tr
                   JOIN toilet_translation ko ON ko.toilet_id=tr.toilet_id AND ko.locale='ko'
@@ -77,11 +79,12 @@ public class ToiletTranslationRepository {
         String sql = """
                 INSERT INTO toilet_translation
                     (toilet_id,locale,name,road_address,jibun_address,
-                     source_hash,translation_status,translation_source,manual_override,
+                     source_hash,translation_status,translation_source,
+                     address_translation_status,address_translation_source,manual_override,
                      translated_at,reviewed_at,created_at,updated_at)
                 SELECT t.toilet_id,'ko',t.name,t.road_address,t.jibun_address,
                        %s,
-                       'SOURCE','SOURCE',FALSE,NULL,NULL,:now,:now
+                       'SOURCE','SOURCE','SOURCE','SOURCE',FALSE,NULL,NULL,:now,:now
                   FROM toilet t WHERE t.toilet_id=:toiletId
                 ON DUPLICATE KEY UPDATE
                     version=IF(toilet_translation.source_hash<>VALUES(source_hash),
@@ -89,7 +92,8 @@ public class ToiletTranslationRepository {
                     updated_at=IF(toilet_translation.source_hash<>VALUES(source_hash),
                                   VALUES(updated_at),toilet_translation.updated_at),
                     name=VALUES(name),road_address=VALUES(road_address),jibun_address=VALUES(jibun_address),
-                    source_hash=VALUES(source_hash),translation_status='SOURCE',translation_source='SOURCE'
+                    source_hash=VALUES(source_hash),translation_status='SOURCE',translation_source='SOURCE',
+                    address_translation_status='SOURCE',address_translation_source='SOURCE'
                 """.formatted(SOURCE_HASH_SQL);
         jdbc.update(sql, new MapSqlParameterSource("toiletId", toiletId).addValue("now", now));
     }
@@ -100,10 +104,11 @@ public class ToiletTranslationRepository {
             jdbc.update("""
                     INSERT INTO toilet_translation
                         (toilet_id,locale,name,road_address,jibun_address,
-                         source_hash,translation_status,translation_source,manual_override,
+                         source_hash,translation_status,translation_source,
+                         address_translation_status,address_translation_source,manual_override,
                          translated_at,reviewed_at,created_at,updated_at)
                     VALUES (:toiletId,:locale,:name,:road,:jibun,
-                            :sourceHash,:status,:source,:manualOverride,
+                            :sourceHash,:status,:source,:addressStatus,:addressSource,:manualOverride,
                             :translatedAt,:reviewedAt,:now,:now)
                     """, values(input, status, manualOverride, translatedAt, reviewedAt, now));
         } catch (DuplicateKeyException duplicate) {
@@ -117,6 +122,7 @@ public class ToiletTranslationRepository {
                 UPDATE toilet_translation
                    SET name=:name,road_address=:road,jibun_address=:jibun,
                        source_hash=:sourceHash,translation_status=:status,translation_source=:source,
+                       address_translation_status=:addressStatus,address_translation_source=:addressSource,
                        manual_override=:manualOverride,translated_at=:translatedAt,reviewed_at=:reviewedAt,
                        version=version+1,updated_at=:now
                  WHERE toilet_id=:toiletId AND locale=:locale
@@ -147,6 +153,8 @@ public class ToiletTranslationRepository {
                 .addValue("name", input.name()).addValue("road", input.roadAddress())
                 .addValue("jibun", input.jibunAddress()).addValue("sourceHash", input.expectedSourceHash())
                 .addValue("status", status).addValue("source", input.source())
+                .addValue("addressStatus", addressStatus(input))
+                .addValue("addressSource", addressSource(input))
                 .addValue("manualOverride", manualOverride).addValue("translatedAt", translatedAt)
                 .addValue("reviewedAt", reviewedAt).addValue("now", now);
     }
@@ -155,8 +163,22 @@ public class ToiletTranslationRepository {
         return new Text(rs.getLong("toilet_id"), rs.getString("locale"), rs.getString("name"),
                 rs.getString("road_address"), rs.getString("jibun_address"), rs.getString("source_hash"),
                 rs.getString("translation_status"), rs.getString("translation_source"),
+                rs.getString("address_translation_status"), rs.getString("address_translation_source"),
                 rs.getBoolean("manual_override"), rs.getLong("version"),
                 rs.getObject("translated_at", LocalDateTime.class),
                 rs.getObject("reviewed_at", LocalDateTime.class), rs.getBoolean("is_current"));
+    }
+
+    private static String addressStatus(TranslationInput input) {
+        if ("ko".equals(input.locale())) return "SOURCE";
+        return hasText(input.roadAddress()) || hasText(input.jibunAddress()) ? "TRANSLATED" : "NO_RESULT";
+    }
+
+    private static String addressSource(TranslationInput input) {
+        return "ko".equals(input.locale()) ? "SOURCE" : input.source();
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }

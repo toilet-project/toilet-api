@@ -14,6 +14,8 @@ public final class ToiletTranslationModels {
             String sourceHash,
             String status,
             String source,
+            String addressStatus,
+            String addressSource,
             boolean manualOverride,
             long version,
             LocalDateTime translatedAt,
