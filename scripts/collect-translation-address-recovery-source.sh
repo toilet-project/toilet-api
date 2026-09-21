@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mode="${1:?plan or batch is required}"
+mode="${1:?plan, batch, or audit is required}"
 batch_size="${TRANSLATION_ADDRESS_BATCH_SIZE:-500}"
-case "$mode" in plan|batch) ;; *) echo 'mode must be plan or batch' >&2; exit 2;; esac
+case "$mode" in plan|batch|audit) ;; *) echo 'mode must be plan, batch, or audit' >&2; exit 2;; esac
 case "$batch_size" in ''|*[!0-9]*) echo 'batch size must be an integer' >&2; exit 2;; esac
 test "$batch_size" -ge 1 && test "$batch_size" -le 500
 
@@ -13,22 +13,24 @@ mysql_password="$(sed -n 's/^SPRING_DB_PASSWORD=//p' <<<"$api_environment")"
 unset api_environment
 test -n "$mysql_user" && test -n "$mysql_password"
 
-common_sql="
+current_scope_sql="
   FROM toilet t
   JOIN toilet_translation ko ON ko.toilet_id=t.toilet_id AND ko.locale='ko'
   JOIN toilet_translation en ON en.toilet_id=t.toilet_id AND en.locale='en'
                              AND en.source_hash=ko.source_hash
   LEFT JOIN current_toilet_region r ON r.toilet_id=t.toilet_id
  WHERE t.visibility_status='VISIBLE'
+   AND ko.source_hash=SHA2(CONCAT(COALESCE(TRIM(t.name), ''), CHAR(31),
+                                 COALESCE(TRIM(t.road_address), ''), CHAR(31),
+                                 COALESCE(TRIM(t.jibun_address), '')), 256)"
+
+target_sql="${current_scope_sql}
    AND en.manual_override=FALSE
    AND en.address_translation_status='NO_RESULT'
    AND NULLIF(TRIM(en.name), '') IS NOT NULL
    AND NULLIF(TRIM(en.road_address), '') IS NULL
    AND NULLIF(TRIM(en.jibun_address), '') IS NULL
-   AND COALESCE(NULLIF(TRIM(ko.road_address), ''), NULLIF(TRIM(ko.jibun_address), '')) IS NOT NULL
-   AND ko.source_hash=SHA2(CONCAT(COALESCE(TRIM(t.name), ''), CHAR(31),
-                                 COALESCE(TRIM(t.road_address), ''), CHAR(31),
-                                 COALESCE(TRIM(t.jibun_address), '')), 256)"
+   AND COALESCE(NULLIF(TRIM(ko.road_address), ''), NULLIF(TRIM(ko.jibun_address), '')) IS NOT NULL"
 
 if test "$mode" = plan; then
   sql="SELECT JSON_OBJECT(
@@ -37,8 +39,8 @@ if test "$mode" = plan; then
          'jibunSourceCount',COALESCE(SUM(NULLIF(TRIM(ko.road_address), '') IS NULL AND NULLIF(TRIM(ko.jibun_address), '') IS NOT NULL),0),
          'validCoordinateCount',COALESCE(SUM(t.latitude BETWEEN 33 AND 39.5 AND t.longitude BETWEEN 124 AND 132),0),
          'invalidCoordinateCount',COALESCE(SUM(NOT(t.latitude BETWEEN 33 AND 39.5 AND t.longitude BETWEEN 124 AND 132) OR t.latitude IS NULL OR t.longitude IS NULL),0)
-       ) ${common_sql};"
-else
+       ) ${target_sql};"
+elif test "$mode" = batch; then
   sql="SELECT JSON_OBJECT(
          'toiletId',t.toilet_id,
          'name',TRIM(en.name),
@@ -50,9 +52,34 @@ else
          'sidoName',NULLIF(TRIM(r.sido_name), ''),
          'sigunguName',NULLIF(TRIM(r.sigungu_name), ''),
          'sourceHash',ko.source_hash
-       ) ${common_sql}
+       ) ${target_sql}
        ORDER BY CRC32(CONCAT('translation-address-recovery-v1:',t.toilet_id)),t.toilet_id
        LIMIT ${batch_size};"
+else
+  sql="SELECT JSON_OBJECT(
+         'visibleCurrentCount',COUNT(*),
+         'officialAddressCount',COALESCE(SUM(COALESCE(NULLIF(TRIM(en.road_address), ''), NULLIF(TRIM(en.jibun_address), '')) IS NOT NULL),0),
+         'targetCount',COALESCE(SUM(en.manual_override=FALSE
+           AND en.address_translation_status='NO_RESULT'
+           AND NULLIF(TRIM(en.name), '') IS NOT NULL
+           AND NULLIF(TRIM(en.road_address), '') IS NULL
+           AND NULLIF(TRIM(en.jibun_address), '') IS NULL
+           AND COALESCE(NULLIF(TRIM(ko.road_address), ''), NULLIF(TRIM(ko.jibun_address), '')) IS NOT NULL),0),
+         'statusCounts',JSON_OBJECT(
+           'TRANSLATED',COALESCE(SUM(en.address_translation_status='TRANSLATED'),0),
+           'NEEDS_REVIEW',COALESCE(SUM(en.address_translation_status='NEEDS_REVIEW'),0),
+           'NO_RESULT',COALESCE(SUM(en.address_translation_status='NO_RESULT'),0)
+         ),
+         'sourceCounts',JSON_OBJECT(
+           'MOIS_JUSO_ORIGINAL',COALESCE(SUM(en.address_translation_source='MOIS_JUSO_ORIGINAL'),0),
+           'MOIS_JUSO_NORMALIZED',COALESCE(SUM(en.address_translation_source='MOIS_JUSO_NORMALIZED'),0),
+           'KAKAO_REVERSE_MOIS_JUSO',COALESCE(SUM(en.address_translation_source='KAKAO_REVERSE_MOIS_JUSO'),0),
+           'RECOVERY_EXHAUSTED',COALESCE(SUM(en.address_translation_source='RECOVERY_EXHAUSTED'),0),
+           'MOIS_JUSO_NO_RESULT',COALESCE(SUM(en.address_translation_source='MOIS_JUSO_NO_RESULT'),0),
+           'OTHER',COALESCE(SUM(en.address_translation_source IS NULL OR en.address_translation_source NOT IN
+             ('MOIS_JUSO_ORIGINAL','MOIS_JUSO_NORMALIZED','KAKAO_REVERSE_MOIS_JUSO','RECOVERY_EXHAUSTED','MOIS_JUSO_NO_RESULT')),0)
+         )
+       ) ${current_scope_sql};"
 fi
 
 mysql_output="$(mktemp)"

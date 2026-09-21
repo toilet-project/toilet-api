@@ -61,19 +61,22 @@ done
 
 unset juso_key kakao_key JUSO_ENGLISH_API_KEY KAKAO_REST_API_KEY
 bash "$bundle_dir/scripts/collect-translation-address-recovery-source.sh" plan > "$work_dir/final-plan.json"
-python3 - "$work_dir/initial-plan.json" "$work_dir/final-plan.json" "$work_dir/audit-parts.jsonl" "$processed" "$max_rows" "$output_dir/translation-address-recovery-report.json" <<'PY'
+bash "$bundle_dir/scripts/collect-translation-address-recovery-source.sh" audit > "$work_dir/production-audit.json"
+python3 - "$work_dir/initial-plan.json" "$work_dir/final-plan.json" "$work_dir/production-audit.json" "$work_dir/audit-parts.jsonl" "$processed" "$max_rows" "$output_dir/translation-address-recovery-report.json" <<'PY'
 import collections,datetime as dt,json,sys
 from pathlib import Path
 initial=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 final=json.loads(Path(sys.argv[2]).read_text(encoding='utf-8'))
-parts=[json.loads(line) for line in Path(sys.argv[3]).read_text(encoding='utf-8').splitlines() if line.strip()]
-processed,max_rows=int(sys.argv[4]),int(sys.argv[5])
+production_audit=json.loads(Path(sys.argv[3]).read_text(encoding='utf-8'))
+parts=[json.loads(line) for line in Path(sys.argv[4]).read_text(encoding='utf-8').splitlines() if line.strip()]
+processed,max_rows=int(sys.argv[5]),int(sys.argv[6])
 sources=collections.Counter(); reasons=collections.Counter()
 for part in parts:
     sources.update(part.get('recoverySourceCounts') or {})
     reasons.update(part.get('failureReasonCounts') or {})
 report={
-    'initialPlan':initial,'finalPlan':final,'maxRows':max_rows,'processedCount':processed,
+    'initialPlan':initial,'finalPlan':final,'productionAudit':production_audit,
+    'maxRows':max_rows,'processedCount':processed,
     'recoveredCount':sum(int(p.get('recoveredCount') or 0) for p in parts),
     'needsReviewCount':sum(int(p.get('needsReviewCount') or 0) for p in parts),
     'recoverySourceCounts':dict(sorted(sources.items())),
@@ -86,7 +89,9 @@ report={
 }
 if report['recoveredCount'] + report['needsReviewCount'] != processed:
     raise SystemExit('recovery audit count mismatch')
-Path(sys.argv[6]).write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+if int(production_audit.get('targetCount') or 0) != int(final.get('targetCount') or 0):
+    raise SystemExit('production audit target count does not match final plan')
+Path(sys.argv[7]).write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 PY
 
 rm -rf -- "$work_dir"

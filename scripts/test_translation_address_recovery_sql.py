@@ -47,6 +47,14 @@ class TranslationAddressRecoverySqlTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.load([row])
 
+    def test_remote_report_includes_current_production_aggregate(self):
+        collector = Path(__file__).with_name("collect-translation-address-recovery-source.sh").read_text(encoding="utf-8")
+        runner = Path(__file__).with_name("run-translation-address-recovery-remote.sh").read_text(encoding="utf-8")
+        self.assertIn("plan|batch|audit", collector)
+        self.assertIn("'sourceCounts',JSON_OBJECT", collector)
+        self.assertIn("'productionAudit':production_audit", runner)
+        self.assertIn("production audit target count does not match final plan", runner)
+
 
 if __name__ == "__main__":
     unittest.main()
