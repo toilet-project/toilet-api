@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -23,14 +24,19 @@ public class ToiletDisplayGroupRepository {
         var parameters = new MapSqlParameterSource("toiletIds", toiletIds);
         Map<Long, Assignment> assignments = new LinkedHashMap<>();
         jdbc.query("""
-                SELECT m.toilet_id, g.group_id, g.display_name
+                SELECT m.toilet_id, g.group_id, g.display_name,
+                       en.display_name AS english_display_name
                   FROM toilet_display_group_member m
                   JOIN toilet_display_group g ON g.group_id = m.group_id
+                  LEFT JOIN toilet_display_group_translation en
+                    ON en.group_id = g.group_id AND en.locale = 'en'
+                   AND (en.source_name = g.display_name OR en.manual_override = TRUE)
                   JOIN toilet t ON t.toilet_id = m.toilet_id
                  WHERE m.toilet_id IN (:toiletIds)
                    AND t.latitude = g.latitude AND t.longitude = g.longitude
                 """, parameters, (rs, rowNumber) -> Map.entry(rs.getLong("toilet_id"),
-                new Assignment(rs.getLong("group_id"), rs.getString("display_name"))))
+                new Assignment(rs.getLong("group_id"), rs.getString("display_name"),
+                        rs.getString("english_display_name"))))
                 .forEach(entry -> assignments.put(entry.getKey(), entry.getValue()));
         return assignments;
     }
@@ -96,6 +102,46 @@ public class ToiletDisplayGroupRepository {
                 .addValue("displayName", displayName).addValue("adminId", adminId));
     }
 
+    public Optional<String> findCurrentEnglishDisplayName(Long groupId, String sourceName) {
+        return jdbc.query("""
+                SELECT display_name
+                  FROM toilet_display_group_translation
+                 WHERE group_id = :groupId AND locale = 'en'
+                   AND (source_name = :sourceName OR manual_override = TRUE)
+                """, new MapSqlParameterSource("groupId", groupId).addValue("sourceName", sourceName),
+                (rs, rowNumber) -> rs.getString("display_name")).stream().findFirst();
+    }
+
+    public List<DisplayGroupSource> findGroupsNeedingEnglishTranslation(int limit) {
+        return jdbc.query("""
+                SELECT g.group_id, TRIM(g.display_name) AS source_name
+                  FROM toilet_display_group g
+                  LEFT JOIN toilet_display_group_translation en
+                    ON en.group_id = g.group_id AND en.locale = 'en'
+                 WHERE NULLIF(TRIM(g.display_name), '') IS NOT NULL
+                   AND (en.group_id IS NULL OR (en.manual_override = FALSE AND en.source_name <> TRIM(g.display_name)))
+                 ORDER BY g.group_id
+                 LIMIT :limit
+                """, new MapSqlParameterSource("limit", Math.min(Math.max(limit, 1), 100)),
+                (rs, rowNumber) -> new DisplayGroupSource(rs.getLong("group_id"), rs.getString("source_name")));
+    }
+
+    public void saveMachineEnglishDisplayName(Long groupId, String sourceName, String englishDisplayName) {
+        jdbc.update("""
+                INSERT INTO toilet_display_group_translation
+                    (group_id, locale, source_name, display_name, translation_source,
+                     manual_override, translated_at)
+                VALUES (:groupId, 'en', :sourceName, :displayName, 'GOOGLE_CLOUD', FALSE, CURRENT_TIMESTAMP)
+                ON DUPLICATE KEY UPDATE
+                    source_name = IF(manual_override, source_name, VALUES(source_name)),
+                    display_name = IF(manual_override, display_name, VALUES(display_name)),
+                    translation_source = IF(manual_override, translation_source, VALUES(translation_source)),
+                    translated_at = IF(manual_override, translated_at, VALUES(translated_at)),
+                    updated_at = IF(manual_override, updated_at, CURRENT_TIMESTAMP)
+                """, new MapSqlParameterSource("groupId", groupId)
+                .addValue("sourceName", sourceName).addValue("displayName", englishDisplayName));
+    }
+
     public void replaceMembers(Long groupId, List<Long> toiletIds) {
         var parameters = new MapSqlParameterSource("groupId", groupId).addValue("toiletIds", toiletIds);
         jdbc.update("""
@@ -141,6 +187,17 @@ public class ToiletDisplayGroupRepository {
                 """);
     }
 
-    public record Assignment(Long groupId, String displayName) {
+    public record Assignment(Long groupId, String displayName, String englishDisplayName) {
+        public Assignment(Long groupId, String displayName) {
+            this(groupId, displayName, null);
+        }
+
+        public Map<String, String> translations() {
+            return englishDisplayName == null || englishDisplayName.isBlank()
+                    ? Map.of()
+                    : Map.of("en", englishDisplayName);
+        }
     }
+
+    public record DisplayGroupSource(Long groupId, String sourceName) {}
 }

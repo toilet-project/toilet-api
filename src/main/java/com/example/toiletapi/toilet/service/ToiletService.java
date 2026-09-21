@@ -96,6 +96,7 @@ public class ToiletService {
                             toilet,
                             assignment == null ? null : assignment.groupId(),
                             assignment == null ? null : assignment.displayName(),
+                            assignment == null ? Map.of() : assignment.translations(),
                             responseTranslations(translations.get(toilet.getId()))
                     );
                 })

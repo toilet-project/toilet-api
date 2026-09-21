@@ -53,13 +53,14 @@ class CoordinateQualityServiceTest {
     @Mock AuditLogService auditLogService;
     @Mock CoordinateAddressResolver addressResolver;
     @Mock ToiletDisplayGroupRepository displayGroupRepository;
+    @Mock DisplayGroupTranslator displayGroupTranslator;
     @Mock Toilet toilet;
     private CoordinateQualityService service;
 
     @BeforeEach
     void setUp() {
         service = new CoordinateQualityService(jdbc, reviewRepository, toiletRepository, translations, reportRepository,
-                revisionRepository, auditLogService, addressResolver, displayGroupRepository);
+                revisionRepository, auditLogService, addressResolver, displayGroupRepository, displayGroupTranslator);
     }
 
     @Test
@@ -190,6 +191,7 @@ class CoordinateQualityServiceTest {
         when(displayGroupRepository.matchingToiletIds(List.of(toiletId, 202L, 203L), latitude, longitude))
                 .thenReturn(List.of(toiletId, 202L, 203L));
         when(displayGroupRepository.create("XXX문화원", latitude, longitude, adminId)).thenReturn(41L);
+        when(displayGroupTranslator.translate("XXX문화원")).thenReturn("XXX Cultural Center");
 
         var result = service.createMapDisplayGroup(adminId, toiletId, new CreateMapDisplayGroupRequest(
                 CreateMapDisplayGroupRequest.Direction.CURRENT_TO_MARKER, " XXX문화원 ",
@@ -199,6 +201,7 @@ class CoordinateQualityServiceTest {
         verify(toilet).applyAdminConfirmedCoordinates(latitude, longitude, "경기도 하남시 미사대로 750", "지번 주소");
         verify(toiletRepository).flush();
         verify(displayGroupRepository).create("XXX문화원", latitude, longitude, adminId);
+        verify(displayGroupRepository).saveMachineEnglishDisplayName(41L, "XXX문화원", "XXX Cultural Center");
         verify(displayGroupRepository).replaceMembers(41L, List.of(toiletId, 202L, 203L));
         verify(revisionRepository).saveAll(anyList());
         verify(translations).synchronizeKoreanSource(toiletId);
@@ -233,6 +236,7 @@ class CoordinateQualityServiceTest {
                 List.of(currentToiletId, 202L, 203L), currentLatitude, currentLongitude))
                 .thenReturn(List.of(currentToiletId, 202L, 203L));
         when(displayGroupRepository.create("XXX문화원", currentLatitude, currentLongitude, adminId)).thenReturn(42L);
+        when(displayGroupTranslator.translate("XXX문화원")).thenReturn("XXX Cultural Center");
 
         var result = service.createMapDisplayGroup(adminId, currentToiletId, new CreateMapDisplayGroupRequest(
                 CreateMapDisplayGroupRequest.Direction.MARKERS_TO_CURRENT, "XXX문화원",
@@ -246,6 +250,7 @@ class CoordinateQualityServiceTest {
                 "서울특별시 강동구 상일로 10", "지번 주소");
         verify(toilet, never()).applyAdminConfirmedCoordinates(any(), any(), any(), any());
         verify(displayGroupRepository).replaceMembers(42L, List.of(currentToiletId, 202L, 203L));
+        verify(displayGroupRepository).saveMachineEnglishDisplayName(42L, "XXX문화원", "XXX Cultural Center");
         verify(revisionRepository).saveAll(anyList());
         verify(translations).synchronizeKoreanSource(202L);
         verify(translations).synchronizeKoreanSource(203L);
@@ -320,12 +325,15 @@ class CoordinateQualityServiceTest {
         when(displayGroupRepository.matchingToiletIds(List.of(11L, 12L, 13L), latitude, longitude))
                 .thenReturn(List.of(11L, 12L, 13L));
         when(displayGroupRepository.create("XXX문화원", latitude, longitude, 7L)).thenReturn(21L);
+        when(displayGroupTranslator.translate("XXX문화원")).thenReturn("XXX Cultural Center");
 
         var result = service.saveDisplayGroup(7L, "group-key",
                 new SaveToiletDisplayGroupRequest(null, " XXX문화원 ", List.of(11L, 12L, 13L)));
 
         org.junit.jupiter.api.Assertions.assertEquals(21L, result.id());
         org.junit.jupiter.api.Assertions.assertEquals("XXX문화원", result.displayName());
+        org.junit.jupiter.api.Assertions.assertEquals("XXX Cultural Center", result.englishDisplayName());
+        verify(displayGroupRepository).saveMachineEnglishDisplayName(21L, "XXX문화원", "XXX Cultural Center");
         verify(displayGroupRepository).replaceMembers(21L, List.of(11L, 12L, 13L));
         verify(auditLogService).record(eq(7L), eq(AuditAction.TOILET_DISPLAY_GROUP_SAVED),
                 eq("TOILET_DISPLAY_GROUP"), eq(21L), any(Map.class));
@@ -363,13 +371,44 @@ class CoordinateQualityServiceTest {
         when(displayGroupRepository.matchingToiletIds(List.of(11L, 12L, 13L, 14L), latitude, longitude))
                 .thenReturn(List.of(11L, 12L, 13L, 14L));
         when(displayGroupRepository.belongsToCoordinates(21L, latitude, longitude)).thenReturn(true);
+        when(displayGroupRepository.findCurrentEnglishDisplayName(21L, "XXX문화원 본관"))
+                .thenReturn(Optional.of("XXX Cultural Center Main Building"));
 
         var result = service.saveDisplayGroup(7L, "group-key",
                 new SaveToiletDisplayGroupRequest(21L, "XXX문화원 본관", List.of(11L, 12L, 13L, 14L)));
 
         org.junit.jupiter.api.Assertions.assertEquals(21L, result.id());
         verify(displayGroupRepository).update(21L, "XXX문화원 본관", 7L);
+        verify(displayGroupRepository).saveMachineEnglishDisplayName(
+                21L, "XXX문화원 본관", "XXX Cultural Center Main Building");
+        verify(displayGroupTranslator, never()).translate(anyString());
         verify(displayGroupRepository).replaceMembers(21L, List.of(11L, 12L, 13L, 14L));
         verify(displayGroupRepository, never()).create(anyString(), any(), any(), any());
     }
+
+    @Test
+    void retranslatesWhenAnExistingGroupsKoreanNameChanges() {
+        BigDecimal latitude = new BigDecimal("36.4000000");
+        BigDecimal longitude = new BigDecimal("127.3000000");
+        var coordinateGroup = new DuplicateCoordinateGroupResponse("group-key", latitude, longitude, 2,
+                "XXX문화원 1층", "대전광역시", CoordinateQualityStatus.PENDING, 0);
+        when(jdbc.query(anyString(), any(SqlParameterSource.class),
+                org.mockito.ArgumentMatchers.<RowMapper<DuplicateCoordinateGroupResponse>>any()))
+                .thenReturn(List.of(coordinateGroup));
+        when(displayGroupRepository.matchingToiletIds(List.of(11L, 12L), latitude, longitude))
+                .thenReturn(List.of(11L, 12L));
+        when(displayGroupRepository.belongsToCoordinates(21L, latitude, longitude)).thenReturn(true);
+        when(displayGroupRepository.findCurrentEnglishDisplayName(21L, "XXX문화원 별관"))
+                .thenReturn(Optional.empty());
+        when(displayGroupTranslator.translate("XXX문화원 별관"))
+                .thenReturn("XXX Cultural Center Annex");
+
+        service.saveDisplayGroup(7L, "group-key",
+                new SaveToiletDisplayGroupRequest(21L, "XXX문화원 별관", List.of(11L, 12L)));
+
+        verify(displayGroupTranslator).translate("XXX문화원 별관");
+        verify(displayGroupRepository).saveMachineEnglishDisplayName(
+                21L, "XXX문화원 별관", "XXX Cultural Center Annex");
+    }
+
 }

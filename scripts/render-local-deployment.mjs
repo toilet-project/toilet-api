@@ -55,6 +55,10 @@ export function renderLocalDeployment(source, role) {
               false:"$profile_photo_base_names"|false:"$profile_photo_cdn_names"|true:"$profile_photo_cdn_names") ;;
               *) exit 1 ;;
             esac`)
+    replace('            KAKAO_REST_API_KEY=\${{ secrets.KAKAO_REST_API_KEY }}',
+      `            KAKAO_REST_API_KEY=\${{ secrets.KAKAO_REST_API_KEY }}
+            GOOGLE_TRANSLATION_API_KEY=\${{ secrets.GOOGLE_TRANSLATION_API_KEY }}
+            DISPLAY_GROUP_TRANSLATION_ENABLED=true`)
     replace('            KAKAO_CLIENT_SECRET=\${{ secrets.KAKAO_CLIENT_SECRET }}',
       `            KAKAO_CLIENT_SECRET=\${{ secrets.KAKAO_CLIENT_SECRET }}
             PROFILE_PHOTO_ENABLED=\${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}

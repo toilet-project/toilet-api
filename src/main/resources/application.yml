@@ -18,6 +18,12 @@ app:
   duplicate-facilities:
     enabled: ${DUPLICATE_FACILITIES_ENABLED:false}
 
+display-group-translation:
+  enabled: ${DISPLAY_GROUP_TRANSLATION_ENABLED:false}
+  api-key: ${GOOGLE_TRANSLATION_API_KEY:}
+  backfill-initial-delay-ms: ${DISPLAY_GROUP_TRANSLATION_BACKFILL_INITIAL_DELAY_MS:30000}
+  backfill-delay-ms: ${DISPLAY_GROUP_TRANSLATION_BACKFILL_DELAY_MS:300000}
+
 service-analytics:
   enabled: ${SERVICE_ANALYTICS_ENABLED:false}
   visitor-secret: ${ANALYTICS_VISITOR_HMAC_SECRET:${JWT_SECRET:}}

@@ -98,6 +98,10 @@ replaceOnce('KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}',
  +"PROFILE_PHOTO_ENABLED=${{ vars.PROFILE_PHOTO_ENABLED || 'false' }}\n"
  +"PROFILE_PHOTO_CDN_ENABLED=${{ vars.PROFILE_PHOTO_CDN_ENABLED || 'false' }}\n"
  +"KAKAO_LOGIN_SCOPES=${{ vars.PROFILE_PHOTO_ENABLED == 'true' && 'profile_nickname,account_email,profile_image' || 'profile_nickname,account_email' }}");
+replaceOnce('KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}',
+ 'KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}\n'
+ +'GOOGLE_TRANSLATION_API_KEY=${{ secrets.GOOGLE_TRANSLATION_API_KEY }}\n'
+ +'DISPLAY_GROUP_TRANSLATION_ENABLED=true');
 replaceOnce('JWT_SECRET=${{ secrets.JWT_SECRET }}',
  'JWT_SECRET=${{ secrets.JWT_SECRET }}\n'
  +'SERVICE_ANALYTICS_ENABLED=true\n'

@@ -11,5 +11,4 @@ public record SaveToiletDisplayGroupRequest(
         @Positive Long displayGroupId,
         @NotBlank @Size(max = 100) String displayName,
         @NotEmpty @Size(min = 2, max = 100) List<@NotNull @Positive Long> toiletIds
-) {
-}
+) {}
