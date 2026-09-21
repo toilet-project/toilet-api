@@ -147,6 +147,8 @@ jobs:
             SPRING_DB_USERNAME=${{ secrets.SPRING_DB_USERNAME }}
             SPRING_DB_PASSWORD=${{ secrets.SPRING_DB_PASSWORD }}
             KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}
+            GOOGLE_TRANSLATION_API_KEY=${{ secrets.GOOGLE_TRANSLATION_API_KEY }}
+            DISPLAY_GROUP_TRANSLATION_ENABLED=true
             GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
             GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
             KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}

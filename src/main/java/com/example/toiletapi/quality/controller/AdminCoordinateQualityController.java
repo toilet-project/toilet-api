@@ -9,7 +9,6 @@ import com.example.toiletapi.quality.dto.DuplicateCoordinateToiletResponse;
 import com.example.toiletapi.quality.dto.ReviewCoordinateGroupRequest;
 import com.example.toiletapi.quality.dto.SaveToiletDisplayGroupRequest;
 import com.example.toiletapi.quality.dto.ToiletDisplayGroupResponse;
-import com.example.toiletapi.quality.dto.UpdateDisplayGroupTranslationRequest;
 import com.example.toiletapi.quality.model.CoordinateQualityStatus;
 import com.example.toiletapi.quality.service.CoordinateQualityService;
 import jakarta.validation.Valid;
@@ -80,15 +79,6 @@ public class AdminCoordinateQualityController {
     public ResponseEntity<Void> deleteDisplayGroup(@PathVariable Long displayGroupId,
                                                     @AuthenticationPrincipal Jwt jwt) {
         service.deleteDisplayGroup(userId(jwt), displayGroupId);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PutMapping("/display-groups/{displayGroupId}/translation")
-    public ResponseEntity<Void> updateDisplayGroupTranslation(
-            @PathVariable Long displayGroupId,
-            @Valid @RequestBody UpdateDisplayGroupTranslationRequest request,
-            @AuthenticationPrincipal Jwt jwt) {
-        service.updateDisplayGroupTranslation(userId(jwt), displayGroupId, request);
         return ResponseEntity.noContent().build();
     }
 
