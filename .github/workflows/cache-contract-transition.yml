@@ -9,7 +9,7 @@ on:
       contract_version:
         description: Explicit target contract
         type: choice
-        options: ['1', '2']
+        options: ['1', '2', '3']
         default: '2'
       operation:
         description: Read-only check or one approved configuration change
@@ -21,11 +21,11 @@ on:
         type: boolean
         default: false
       schema_verified:
-        description: Production V2 outbox schema and triggers were independently verified
+        description: Production outbox schema and required V6 region-scope triggers were verified
         type: boolean
         default: false
       web_ready_confirmed:
-        description: Production Web receives V2 and shared cache smoke passed
+        description: Production Web accepts the target contract and shared cache smoke passed
         type: boolean
         default: false
 permissions:
@@ -62,14 +62,14 @@ jobs:
           [[ "$EXPECTED_API_COMMIT" =~ ^[a-f0-9]{40}$ ]]
           test "$EXPECTED_API_COMMIT" = "$APPROVED_API_COMMIT"
           test "$CONTRACT_VERSION" = "$APPROVED_CONTRACT_VERSION"
-          case "$CONTRACT_VERSION" in 1|2) ;; *) exit 1 ;; esac
+          case "$CONTRACT_VERSION" in 1|2|3) ;; *) exit 1 ;; esac
           case "$OPERATION" in
             check) ;;
             apply)
               test "$RELEASE_APPROVED" = true
               test "$FREEZE" = true
               test "$SCHEMA" = true
-              if test "$CONTRACT_VERSION" = 2; then test "$WEB_READY" = true; fi
+              if test "$CONTRACT_VERSION" != 1; then test "$WEB_READY" = true; fi
               ;;
             *) exit 1 ;;
           esac

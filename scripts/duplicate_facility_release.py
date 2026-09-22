@@ -65,7 +65,7 @@ def schema_ready(objects):
     require(query(objects, "SELECT COUNT(*) FROM batch_sync_history WHERE status IN ('RUNNING','STARTED','STARTING')") == ['0'],
             'DUPLICATE_RELEASE_BATCH_RUNNING')
     require(base.environment(objects['api']).get('WEB_CACHE_REVALIDATION_ENABLED') == 'true')
-    require(base.environment(objects['api']).get('WEB_CACHE_CONTRACT_VERSION') == '2')
+    require(base.environment(objects['api']).get('WEB_CACHE_CONTRACT_VERSION') in ('2', '3'))
 
 
 def expected_body(sql):

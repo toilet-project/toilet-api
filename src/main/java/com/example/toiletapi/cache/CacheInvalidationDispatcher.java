@@ -22,7 +22,7 @@ public class CacheInvalidationDispatcher {
     public CacheInvalidationDispatcher(CacheInvalidationRepository repository,CacheInvalidationClient client,MeterRegistry metrics,
             @org.springframework.beans.factory.annotation.Value("${web-cache.contract-version:1}") int contractVersion) {
         this.repository=repository; this.client=client;
-        if(contractVersion!=1 && contractVersion!=2) throw new IllegalArgumentException("Unsupported cache contract version");
+        if(contractVersion!=1 && contractVersion!=2 && contractVersion!=3) throw new IllegalArgumentException("Unsupported cache contract version");
         this.contractVersion=contractVersion;
         deliveries=metrics.counter("web.cache.invalidation.deliveries");
         failures=metrics.counter("web.cache.invalidation.failures");
@@ -35,11 +35,12 @@ public class CacheInvalidationDispatcher {
         try {
             pending.set(repository.pendingCount());
             oldestPendingSeconds.set(repository.oldestPendingSeconds());
-            var items=repository.due();
+            var items=contractVersion==3 ? repository.dueScoped() : repository.due();
             if(items.isEmpty()) return;
             try {
                 if(contractVersion==1) client.send(items.stream().map(CacheInvalidationRepository.Pending::toiletId).toList());
-                else client.sendEvents(items.stream().map(CacheInvalidationRepository.Pending::event).toList());
+                else if(contractVersion==2) client.sendEvents(items.stream().map(CacheInvalidationRepository.Pending::event).toList());
+                else client.sendEventsV3(items.stream().map(CacheInvalidationRepository.Pending::eventV3).toList());
             } catch (Exception error) {
                 failures.increment();
                 String code=error instanceof CacheInvalidationClient.DeliveryException ? error.getMessage() : "TRANSPORT_OR_ACK_ERROR";
@@ -49,7 +50,10 @@ public class CacheInvalidationDispatcher {
                 if(error instanceof InterruptedException) Thread.currentThread().interrupt();
                 return;
             }
-            for(var item:items) repository.acknowledge(item);
+            for(var item:items) {
+                if(contractVersion==3) repository.acknowledgeScoped(item);
+                else repository.acknowledge(item);
+            }
             deliveries.increment(items.size());
         } catch (Exception error) {
             failures.increment();

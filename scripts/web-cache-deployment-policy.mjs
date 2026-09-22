@@ -6,7 +6,7 @@ const targets = new Map([
 // Never include supplied values in errors: some fields are deployment secrets.
 export function validateWebCacheDeployment({enabled = 'false', origin = '', secretName = '', secret = '', contractVersion = '1'}) {
   if (!['true', 'false'].includes(enabled)) throw new Error('Cache enabled flag must be true or false')
-  if (!['1', '2'].includes(contractVersion)) throw new Error('Cache contract version must be 1 or 2')
+  if (!['1', '2', '3'].includes(contractVersion)) throw new Error('Cache contract version must be 1, 2 or 3')
   if (origin && !targets.has(origin)) throw new Error('Cache origin must exactly match an approved target')
   if (secret && !/^[A-Za-z0-9_+/=-]{32,512}$/.test(secret)) throw new Error('Cache secret is invalid or contains unsafe whitespace/characters')
   if (enabled === 'false') return {enabled:false, target:'disabled', contractVersion:Number(contractVersion)}

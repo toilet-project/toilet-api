@@ -9,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -31,6 +33,7 @@ class CacheInvalidationPipelineMySqlTest {
     final AtomicInteger calls = new AtomicInteger();
     final AtomicInteger responseStatus = new AtomicInteger(200);
     final AtomicInteger validSignatures = new AtomicInteger();
+    final AtomicReference<JsonNode> lastPayload = new AtomicReference<>();
     HttpServer receiver;
     AnnotationConfigApplicationContext context;
     CacheInvalidationRepository repository;
@@ -38,16 +41,22 @@ class CacheInvalidationPipelineMySqlTest {
     @BeforeAll static void schema() {
         dataSource = new DriverManagerDataSource(mysql.getJdbcUrl(),mysql.getUsername(),mysql.getPassword());
         jdbc = new JdbcTemplate(dataSource);
-        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
+        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7),road_address VARCHAR(255),jibun_address VARCHAR(255),visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_opening_hours (toilet_id BIGINT PRIMARY KEY,is_open_24h BOOLEAN,normalization_status VARCHAR(24),source_changed BOOLEAN)");
         jdbc.execute("CREATE TABLE toilet_translation (toilet_id BIGINT NOT NULL,locale VARCHAR(12) NOT NULL,name VARCHAR(255),PRIMARY KEY(toilet_id,locale))");
+        jdbc.execute("CREATE TABLE toilet_display_group (group_id BIGINT PRIMARY KEY,display_name VARCHAR(100))");
+        jdbc.execute("CREATE TABLE toilet_display_group_member (group_id BIGINT,toilet_id BIGINT,sort_order INT DEFAULT 0,PRIMARY KEY(group_id,toilet_id),FOREIGN KEY(group_id) REFERENCES toilet_display_group(group_id) ON DELETE CASCADE)");
+        jdbc.execute("CREATE TABLE toilet_display_group_translation (group_id BIGINT,locale VARCHAR(10),display_name VARCHAR(255),PRIMARY KEY(group_id,locale),FOREIGN KEY(group_id) REFERENCES toilet_display_group(group_id) ON DELETE CASCADE)");
         Flyway.configure().dataSource(mysql.getJdbcUrl(),"root",mysql.getPassword())
                 .baselineOnMigrate(true).baselineVersion("0").locations("classpath:db/cache-revalidation").load().migrate();
     }
     @BeforeEach void prepare() throws Exception {
+        jdbc.update("DELETE FROM toilet_display_group_translation");
+        jdbc.update("DELETE FROM toilet_display_group_member");
+        jdbc.update("DELETE FROM toilet_display_group");
         jdbc.update("DELETE FROM toilet_translation");
         jdbc.update("DELETE FROM toilet_region_decision");
         jdbc.update("DELETE FROM toilet_region_assignment");
@@ -67,6 +76,7 @@ class CacheInvalidationPipelineMySqlTest {
                 if (!expected.equals(exchange.getRequestHeaders().getFirst("x-cache-signature"))) status=401;
                 else validSignatures.incrementAndGet();
                 var payload = new ObjectMapper().readTree(body);
+                lastPayload.set(payload);
                 var events = payload.get("events");
                 var response = (events == null
                         ? "{\"ok\":true,\"acceptedIds\":"+payload.get("toiletIds")+"}"
@@ -78,12 +88,13 @@ class CacheInvalidationPipelineMySqlTest {
         });
         receiver.start();
     }
-    void startSender() {
+    void startSender() { startSender(2); }
+    void startSender(int contractVersion) {
         context = new AnnotationConfigApplicationContext();
         context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("test-only",Map.of(
                 "web-cache.enabled","true", "web-cache.origin","http://127.0.0.1:"+receiver.getAddress().getPort(),
                 "web-cache.secret",CacheInvalidationClientTest.SECRET, "web-cache.poll-ms","50",
-                "web-cache.contract-version","2")));
+                "web-cache.contract-version",String.valueOf(contractVersion))));
         context.registerBean(JdbcTemplate.class,()->jdbc);
         context.registerBean(SimpleMeterRegistry.class,SimpleMeterRegistry::new);
         // Closing the old process must finish its in-flight delivery before the test
@@ -114,6 +125,17 @@ class CacheInvalidationPipelineMySqlTest {
         });
         await(()->validSignatures.get()>0 && repository.pendingCount()==0);
         assertEquals("fixture only",jdbc.queryForObject("SELECT name FROM toilet WHERE toilet_id=13144",String.class));
+    }
+    @Test void v3SendsScopedCoordinatesAndAcknowledgesThem() throws Exception {
+        startSender(3);
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude,longitude) VALUES(13144,'scoped',36.1,127.1)");
+        await(()->validSignatures.get()>0 && repository.pendingCount()==0);
+        var payload=lastPayload.get();
+        assertEquals(3,payload.path("contractVersion").asInt());
+        var event=payload.path("events").get(0);
+        assertTrue(event.path("regionScopeComplete").asBoolean());
+        assertEquals(127.1,event.path("regionBounds").path("west").asDouble(),0.0000001);
+        assertEquals(36.1,event.path("regionBounds").path("south").asDouble(),0.0000001);
     }
     @Test void rollbackIsNeverSent() throws Exception {
         new TransactionTemplate(new DataSourceTransactionManager(dataSource)).execute(status->{

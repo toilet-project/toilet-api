@@ -1,5 +1,18 @@
 -- Manual rollback: disable WEB_CACHE_REVALIDATION_ENABLED and stop the sender first.
 -- Retain the outbox/revision table for diagnosis and safe re-enable. This script deletes no rows.
+DROP TRIGGER IF EXISTS cache_toilet_sitemap_update;
+DROP TRIGGER IF EXISTS cache_toilet_scope_delete;
+DROP TRIGGER IF EXISTS cache_outbox_region_insert;
+DROP TRIGGER IF EXISTS cache_outbox_region_update;
+DROP TRIGGER IF EXISTS cache_group_member_insert;
+DROP TRIGGER IF EXISTS cache_group_member_delete;
+DROP TRIGGER IF EXISTS cache_group_member_update_old;
+DROP TRIGGER IF EXISTS cache_group_member_update_new;
+DROP TRIGGER IF EXISTS cache_display_group_update;
+DROP TRIGGER IF EXISTS cache_display_group_delete;
+DROP TRIGGER IF EXISTS cache_group_translation_insert;
+DROP TRIGGER IF EXISTS cache_group_translation_update;
+DROP TRIGGER IF EXISTS cache_group_translation_delete;
 DROP TRIGGER IF EXISTS cache_toilet_visibility_update;
 DROP TRIGGER IF EXISTS cache_opening_hours_insert;
 DROP TRIGGER IF EXISTS cache_opening_hours_update;
