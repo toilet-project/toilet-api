@@ -67,7 +67,8 @@ class ToiletSitemapMySqlTest {
         assertEquals("English restroom",service.entries(0,"en").getFirst().name());
         assertTrue(service.localizedShards("ja").isEmpty());
         assertTrue(service.entries(0,"ja").isEmpty());
-        assertEquals(4,service.entries(0,"ko").size());
+        assertEquals(3,service.entries(0,"ko").size());
+        assertEquals(List.of(10001L),service.entries(1,"ko").stream().map(ToiletSitemapService.SitemapEntry::id).toList());
         assertThrows(IllegalArgumentException.class,()->service.localizedShards("zh"));
         assertThrows(IllegalArgumentException.class,()->service.entries(-1,"en"));
     }
