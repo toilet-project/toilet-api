@@ -69,17 +69,14 @@ class RegionReviewServiceTest {
         var region = new RegionValue("경기도","41","용인시 수지구","41465","용인시","수지구");
         doReturn(java.util.List.of(region)).when(jdbc).query(contains("FROM region_sigungu_reference WHERE"),
                 any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class), any(RowMapper.class));
-        when(jdbc.update(contains("INSERT INTO toilet_region_override"),
-                any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class))).thenReturn(1);
-
         var result = service.confirmDistrict(9,1,
                 new RegionConfirmation("41465", " 지도 위치 확인 ", new Location(null,null,null,null)));
 
         assertEquals("용인시 수지구", result.region().sigunguName());
         assertEquals("지도 위치 확인", result.note());
-        verify(jdbc).update(contains("INSERT INTO toilet_region_override"),
-                any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class));
         verify(jdbc).update(contains("INSERT INTO toilet_region_decision"),
+                any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class));
+        verify(jdbc, never()).update(contains("toilet_region_override"),
                 any(org.springframework.jdbc.core.namedparam.SqlParameterSource.class));
         verify(audit).record(9L, AuditAction.TOILET_REGION_CONFIRMED, "TOILET", 1L,
                 java.util.Map.of("sigunguCode","41465","regionName","경기도 용인시 수지구"));

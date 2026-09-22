@@ -150,27 +150,10 @@ public class RegionReviewService {
         RegionValue choice = matches.getFirst();
         OffsetDateTime confirmedAt = OffsetDateTime.now(SEOUL);
         var values = new MapSqlParameterSource()
-                .addValue("id", id).addValue("sidoName", choice.sidoName()).addValue("sidoCode", choice.sidoCode())
-                .addValue("sigunguName", choice.sigunguName()).addValue("sigunguCode", choice.sigunguCode())
-                .addValue("cityName", choice.cityName()).addValue("districtName", choice.districtName())
-                .addValue("note", request.note().trim()).addValue("latitude", toilet.getLatitude())
-                .addValue("longitude", toilet.getLongitude()).addValue("roadAddress", toilet.getRoadAddress())
-                .addValue("jibunAddress", toilet.getJibunAddress()).addValue("adminId", adminId)
+                .addValue("id", id).addValue("sigunguCode", choice.sigunguCode())
+                .addValue("note", request.note().trim()).addValue("adminId", adminId)
                 .addValue("sourceRevision", toilet.getRegionRevision() == null ? 1L : toilet.getRegionRevision())
                 .addValue("confirmedAt", confirmedAt.toLocalDateTime());
-        jdbc.update("""
-                INSERT INTO toilet_region_override
-                (toilet_id,sido_name,sido_code,sigungu_name,sigungu_code,city_name,district_name,note,
-                 source_latitude,source_longitude,source_road_address,source_jibun_address,confirmed_by_user_id,confirmed_at)
-                VALUES (:id,:sidoName,:sidoCode,:sigunguName,:sigunguCode,:cityName,:districtName,:note,
-                        :latitude,:longitude,:roadAddress,:jibunAddress,:adminId,:confirmedAt)
-                ON DUPLICATE KEY UPDATE sido_name=VALUES(sido_name),sido_code=VALUES(sido_code),
-                  sigungu_name=VALUES(sigungu_name),sigungu_code=VALUES(sigungu_code),city_name=VALUES(city_name),
-                  district_name=VALUES(district_name),note=VALUES(note),source_latitude=VALUES(source_latitude),
-                  source_longitude=VALUES(source_longitude),source_road_address=VALUES(source_road_address),
-                  source_jibun_address=VALUES(source_jibun_address),confirmed_by_user_id=VALUES(confirmed_by_user_id),
-                  confirmed_at=VALUES(confirmed_at)
-                """, values);
         jdbc.update("""
                 INSERT INTO toilet_region_decision
                     (toilet_id,sigungu_code,note,source_revision,confirmed_by_user_id,confirmed_at)
