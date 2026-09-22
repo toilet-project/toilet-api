@@ -3,8 +3,14 @@ set -euo pipefail
 
 readonly OBSERVATION_STARTED_AT='2026-09-15 00:00:00'
 
-/home/luha/.local/bin/maintenance-preflight api
-docker container inspect toilet-api toilet-batch toilet-mysql >/dev/null
+# This is a SELECT-only observation, valid while account services are active.
+# The paused-only maintenance preflight belongs to mutating deployments.
+for container in toilet-api toilet-batch toilet-mysql; do
+  if [ "$(docker container inspect --format '{{.State.Running}}' "$container")" != true ]; then
+    printf 'Required container is not running: %s\n' "$container" >&2
+    exit 1
+  fi
+done
 
 mysql_environment="$(docker container inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-mysql)"
 mysql_user="$(sed -n 's/^MYSQL_USER=//p' <<<"$mysql_environment")"
@@ -19,6 +25,7 @@ unset mysql_environment
 mysql_readonly() {
   docker exec -i -e MYSQL_PWD="$mysql_password" toilet-mysql \
     mysql --protocol=socket --batch --raw --skip-column-names \
+    --init-command='SET SESSION TRANSACTION READ ONLY' \
     -u "$mysql_user" "$mysql_database"
 }
 

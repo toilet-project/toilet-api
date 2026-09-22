@@ -31,8 +31,10 @@ for (const guard of [
   'timeout 10m ssh', 'ssh-deploy.geupddong.com', "ProxyCommand=cloudflared access ssh --hostname %h",
 ]) assert.ok(collect.run.includes(guard), `Missing SSH guard: ${guard}`);
 
-assert.ok(script.includes('/home/luha/.local/bin/maintenance-preflight api'));
+assert.ok(script.includes("docker container inspect --format '{{.State.Running}}'"));
+assert.ok(!script.includes('/home/luha/.local/bin/maintenance-preflight api'));
 assert.ok(script.includes('mysql --protocol=socket --batch --raw --skip-column-names'));
+assert.ok(script.includes("--init-command='SET SESSION TRANSACTION READ ONLY'"));
 assert.ok(script.includes("trigger_type='SCHEDULED'"));
 assert.ok(script.includes("started_at >= '2026-09-15 00:00:00'"));
 assert.ok(script.includes('recent_assignment_mismatch'));
