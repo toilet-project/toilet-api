@@ -38,16 +38,22 @@ class CacheInvalidationPipelineMySqlTest {
     @BeforeAll static void schema() {
         dataSource = new DriverManagerDataSource(mysql.getJdbcUrl(),mysql.getUsername(),mysql.getPassword());
         jdbc = new JdbcTemplate(dataSource);
-        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
+        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7),road_address VARCHAR(255),jibun_address VARCHAR(255),visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_opening_hours (toilet_id BIGINT PRIMARY KEY,is_open_24h BOOLEAN,normalization_status VARCHAR(24),source_changed BOOLEAN)");
         jdbc.execute("CREATE TABLE toilet_translation (toilet_id BIGINT NOT NULL,locale VARCHAR(12) NOT NULL,name VARCHAR(255),PRIMARY KEY(toilet_id,locale))");
+        jdbc.execute("CREATE TABLE toilet_display_group (group_id BIGINT PRIMARY KEY,display_name VARCHAR(100))");
+        jdbc.execute("CREATE TABLE toilet_display_group_member (group_id BIGINT,toilet_id BIGINT,sort_order INT DEFAULT 0,PRIMARY KEY(group_id,toilet_id),FOREIGN KEY(group_id) REFERENCES toilet_display_group(group_id) ON DELETE CASCADE)");
+        jdbc.execute("CREATE TABLE toilet_display_group_translation (group_id BIGINT,locale VARCHAR(10),display_name VARCHAR(255),PRIMARY KEY(group_id,locale),FOREIGN KEY(group_id) REFERENCES toilet_display_group(group_id) ON DELETE CASCADE)");
         Flyway.configure().dataSource(mysql.getJdbcUrl(),"root",mysql.getPassword())
                 .baselineOnMigrate(true).baselineVersion("0").locations("classpath:db/cache-revalidation").load().migrate();
     }
     @BeforeEach void prepare() throws Exception {
+        jdbc.update("DELETE FROM toilet_display_group_translation");
+        jdbc.update("DELETE FROM toilet_display_group_member");
+        jdbc.update("DELETE FROM toilet_display_group");
         jdbc.update("DELETE FROM toilet_translation");
         jdbc.update("DELETE FROM toilet_region_decision");
         jdbc.update("DELETE FROM toilet_region_assignment");

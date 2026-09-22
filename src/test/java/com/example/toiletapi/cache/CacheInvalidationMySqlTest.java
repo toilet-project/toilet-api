@@ -27,22 +27,25 @@ class CacheInvalidationMySqlTest {
     @BeforeAll static void schema() {
         dataSource=new DriverManagerDataSource(mysql.getJdbcUrl(),mysql.getUsername(),mysql.getPassword());
         jdbc=new JdbcTemplate(dataSource);
-        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
+        jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7),road_address VARCHAR(255),jibun_address VARCHAR(255),visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_assignment (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_region_decision (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
         jdbc.execute("CREATE TABLE toilet_opening_hours (toilet_id BIGINT PRIMARY KEY,is_open_24h BOOLEAN,normalization_status VARCHAR(24),source_changed BOOLEAN)");
         jdbc.execute("CREATE TABLE toilet_translation (toilet_id BIGINT NOT NULL,locale VARCHAR(12) NOT NULL,name VARCHAR(255),PRIMARY KEY(toilet_id,locale))");
+        jdbc.execute("CREATE TABLE toilet_display_group (group_id BIGINT PRIMARY KEY,display_name VARCHAR(100))");
+        jdbc.execute("CREATE TABLE toilet_display_group_member (group_id BIGINT,toilet_id BIGINT,sort_order INT DEFAULT 0,PRIMARY KEY(group_id,toilet_id),FOREIGN KEY(group_id) REFERENCES toilet_display_group(group_id) ON DELETE CASCADE)");
+        jdbc.execute("CREATE TABLE toilet_display_group_translation (group_id BIGINT,locale VARCHAR(10),display_name VARCHAR(255),PRIMARY KEY(group_id,locale),FOREIGN KEY(group_id) REFERENCES toilet_display_group(group_id) ON DELETE CASCADE)");
         // DDL is an explicit DBA operation; application writes below keep the regular test user.
         var ddlDataSource=new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword());
         Flyway.configure().dataSource(ddlDataSource).baselineOnMigrate(true).baselineVersion("0")
                 .locations("classpath:db/cache-revalidation").load().migrate();
         repository=new CacheInvalidationRepository(jdbc);
     }
-    @BeforeEach void clear() {jdbc.update("DELETE FROM toilet_translation");jdbc.update("DELETE FROM toilet_region_decision");jdbc.update("DELETE FROM toilet_region_assignment");jdbc.update("DELETE FROM toilet_region");jdbc.update("DELETE FROM toilet_opening_hours");jdbc.update("DELETE FROM toilet");jdbc.update("DELETE FROM web_cache_invalidation");}
+    @BeforeEach void clear() {jdbc.update("DELETE FROM toilet_display_group_translation");jdbc.update("DELETE FROM toilet_display_group_member");jdbc.update("DELETE FROM toilet_display_group");jdbc.update("DELETE FROM toilet_translation");jdbc.update("DELETE FROM toilet_region_decision");jdbc.update("DELETE FROM toilet_region_assignment");jdbc.update("DELETE FROM toilet_region");jdbc.update("DELETE FROM toilet_opening_hours");jdbc.update("DELETE FROM toilet");jdbc.update("DELETE FROM web_cache_invalidation");}
     @AfterAll static void rollbackRetainsQueueButRemovesOnlyOwnedTriggers() throws Exception {
         long before = repository.pendingCount();
-        assertEquals(19, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
+        assertEquals(29, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
         try (var connection = new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword()).getConnection()) {
             ScriptUtils.executeSqlScript(connection,new ClassPathResource("db/cache-revalidation/rollback_triggers.sql"));
         }
@@ -133,6 +136,44 @@ class CacheInvalidationMySqlTest {
         repository.acknowledge(repository.due().getFirst());
         jdbc.update("DELETE FROM toilet_translation WHERE toilet_id=1 AND locale='en'");
         assertEquals(CacheInvalidationEvent.Action.UPSERT, repository.due().getFirst().action());
+    }
+    @Test void sitemapSourceFieldsMarkCatalogChanged() {
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude,longitude,road_address) VALUES (1,'old',37,127,'old road')");
+        repository.acknowledge(repository.due().getFirst());
+        jdbc.update("UPDATE toilet SET name='new' WHERE toilet_id=1");
+        assertTrue(repository.due().getFirst().catalogChanged());
+        repository.acknowledge(repository.due().getFirst());
+        jdbc.update("UPDATE toilet SET latitude=38 WHERE toilet_id=1");
+        assertTrue(repository.due().getFirst().catalogChanged());
+        repository.acknowledge(repository.due().getFirst());
+        jdbc.update("UPDATE toilet SET road_address='new road' WHERE toilet_id=1");
+        assertTrue(repository.due().getFirst().catalogChanged());
+    }
+    @Test void displayGroupMutationsQueueEveryAffectedMember() {
+        jdbc.update("INSERT INTO toilet(toilet_id,name) VALUES(1,'one'),(2,'two')");
+        jdbc.update("INSERT INTO toilet_display_group(group_id,display_name) VALUES(10,'group')");
+        repository.due().forEach(repository::acknowledge);
+        jdbc.update("INSERT INTO toilet_display_group_member(group_id,toilet_id) VALUES(10,1),(10,2)");
+        assertEquals(2, repository.pendingCount());
+        assertTrue(repository.due().stream().noneMatch(CacheInvalidationRepository.Pending::catalogChanged));
+        repository.due().forEach(repository::acknowledge);
+        jdbc.update("UPDATE toilet_display_group SET display_name='renamed' WHERE group_id=10");
+        assertEquals(2, repository.pendingCount());
+        repository.due().forEach(repository::acknowledge);
+        jdbc.update("INSERT INTO toilet_display_group_translation VALUES(10,'en','Translated group')");
+        assertEquals(2, repository.pendingCount());
+        repository.due().forEach(repository::acknowledge);
+        jdbc.update("UPDATE toilet_display_group_translation SET display_name='Updated group' WHERE group_id=10 AND locale='en'");
+        assertEquals(2, repository.pendingCount());
+        repository.due().forEach(repository::acknowledge);
+        jdbc.update("DELETE FROM toilet_display_group_translation WHERE group_id=10 AND locale='en'");
+        assertEquals(2, repository.pendingCount());
+        repository.due().forEach(repository::acknowledge);
+        jdbc.update("UPDATE toilet_display_group_member SET sort_order=1 WHERE group_id=10 AND toilet_id=1");
+        assertEquals(1, repository.pendingCount());
+        repository.due().forEach(repository::acknowledge);
+        jdbc.update("DELETE FROM toilet_display_group WHERE group_id=10");
+        assertEquals(2, repository.pendingCount(), "group deletion must capture members before FK cascade");
     }
     @Test void failedDeliveryRemainsDurableAndIsDeferred() {
         jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)"); var item=repository.due().getFirst();

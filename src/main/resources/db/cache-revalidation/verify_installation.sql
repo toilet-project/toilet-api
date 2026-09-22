@@ -11,6 +11,7 @@ WHERE TABLE_SCHEMA = DATABASE()
 -- V3 additionally includes cache_toilet_visibility_update after cache_toilet_update.
 -- V4 adds three non-Korean translation invalidation triggers.
 -- V5 adds three normalized opening-hours invalidation triggers.
+-- V6 adds sitemap-relevant source changes and nine display-group/member/translation triggers.
 SELECT TRIGGER_NAME, EVENT_OBJECT_TABLE, ACTION_TIMING, EVENT_MANIPULATION, DEFINER
 FROM information_schema.TRIGGERS
 WHERE TRIGGER_SCHEMA = DATABASE()
@@ -21,6 +22,11 @@ WHERE TRIGGER_SCHEMA = DATABASE()
     'cache_toilet_region_insert', 'cache_toilet_region_update', 'cache_toilet_region_delete',
     'cache_region_assignment_insert', 'cache_region_assignment_update', 'cache_region_assignment_delete',
     'cache_region_decision_insert', 'cache_region_decision_update', 'cache_region_decision_delete'
+    ,'cache_toilet_sitemap_update',
+    'cache_group_member_insert', 'cache_group_member_delete',
+    'cache_group_member_update_old', 'cache_group_member_update_new',
+    'cache_display_group_update', 'cache_display_group_delete',
+    'cache_group_translation_insert', 'cache_group_translation_update', 'cache_group_translation_delete'
   )
 ORDER BY EVENT_OBJECT_TABLE, EVENT_MANIPULATION;
 
