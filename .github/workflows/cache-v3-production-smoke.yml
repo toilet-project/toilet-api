@@ -1,0 +1,65 @@
+# One-shot signed v3 receiver smoke. Uses a non-existent ID; touches cache tags only.
+name: Cache V3 production receiver smoke
+
+on:
+  push:
+    branches: [ops/cache-v6-rollout-20260923]
+    paths: [.github/workflows/cache-v3-production-smoke.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toilet-api-production
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    if: github.repository == 'toilet-project/toilet-api' && github.ref == 'refs/heads/ops/cache-v6-rollout-20260923'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CACHE_SECRET: ${{ secrets.WEB_CACHE_PRODUCTION_REVALIDATION_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Pin reviewed one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = '58e696dc3768904640583e938e7f73ab3b3a8979'
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = '.github/workflows/cache-v3-production-smoke.yml'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify active Web and send one signed scoped event
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import {createHmac} from 'node:crypto'
+          import assert from 'node:assert/strict'
+          const secret=process.env.CACHE_SECRET
+          assert.ok(secret && Buffer.byteLength(secret,'utf8')>=32)
+          const origin='https://geupddong.com'
+          const active=await fetch(origin+'/version.json',{headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(20000)})
+          assert.equal(active.status,200)
+          const version=await active.json()
+          assert.match(version.version,/^6ba6c7b95b6620a6807c5854bda9f278a5a4bd1d-/)
+          const path='/_internal/cache/revalidate'
+          const toiletId=9007199254740990
+          const body=JSON.stringify({contractVersion:3,events:[{
+            toiletId,revision:1,action:'UPSERT',catalogChanged:false,regionScopeComplete:true,
+            regionBounds:{west:126.98,south:37.5622338,east:127.0245747,north:37.57}
+          }]})
+          const timestamp=String(Math.floor(Date.now()/1000))
+          const signature=createHmac('sha256',secret).update(`v1\nPOST\n${path}\n${timestamp}\n${body}`,'utf8').digest('hex')
+          const response=await fetch(origin+path,{method:'POST',redirect:'error',signal:AbortSignal.timeout(30000),
+            headers:{'content-type':'application/json','x-cache-timestamp':timestamp,'x-cache-signature':signature},body})
+          const result=await response.json()
+          assert.equal(response.status,200)
+          assert.deepEqual(result,{ok:true,acceptedEvents:[{toiletId,revision:1}]})
+          console.log('CACHE_V3_PRODUCTION_SMOKE_PASS signed_ack=true synthetic_id=true catalog_unchanged=true')
+          JS
