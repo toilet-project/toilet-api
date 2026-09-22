@@ -12,11 +12,11 @@ for container in toilet-api toilet-batch toilet-mysql; do
   fi
 done
 
-mysql_environment="$(docker container inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-mysql)"
-mysql_user="$(sed -n 's/^MYSQL_USER=//p' <<<"$mysql_environment")"
-mysql_password="$(sed -n 's/^MYSQL_PASSWORD=//p' <<<"$mysql_environment")"
-mysql_database="$(sed -n 's/^MYSQL_DATABASE=//p' <<<"$mysql_environment")"
-unset mysql_environment
+api_environment="$(docker container inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-api)"
+mysql_user="$(sed -n 's/^SPRING_DB_USERNAME=//p' <<<"$api_environment")"
+mysql_password="$(sed -n 's/^SPRING_DB_PASSWORD=//p' <<<"$api_environment")"
+unset api_environment
+mysql_database='toilet_db'
 
 : "${mysql_user:?missing MySQL application user}"
 : "${mysql_password:?missing MySQL application password}"
