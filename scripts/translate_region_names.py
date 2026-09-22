@@ -13,7 +13,7 @@ import urllib.request
 
 LOCALES = ("en", "ja", "zh-CN", "zh-TW", "zh-HK")
 SOURCE_ROW = re.compile(
-    r"^\s*\('([0-9]{5})','[0-9]{2}','([^']*)',(NULL|'[^']*'),",
+    r"^\s*\('([0-9]{5})','[0-9]{2}','([^']*)',(NULL|'[^']*'),(?:NULL|'[^']*'),(?:NULL|'[^']*'),'([^']*)',",
     re.MULTILINE,
 )
 ENDPOINT = "https://translation.googleapis.com/language/translate/v2"
@@ -23,9 +23,9 @@ MAX_BILLABLE_CHARACTERS = 20000
 def source_rows(sql: str) -> list[dict[str, str]]:
     rows = []
     for match in SOURCE_ROW.finditer(sql):
-        code, province, district = match.groups()
+        code, province, district, full_name = match.groups()
         name = province if district == "NULL" else district[1:-1]
-        rows.append({"code": code, "sourceName": name})
+        rows.append({"code": code, "sourceName": name, "sourceFullName": full_name})
     if len(rows) < 250 or len({row["code"] for row in rows}) != len(rows):
         raise ValueError("The canonical migration has missing or duplicate district codes")
     return rows
@@ -59,7 +59,8 @@ def main() -> None:
     parser.add_argument("--translate", action="store_true")
     args = parser.parse_args()
     rows = source_rows(args.source_sql.read_text(encoding="utf-8"))
-    distinct = list(dict.fromkeys(row["sourceName"] for row in rows))
+    # Province context disambiguates repeated names such as Jung-gu, Dong-gu and Seo-gu.
+    distinct = list(dict.fromkeys(row["sourceFullName"] for row in rows))
     billable = sum(len(name) for name in distinct) * len(LOCALES)
     if billable > MAX_BILLABLE_CHARACTERS:
         raise ValueError(f"Translation budget exceeded: {billable} characters")
@@ -77,7 +78,7 @@ def main() -> None:
                     values[name][locale] = display
                 time.sleep(0.1)
         for row in rows:
-            row["translations"] = values[row["sourceName"]]
+            row["translations"] = values[row["sourceFullName"]]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps({"source": "region_sigungu_reference", "districts": rows}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
