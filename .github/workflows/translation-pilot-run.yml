@@ -20,7 +20,6 @@ concurrency:
 
 jobs:
   translate:
-    if: ${{ inputs.confirmation != 'TRANSLATE_REGION_NAMES' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -183,22 +182,3 @@ jobs:
             "$RUNNER_TEMP/translation-pilot-output.tgz" \
             "$RUNNER_TEMP/translation-pilot-key" \
             "$RUNNER_TEMP/translation-pilot-hosts"
-
-  region_names:
-    if: ${{ inputs.confirmation == 'TRANSLATE_REGION_NAMES' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - name: Translate canonical district names with a 20,000 character cap
-        env:
-          GOOGLE_TRANSLATION_API_KEY: ${{ secrets.GOOGLE_TRANSLATION_API_KEY }}
-        run: |
-          python3 scripts/translate_region_names.py \
-            src/main/resources/db/migration/V17__create_sigungu_reference.sql \
-            "$RUNNER_TEMP/region-names.json" --translate
-      - uses: actions/upload-artifact@v4
-        with:
-          name: region-names-${{ github.run_id }}
-          path: ${{ runner.temp }}/region-names.json
-          retention-days: 7

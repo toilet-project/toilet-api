@@ -1,0 +1,3162 @@
+{
+  "source": "region_sigungu_reference",
+  "districts": [
+    {
+      "code": "11110",
+      "sourceName": "종로구",
+      "translations": {
+        "en": "Jongno-gu",
+        "ja": "鍾路区",
+        "zh-CN": "钟路市",
+        "zh-TW": "鐘路市",
+        "zh-HK": "鐘路市"
+      }
+    },
+    {
+      "code": "11140",
+      "sourceName": "중구",
+      "translations": {
+        "en": "Jung-gu",
+        "ja": "中区",
+        "zh-CN": "郑九",
+        "zh-TW": "鄭九",
+        "zh-HK": "鄭九"
+      }
+    },
+    {
+      "code": "11170",
+      "sourceName": "용산구",
+      "translations": {
+        "en": "Yongsan-gu",
+        "ja": "龍山区",
+        "zh-CN": "龙山区",
+        "zh-TW": "龍山區",
+        "zh-HK": "龍山區"
+      }
+    },
+    {
+      "code": "11200",
+      "sourceName": "성동구",
+      "translations": {
+        "en": "Seongdong-gu",
+        "ja": "城東区",
+        "zh-CN": "城东区",
+        "zh-TW": "城東區",
+        "zh-HK": "城東區"
+      }
+    },
+    {
+      "code": "11215",
+      "sourceName": "광진구",
+      "translations": {
+        "en": "Gwangjin-gu",
+        "ja": "光津区",
+        "zh-CN": "广津区",
+        "zh-TW": "廣津區",
+        "zh-HK": "廣津區"
+      }
+    },
+    {
+      "code": "11230",
+      "sourceName": "동대문구",
+      "translations": {
+        "en": "Dongdaemun-gu",
+        "ja": "東大門区",
+        "zh-CN": "东大门区",
+        "zh-TW": "東大門區",
+        "zh-HK": "東大門區"
+      }
+    },
+    {
+      "code": "11260",
+      "sourceName": "중랑구",
+      "translations": {
+        "en": "Jungnang-gu",
+        "ja": "中南区",
+        "zh-CN": "中浪区",
+        "zh-TW": "中浪區",
+        "zh-HK": "中浪區"
+      }
+    },
+    {
+      "code": "11290",
+      "sourceName": "성북구",
+      "translations": {
+        "en": "Seongbuk-gu",
+        "ja": "城北区",
+        "zh-CN": "城北区",
+        "zh-TW": "城北區",
+        "zh-HK": "城北區"
+      }
+    },
+    {
+      "code": "11305",
+      "sourceName": "강북구",
+      "translations": {
+        "en": "Gangbuk-gu",
+        "ja": "江北区",
+        "zh-CN": "江北区",
+        "zh-TW": "江北區",
+        "zh-HK": "江北區"
+      }
+    },
+    {
+      "code": "11320",
+      "sourceName": "도봉구",
+      "translations": {
+        "en": "Dobong-gu",
+        "ja": "ドボング",
+        "zh-CN": "道峰区",
+        "zh-TW": "道峰區",
+        "zh-HK": "道峰區"
+      }
+    },
+    {
+      "code": "11350",
+      "sourceName": "노원구",
+      "translations": {
+        "en": "Nowon-gu",
+        "ja": "ノウォン区",
+        "zh-CN": "芦原区",
+        "zh-TW": "蘆原區",
+        "zh-HK": "蘆原區"
+      }
+    },
+    {
+      "code": "11380",
+      "sourceName": "은평구",
+      "translations": {
+        "en": "Eunpyeong-gu",
+        "ja": "平平区",
+        "zh-CN": "恩平九",
+        "zh-TW": "恩平九",
+        "zh-HK": "恩平九"
+      }
+    },
+    {
+      "code": "11410",
+      "sourceName": "서대문구",
+      "translations": {
+        "en": "Seodaemun-gu",
+        "ja": "西大門区",
+        "zh-CN": "西大门区",
+        "zh-TW": "西大門區",
+        "zh-HK": "西大門區"
+      }
+    },
+    {
+      "code": "11440",
+      "sourceName": "마포구",
+      "translations": {
+        "en": "Mapo-gu",
+        "ja": "麻浦区",
+        "zh-CN": "麻浦区",
+        "zh-TW": "麻浦區",
+        "zh-HK": "麻浦區"
+      }
+    },
+    {
+      "code": "11470",
+      "sourceName": "양천구",
+      "translations": {
+        "en": "Yangcheon-gu",
+        "ja": "陽川区",
+        "zh-CN": "阳川区",
+        "zh-TW": "陽川區",
+        "zh-HK": "陽川區"
+      }
+    },
+    {
+      "code": "11500",
+      "sourceName": "강서구",
+      "translations": {
+        "en": "Gangseo-gu",
+        "ja": "江西区",
+        "zh-CN": "江西区",
+        "zh-TW": "江西區",
+        "zh-HK": "江西區"
+      }
+    },
+    {
+      "code": "11530",
+      "sourceName": "구로구",
+      "translations": {
+        "en": "Guro-gu",
+        "ja": "黒区",
+        "zh-CN": "九老区",
+        "zh-TW": "九老區",
+        "zh-HK": "九老區"
+      }
+    },
+    {
+      "code": "11545",
+      "sourceName": "금천구",
+      "translations": {
+        "en": "Geumcheon-gu",
+        "ja": "錦川区",
+        "zh-CN": "衿川区",
+        "zh-TW": "衿川區",
+        "zh-HK": "衿川區"
+      }
+    },
+    {
+      "code": "11560",
+      "sourceName": "영등포구",
+      "translations": {
+        "en": "Yeongdeungpo-gu",
+        "ja": "永登浦区",
+        "zh-CN": "永登浦区",
+        "zh-TW": "永登浦區",
+        "zh-HK": "永登浦區"
+      }
+    },
+    {
+      "code": "11590",
+      "sourceName": "동작구",
+      "translations": {
+        "en": "Dongjak-gu",
+        "ja": "動作区",
+        "zh-CN": "东雀区",
+        "zh-TW": "東雀區",
+        "zh-HK": "東雀區"
+      }
+    },
+    {
+      "code": "11620",
+      "sourceName": "관악구",
+      "translations": {
+        "en": "Gwanak-gu",
+        "ja": "冠岳区",
+        "zh-CN": "冠岳区",
+        "zh-TW": "冠岳區",
+        "zh-HK": "冠岳區"
+      }
+    },
+    {
+      "code": "11650",
+      "sourceName": "서초구",
+      "translations": {
+        "en": "Seocho-gu",
+        "ja": "瑞草区",
+        "zh-CN": "瑞草区",
+        "zh-TW": "瑞草區",
+        "zh-HK": "瑞草區"
+      }
+    },
+    {
+      "code": "11680",
+      "sourceName": "강남구",
+      "translations": {
+        "en": "Gangnam-gu",
+        "ja": "江南区",
+        "zh-CN": "江南区",
+        "zh-TW": "江南區",
+        "zh-HK": "江南區"
+      }
+    },
+    {
+      "code": "11710",
+      "sourceName": "송파구",
+      "translations": {
+        "en": "Songpa-gu",
+        "ja": "松坡区",
+        "zh-CN": "松坡谷",
+        "zh-TW": "松坡谷",
+        "zh-HK": "松坡谷"
+      }
+    },
+    {
+      "code": "11740",
+      "sourceName": "강동구",
+      "translations": {
+        "en": "Gangdong-gu",
+        "ja": "江東区",
+        "zh-CN": "江东区",
+        "zh-TW": "江東區",
+        "zh-HK": "江東區"
+      }
+    },
+    {
+      "code": "12110",
+      "sourceName": "목포시",
+      "translations": {
+        "en": "Mokpo City",
+        "ja": "木浦市",
+        "zh-CN": "木浦市",
+        "zh-TW": "木浦市",
+        "zh-HK": "木浦市"
+      }
+    },
+    {
+      "code": "12130",
+      "sourceName": "여수시",
+      "translations": {
+        "en": "Yeosu City",
+        "ja": "麗水市",
+        "zh-CN": "丽水市",
+        "zh-TW": "麗水市",
+        "zh-HK": "麗水市"
+      }
+    },
+    {
+      "code": "12150",
+      "sourceName": "순천시",
+      "translations": {
+        "en": "Suncheon City",
+        "ja": "順天市",
+        "zh-CN": "顺天市",
+        "zh-TW": "順天市",
+        "zh-HK": "順天市"
+      }
+    },
+    {
+      "code": "12170",
+      "sourceName": "나주시",
+      "translations": {
+        "en": "Naju City",
+        "ja": "ナジュ",
+        "zh-CN": "罗州市",
+        "zh-TW": "羅州市",
+        "zh-HK": "羅州市"
+      }
+    },
+    {
+      "code": "12190",
+      "sourceName": "광양시",
+      "translations": {
+        "en": "Gwangyang City",
+        "ja": "光陽市",
+        "zh-CN": "光阳市",
+        "zh-TW": "光陽市",
+        "zh-HK": "光陽市"
+      }
+    },
+    {
+      "code": "12210",
+      "sourceName": "동구",
+      "translations": {
+        "en": "Donggu",
+        "ja": "東区",
+        "zh-CN": "东固",
+        "zh-TW": "東固",
+        "zh-HK": "東固"
+      }
+    },
+    {
+      "code": "12240",
+      "sourceName": "서구",
+      "translations": {
+        "en": "Western",
+        "ja": "西洋",
+        "zh-CN": "西",
+        "zh-TW": "西",
+        "zh-HK": "西"
+      }
+    },
+    {
+      "code": "12270",
+      "sourceName": "남구",
+      "translations": {
+        "en": "Nam-gu",
+        "ja": "南区",
+        "zh-CN": "南九",
+        "zh-TW": "南九",
+        "zh-HK": "南九"
+      }
+    },
+    {
+      "code": "12300",
+      "sourceName": "북구",
+      "translations": {
+        "en": "Buk-gu",
+        "ja": "北区",
+        "zh-CN": "北九",
+        "zh-TW": "北九",
+        "zh-HK": "北九"
+      }
+    },
+    {
+      "code": "12330",
+      "sourceName": "광산구",
+      "translations": {
+        "en": "Gwangsan-gu",
+        "ja": "鉱山区",
+        "zh-CN": "光山区",
+        "zh-TW": "光山區",
+        "zh-HK": "光山區"
+      }
+    },
+    {
+      "code": "12710",
+      "sourceName": "담양군",
+      "translations": {
+        "en": "Damyang-gun",
+        "ja": "潭陽郡",
+        "zh-CN": "潭阳郡",
+        "zh-TW": "潭陽郡",
+        "zh-HK": "潭陽郡"
+      }
+    },
+    {
+      "code": "12720",
+      "sourceName": "곡성군",
+      "translations": {
+        "en": "Gokseong County",
+        "ja": "ゴクソン郡",
+        "zh-CN": "谷城郡",
+        "zh-TW": "谷城郡",
+        "zh-HK": "谷城郡"
+      }
+    },
+    {
+      "code": "12730",
+      "sourceName": "구례군",
+      "translations": {
+        "en": "Gurye-gun",
+        "ja": "旧礼郡",
+        "zh-CN": "求礼根",
+        "zh-TW": "求禮根",
+        "zh-HK": "求禮根"
+      }
+    },
+    {
+      "code": "12740",
+      "sourceName": "고흥군",
+      "translations": {
+        "en": "Goheung-gun",
+        "ja": "高興郡",
+        "zh-CN": "高兴根",
+        "zh-TW": "高興根",
+        "zh-HK": "高興根"
+      }
+    },
+    {
+      "code": "12750",
+      "sourceName": "보성군",
+      "translations": {
+        "en": "Boseong-gun",
+        "ja": "ポソン郡",
+        "zh-CN": "宝城郡",
+        "zh-TW": "寶城郡",
+        "zh-HK": "寶城郡"
+      }
+    },
+    {
+      "code": "12760",
+      "sourceName": "화순군",
+      "translations": {
+        "en": "Hwasun-gun",
+        "ja": "華順郡",
+        "zh-CN": "华顺郡",
+        "zh-TW": "華順郡",
+        "zh-HK": "華順郡"
+      }
+    },
+    {
+      "code": "12770",
+      "sourceName": "장흥군",
+      "translations": {
+        "en": "Jangheung-gun",
+        "ja": "チャン・フン郡",
+        "zh-CN": "长兴根",
+        "zh-TW": "長興根",
+        "zh-HK": "長興根"
+      }
+    },
+    {
+      "code": "12780",
+      "sourceName": "강진군",
+      "translations": {
+        "en": "Gangjin-gun",
+        "ja": "江津郡",
+        "zh-CN": "康津郡",
+        "zh-TW": "康津郡",
+        "zh-HK": "康津郡"
+      }
+    },
+    {
+      "code": "12790",
+      "sourceName": "해남군",
+      "translations": {
+        "en": "Haenam-gun",
+        "ja": "海南郡",
+        "zh-CN": "海南郡",
+        "zh-TW": "海南郡",
+        "zh-HK": "海南郡"
+      }
+    },
+    {
+      "code": "12800",
+      "sourceName": "영암군",
+      "translations": {
+        "en": "Yeongam-gun",
+        "ja": "霊岩郡",
+        "zh-CN": "灵岩郡",
+        "zh-TW": "靈岩郡",
+        "zh-HK": "靈岩郡"
+      }
+    },
+    {
+      "code": "12810",
+      "sourceName": "무안군",
+      "translations": {
+        "en": "Muan-gun",
+        "ja": "ムアン郡",
+        "zh-CN": "慕安根",
+        "zh-TW": "慕安根",
+        "zh-HK": "慕安根"
+      }
+    },
+    {
+      "code": "12820",
+      "sourceName": "함평군",
+      "translations": {
+        "en": "Hampyeong-gun",
+        "ja": "咸平郡",
+        "zh-CN": "咸平郡",
+        "zh-TW": "鹹平郡",
+        "zh-HK": "鹹平郡"
+      }
+    },
+    {
+      "code": "12830",
+      "sourceName": "영광군",
+      "translations": {
+        "en": "Yeonggwang-gun",
+        "ja": "栄光郡",
+        "zh-CN": "永光郡",
+        "zh-TW": "永光郡",
+        "zh-HK": "永光郡"
+      }
+    },
+    {
+      "code": "12840",
+      "sourceName": "장성군",
+      "translations": {
+        "en": "Jangseong-gun",
+        "ja": "長城郡",
+        "zh-CN": "长城郡",
+        "zh-TW": "長城郡",
+        "zh-HK": "長城郡"
+      }
+    },
+    {
+      "code": "12850",
+      "sourceName": "완도군",
+      "translations": {
+        "en": "Wando-gun",
+        "ja": "ワンド郡",
+        "zh-CN": "万多枪",
+        "zh-TW": "萬多槍",
+        "zh-HK": "萬多槍"
+      }
+    },
+    {
+      "code": "12860",
+      "sourceName": "진도군",
+      "translations": {
+        "en": "Jindo County",
+        "ja": "珍島郡",
+        "zh-CN": "珍岛县",
+        "zh-TW": "珍島縣",
+        "zh-HK": "珍島縣"
+      }
+    },
+    {
+      "code": "12870",
+      "sourceName": "신안군",
+      "translations": {
+        "en": "Sinan-gun",
+        "ja": "新安郡",
+        "zh-CN": "锡南郡",
+        "zh-TW": "錫南郡",
+        "zh-HK": "錫南郡"
+      }
+    },
+    {
+      "code": "26110",
+      "sourceName": "중구",
+      "translations": {
+        "en": "Jung-gu",
+        "ja": "中区",
+        "zh-CN": "郑九",
+        "zh-TW": "鄭九",
+        "zh-HK": "鄭九"
+      }
+    },
+    {
+      "code": "26140",
+      "sourceName": "서구",
+      "translations": {
+        "en": "Western",
+        "ja": "西洋",
+        "zh-CN": "西",
+        "zh-TW": "西",
+        "zh-HK": "西"
+      }
+    },
+    {
+      "code": "26170",
+      "sourceName": "동구",
+      "translations": {
+        "en": "Donggu",
+        "ja": "東区",
+        "zh-CN": "东固",
+        "zh-TW": "東固",
+        "zh-HK": "東固"
+      }
+    },
+    {
+      "code": "26200",
+      "sourceName": "영도구",
+      "translations": {
+        "en": "Yeongdo-gu",
+        "ja": "永道区",
+        "zh-CN": "影岛区",
+        "zh-TW": "影島區",
+        "zh-HK": "影島區"
+      }
+    },
+    {
+      "code": "26230",
+      "sourceName": "부산진구",
+      "translations": {
+        "en": "Busanjin-gu",
+        "ja": "釜山神宮",
+        "zh-CN": "釜山镇区",
+        "zh-TW": "釜山鎮區",
+        "zh-HK": "釜山鎮區"
+      }
+    },
+    {
+      "code": "26260",
+      "sourceName": "동래구",
+      "translations": {
+        "en": "Dongnae-gu",
+        "ja": "ドンレグ",
+        "zh-CN": "东莱区",
+        "zh-TW": "東萊區",
+        "zh-HK": "東萊區"
+      }
+    },
+    {
+      "code": "26290",
+      "sourceName": "남구",
+      "translations": {
+        "en": "Nam-gu",
+        "ja": "南区",
+        "zh-CN": "南九",
+        "zh-TW": "南九",
+        "zh-HK": "南九"
+      }
+    },
+    {
+      "code": "26320",
+      "sourceName": "북구",
+      "translations": {
+        "en": "Buk-gu",
+        "ja": "北区",
+        "zh-CN": "北九",
+        "zh-TW": "北九",
+        "zh-HK": "北九"
+      }
+    },
+    {
+      "code": "26350",
+      "sourceName": "해운대구",
+      "translations": {
+        "en": "Haeundae-gu",
+        "ja": "海雲台区",
+        "zh-CN": "海云台区",
+        "zh-TW": "海雲台區",
+        "zh-HK": "海雲台區"
+      }
+    },
+    {
+      "code": "26380",
+      "sourceName": "사하구",
+      "translations": {
+        "en": "Saha-gu",
+        "ja": "サハグ",
+        "zh-CN": "萨哈古",
+        "zh-TW": "薩哈古",
+        "zh-HK": "薩哈古"
+      }
+    },
+    {
+      "code": "26410",
+      "sourceName": "금정구",
+      "translations": {
+        "en": "Geumjeong-gu",
+        "ja": "金正区",
+        "zh-CN": "金井区",
+        "zh-TW": "金井區",
+        "zh-HK": "金井區"
+      }
+    },
+    {
+      "code": "26440",
+      "sourceName": "강서구",
+      "translations": {
+        "en": "Gangseo-gu",
+        "ja": "江西区",
+        "zh-CN": "江西区",
+        "zh-TW": "江西區",
+        "zh-HK": "江西區"
+      }
+    },
+    {
+      "code": "26470",
+      "sourceName": "연제구",
+      "translations": {
+        "en": "Yeonje-gu",
+        "ja": "軟製具",
+        "zh-CN": "延济区",
+        "zh-TW": "延濟區",
+        "zh-HK": "延濟區"
+      }
+    },
+    {
+      "code": "26500",
+      "sourceName": "수영구",
+      "translations": {
+        "en": "Suyeong-gu",
+        "ja": "水泳区",
+        "zh-CN": "秀英区",
+        "zh-TW": "秀英區",
+        "zh-HK": "秀英區"
+      }
+    },
+    {
+      "code": "26530",
+      "sourceName": "사상구",
+      "translations": {
+        "en": "Sasang-gu",
+        "ja": "思想区",
+        "zh-CN": "四上谷",
+        "zh-TW": "四上谷",
+        "zh-HK": "四上谷"
+      }
+    },
+    {
+      "code": "26710",
+      "sourceName": "기장군",
+      "translations": {
+        "en": "Gijang-gun",
+        "ja": "キジャン郡",
+        "zh-CN": "机张郡",
+        "zh-TW": "機張郡",
+        "zh-HK": "機張郡"
+      }
+    },
+    {
+      "code": "27110",
+      "sourceName": "중구",
+      "translations": {
+        "en": "Jung-gu",
+        "ja": "中区",
+        "zh-CN": "郑九",
+        "zh-TW": "鄭九",
+        "zh-HK": "鄭九"
+      }
+    },
+    {
+      "code": "27140",
+      "sourceName": "동구",
+      "translations": {
+        "en": "Donggu",
+        "ja": "東区",
+        "zh-CN": "东固",
+        "zh-TW": "東固",
+        "zh-HK": "東固"
+      }
+    },
+    {
+      "code": "27170",
+      "sourceName": "서구",
+      "translations": {
+        "en": "Western",
+        "ja": "西洋",
+        "zh-CN": "西",
+        "zh-TW": "西",
+        "zh-HK": "西"
+      }
+    },
+    {
+      "code": "27200",
+      "sourceName": "남구",
+      "translations": {
+        "en": "Nam-gu",
+        "ja": "南区",
+        "zh-CN": "南九",
+        "zh-TW": "南九",
+        "zh-HK": "南九"
+      }
+    },
+    {
+      "code": "27230",
+      "sourceName": "북구",
+      "translations": {
+        "en": "Buk-gu",
+        "ja": "北区",
+        "zh-CN": "北九",
+        "zh-TW": "北九",
+        "zh-HK": "北九"
+      }
+    },
+    {
+      "code": "27260",
+      "sourceName": "수성구",
+      "translations": {
+        "en": "Suseong-gu",
+        "ja": "水城区",
+        "zh-CN": "寿城区",
+        "zh-TW": "壽城區",
+        "zh-HK": "壽城區"
+      }
+    },
+    {
+      "code": "27290",
+      "sourceName": "달서구",
+      "translations": {
+        "en": "Dalseo-gu",
+        "ja": "月西区",
+        "zh-CN": "达尔索古",
+        "zh-TW": "達爾索古",
+        "zh-HK": "達爾索古"
+      }
+    },
+    {
+      "code": "27710",
+      "sourceName": "달성군",
+      "translations": {
+        "en": "Dalseong-gun",
+        "ja": "達成軍",
+        "zh-CN": "达城郡",
+        "zh-TW": "達城郡",
+        "zh-HK": "達城郡"
+      }
+    },
+    {
+      "code": "27720",
+      "sourceName": "군위군",
+      "translations": {
+        "en": "Gunwi-gun",
+        "ja": "軍衛軍",
+        "zh-CN": "贡维枪",
+        "zh-TW": "貢維槍",
+        "zh-HK": "貢維槍"
+      }
+    },
+    {
+      "code": "28110",
+      "sourceName": "중구",
+      "translations": {
+        "en": "Jung-gu",
+        "ja": "中区",
+        "zh-CN": "郑九",
+        "zh-TW": "鄭九",
+        "zh-HK": "鄭九"
+      }
+    },
+    {
+      "code": "28125",
+      "sourceName": "제물포구",
+      "translations": {
+        "en": "Jemulpo Port",
+        "ja": "供物の砲口",
+        "zh-CN": "济物浦港",
+        "zh-TW": "濟物浦港",
+        "zh-HK": "濟物浦港"
+      }
+    },
+    {
+      "code": "28140",
+      "sourceName": "동구",
+      "translations": {
+        "en": "Donggu",
+        "ja": "東区",
+        "zh-CN": "东固",
+        "zh-TW": "東固",
+        "zh-HK": "東固"
+      }
+    },
+    {
+      "code": "28155",
+      "sourceName": "영종구",
+      "translations": {
+        "en": "Yeongjong-gu",
+        "ja": "永宗区",
+        "zh-CN": "永钟九",
+        "zh-TW": "永鐘九",
+        "zh-HK": "永鐘九"
+      }
+    },
+    {
+      "code": "28177",
+      "sourceName": "미추홀구",
+      "translations": {
+        "en": "Michuhol-gu",
+        "ja": "ミチュホール",
+        "zh-CN": "米楚霍尔谷",
+        "zh-TW": "米楚霍爾谷",
+        "zh-HK": "米楚霍爾谷"
+      }
+    },
+    {
+      "code": "28185",
+      "sourceName": "연수구",
+      "translations": {
+        "en": "Yeonsu-gu",
+        "ja": "研修区",
+        "zh-CN": "延寿区",
+        "zh-TW": "延壽區",
+        "zh-HK": "延壽區"
+      }
+    },
+    {
+      "code": "28200",
+      "sourceName": "남동구",
+      "translations": {
+        "en": "Namdong-gu",
+        "ja": "南東区",
+        "zh-CN": "南洞区",
+        "zh-TW": "南洞區",
+        "zh-HK": "南洞區"
+      }
+    },
+    {
+      "code": "28237",
+      "sourceName": "부평구",
+      "translations": {
+        "en": "Bupyeong-gu",
+        "ja": "富平区",
+        "zh-CN": "富平区",
+        "zh-TW": "富平區",
+        "zh-HK": "富平區"
+      }
+    },
+    {
+      "code": "28245",
+      "sourceName": "계양구",
+      "translations": {
+        "en": "Gyeyang-gu",
+        "ja": "桂陽区",
+        "zh-CN": "桂阳区",
+        "zh-TW": "貴陽區",
+        "zh-HK": "貴陽區"
+      }
+    },
+    {
+      "code": "28260",
+      "sourceName": "서구",
+      "translations": {
+        "en": "Western",
+        "ja": "西洋",
+        "zh-CN": "西",
+        "zh-TW": "西",
+        "zh-HK": "西"
+      }
+    },
+    {
+      "code": "28275",
+      "sourceName": "서해구",
+      "translations": {
+        "en": "Seohae-gu",
+        "ja": "西海区",
+        "zh-CN": "瑞海区",
+        "zh-TW": "瑞海區",
+        "zh-HK": "瑞海區"
+      }
+    },
+    {
+      "code": "28290",
+      "sourceName": "검단구",
+      "translations": {
+        "en": "Geomdan-gu",
+        "ja": "剣団区",
+        "zh-CN": "格姆丹古",
+        "zh-TW": "格姆丹古",
+        "zh-HK": "格姆丹古"
+      }
+    },
+    {
+      "code": "28710",
+      "sourceName": "강화군",
+      "translations": {
+        "en": "Ganghwa-gun",
+        "ja": "江華郡",
+        "zh-CN": "江华郡",
+        "zh-TW": "江華郡",
+        "zh-HK": "江華郡"
+      }
+    },
+    {
+      "code": "28720",
+      "sourceName": "옹진군",
+      "translations": {
+        "en": "Ongjin-gun",
+        "ja": "オンジン郡",
+        "zh-CN": "瓮津郡",
+        "zh-TW": "甕津郡",
+        "zh-HK": "甕津郡"
+      }
+    },
+    {
+      "code": "29110",
+      "sourceName": "동구",
+      "translations": {
+        "en": "Donggu",
+        "ja": "東区",
+        "zh-CN": "东固",
+        "zh-TW": "東固",
+        "zh-HK": "東固"
+      }
+    },
+    {
+      "code": "29140",
+      "sourceName": "서구",
+      "translations": {
+        "en": "Western",
+        "ja": "西洋",
+        "zh-CN": "西",
+        "zh-TW": "西",
+        "zh-HK": "西"
+      }
+    },
+    {
+      "code": "29155",
+      "sourceName": "남구",
+      "translations": {
+        "en": "Nam-gu",
+        "ja": "南区",
+        "zh-CN": "南九",
+        "zh-TW": "南九",
+        "zh-HK": "南九"
+      }
+    },
+    {
+      "code": "29170",
+      "sourceName": "북구",
+      "translations": {
+        "en": "Buk-gu",
+        "ja": "北区",
+        "zh-CN": "北九",
+        "zh-TW": "北九",
+        "zh-HK": "北九"
+      }
+    },
+    {
+      "code": "29200",
+      "sourceName": "광산구",
+      "translations": {
+        "en": "Gwangsan-gu",
+        "ja": "鉱山区",
+        "zh-CN": "光山区",
+        "zh-TW": "光山區",
+        "zh-HK": "光山區"
+      }
+    },
+    {
+      "code": "30110",
+      "sourceName": "동구",
+      "translations": {
+        "en": "Donggu",
+        "ja": "東区",
+        "zh-CN": "东固",
+        "zh-TW": "東固",
+        "zh-HK": "東固"
+      }
+    },
+    {
+      "code": "30140",
+      "sourceName": "중구",
+      "translations": {
+        "en": "Jung-gu",
+        "ja": "中区",
+        "zh-CN": "郑九",
+        "zh-TW": "鄭九",
+        "zh-HK": "鄭九"
+      }
+    },
+    {
+      "code": "30170",
+      "sourceName": "서구",
+      "translations": {
+        "en": "Western",
+        "ja": "西洋",
+        "zh-CN": "西",
+        "zh-TW": "西",
+        "zh-HK": "西"
+      }
+    },
+    {
+      "code": "30200",
+      "sourceName": "유성구",
+      "translations": {
+        "en": "Yuseong-gu",
+        "ja": "儒城区",
+        "zh-CN": "儒城区",
+        "zh-TW": "儒城區",
+        "zh-HK": "儒城區"
+      }
+    },
+    {
+      "code": "30230",
+      "sourceName": "대덕구",
+      "translations": {
+        "en": "Daedeok-gu",
+        "ja": "大徳区",
+        "zh-CN": "大德区",
+        "zh-TW": "大德區",
+        "zh-HK": "大德區"
+      }
+    },
+    {
+      "code": "31110",
+      "sourceName": "중구",
+      "translations": {
+        "en": "Jung-gu",
+        "ja": "中区",
+        "zh-CN": "郑九",
+        "zh-TW": "鄭九",
+        "zh-HK": "鄭九"
+      }
+    },
+    {
+      "code": "31140",
+      "sourceName": "남구",
+      "translations": {
+        "en": "Nam-gu",
+        "ja": "南区",
+        "zh-CN": "南九",
+        "zh-TW": "南九",
+        "zh-HK": "南九"
+      }
+    },
+    {
+      "code": "31170",
+      "sourceName": "동구",
+      "translations": {
+        "en": "Donggu",
+        "ja": "東区",
+        "zh-CN": "东固",
+        "zh-TW": "東固",
+        "zh-HK": "東固"
+      }
+    },
+    {
+      "code": "31200",
+      "sourceName": "북구",
+      "translations": {
+        "en": "Buk-gu",
+        "ja": "北区",
+        "zh-CN": "北九",
+        "zh-TW": "北九",
+        "zh-HK": "北九"
+      }
+    },
+    {
+      "code": "31710",
+      "sourceName": "울주군",
+      "translations": {
+        "en": "Ulju-gun",
+        "ja": "ウルジュ郡",
+        "zh-CN": "蔚州郡",
+        "zh-TW": "蔚州郡",
+        "zh-HK": "蔚州郡"
+      }
+    },
+    {
+      "code": "36110",
+      "sourceName": "세종특별자치시",
+      "translations": {
+        "en": "Sejong Special Self-Governing City",
+        "ja": "世宗特別自治区",
+        "zh-CN": "世宗特别自治市",
+        "zh-TW": "世宗特別自治市",
+        "zh-HK": "世宗特別自治市"
+      }
+    },
+    {
+      "code": "41111",
+      "sourceName": "수원시 장안구",
+      "translations": {
+        "en": "Jangan-gu, Suwon City",
+        "ja": "水原市長安区",
+        "zh-CN": "水原市长安区",
+        "zh-TW": "水原市長安區",
+        "zh-HK": "水原市長安區"
+      }
+    },
+    {
+      "code": "41113",
+      "sourceName": "수원시 권선구",
+      "translations": {
+        "en": "Gwonseon-gu, Suwon City",
+        "ja": "水原市巻線区",
+        "zh-CN": "水原市官善区",
+        "zh-TW": "水原市官善區",
+        "zh-HK": "水原市官善區"
+      }
+    },
+    {
+      "code": "41115",
+      "sourceName": "수원시 팔달구",
+      "translations": {
+        "en": "Paldal-gu, Suwon City",
+        "ja": "水原市パルダル区",
+        "zh-CN": "水原市八达区",
+        "zh-TW": "水原市八達區",
+        "zh-HK": "水原市八達區"
+      }
+    },
+    {
+      "code": "41117",
+      "sourceName": "수원시 영통구",
+      "translations": {
+        "en": "Yeongtong-gu, Suwon City",
+        "ja": "水原市永通区",
+        "zh-CN": "水原市灵通区",
+        "zh-TW": "水原市靈通區",
+        "zh-HK": "水原市靈通區"
+      }
+    },
+    {
+      "code": "41131",
+      "sourceName": "성남시 수정구",
+      "translations": {
+        "en": "Sujeong-gu, Seongnam-si",
+        "ja": "城南市水晶区",
+        "zh-CN": "城南市寿井区",
+        "zh-TW": "城南市壽井區",
+        "zh-HK": "城南市壽井區"
+      }
+    },
+    {
+      "code": "41133",
+      "sourceName": "성남시 중원구",
+      "translations": {
+        "en": "Jungwon-gu, Seongnam-si",
+        "ja": "城南市中原区",
+        "zh-CN": "城南市中原区",
+        "zh-TW": "城南市中原區",
+        "zh-HK": "城南市中原區"
+      }
+    },
+    {
+      "code": "41135",
+      "sourceName": "성남시 분당구",
+      "translations": {
+        "en": "Seongnam-si Bundang-gu",
+        "ja": "城南市盆唐区",
+        "zh-CN": "城南市盆唐区",
+        "zh-TW": "城南市盆唐區",
+        "zh-HK": "城南市盆唐區"
+      }
+    },
+    {
+      "code": "41150",
+      "sourceName": "의정부시",
+      "translations": {
+        "en": "Uijeongbu City",
+        "ja": "ウィジョンブ市",
+        "zh-CN": "议政府市",
+        "zh-TW": "議政府市",
+        "zh-HK": "議政府市"
+      }
+    },
+    {
+      "code": "41171",
+      "sourceName": "안양시 만안구",
+      "translations": {
+        "en": "Manan-gu, Anyang-si",
+        "ja": "安養市万安区",
+        "zh-CN": "马南谷，安阳市",
+        "zh-TW": "馬南谷，安陽市",
+        "zh-HK": "馬南谷，安陽市"
+      }
+    },
+    {
+      "code": "41173",
+      "sourceName": "안양시 동안구",
+      "translations": {
+        "en": "Dongan-gu, Anyang-si",
+        "ja": "安養市中区",
+        "zh-CN": "东安区，安阳市",
+        "zh-TW": "東安區，安陽市",
+        "zh-HK": "東安區，安陽市"
+      }
+    },
+    {
+      "code": "41192",
+      "sourceName": "부천시 원미구",
+      "translations": {
+        "en": "Wonmi-gu, Bucheon-si",
+        "ja": "富川市原美区",
+        "zh-CN": "富川市元美区",
+        "zh-TW": "富川市元美區",
+        "zh-HK": "富川市元美區"
+      }
+    },
+    {
+      "code": "41194",
+      "sourceName": "부천시 소사구",
+      "translations": {
+        "en": "Sosa-gu, Bucheon-si",
+        "ja": "富川市総寺区",
+        "zh-CN": "富川市素沙区",
+        "zh-TW": "富川市素沙區",
+        "zh-HK": "富川市素沙區"
+      }
+    },
+    {
+      "code": "41196",
+      "sourceName": "부천시 오정구",
+      "translations": {
+        "en": "Ojeong-gu, Bucheon-si",
+        "ja": "富川市大正区",
+        "zh-CN": "富川市五井区",
+        "zh-TW": "富川市五井區",
+        "zh-HK": "富川市五井區"
+      }
+    },
+    {
+      "code": "41210",
+      "sourceName": "광명시",
+      "translations": {
+        "en": "Gwangmyeong City",
+        "ja": "光明市",
+        "zh-CN": "光明市",
+        "zh-TW": "光明市",
+        "zh-HK": "光明市"
+      }
+    },
+    {
+      "code": "41220",
+      "sourceName": "평택시",
+      "translations": {
+        "en": "Pyeongtaek City",
+        "ja": "平沢市",
+        "zh-CN": "平泽市",
+        "zh-TW": "平澤市",
+        "zh-HK": "平澤市"
+      }
+    },
+    {
+      "code": "41250",
+      "sourceName": "동두천시",
+      "translations": {
+        "en": "Dongducheon City",
+        "ja": "東豆川市",
+        "zh-CN": "东豆川市",
+        "zh-TW": "東豆川市",
+        "zh-HK": "東豆川市"
+      }
+    },
+    {
+      "code": "41271",
+      "sourceName": "안산시 상록구",
+      "translations": {
+        "en": "Sangnok-gu, Ansan-si",
+        "ja": "安山市常緑区",
+        "zh-CN": "安山市桑诺克区",
+        "zh-TW": "安山市桑諾克區",
+        "zh-HK": "安山市桑諾克區"
+      }
+    },
+    {
+      "code": "41273",
+      "sourceName": "안산시 단원구",
+      "translations": {
+        "en": "Danwon-gu, Ansan-si",
+        "ja": "安山市丹原区",
+        "zh-CN": "檀园区，安山市",
+        "zh-TW": "檀園區，安山市",
+        "zh-HK": "檀園區，安山市"
+      }
+    },
+    {
+      "code": "41281",
+      "sourceName": "고양시 덕양구",
+      "translations": {
+        "en": "Deogyang-gu, Goyang-si",
+        "ja": "高陽市徳陽区",
+        "zh-CN": "德阳区，高阳市",
+        "zh-TW": "德陽區，高陽市",
+        "zh-HK": "德陽區，高陽市"
+      }
+    },
+    {
+      "code": "41285",
+      "sourceName": "고양시 일산동구",
+      "translations": {
+        "en": "Ilsandong-gu, Goyang-si",
+        "ja": "高陽市一山東区",
+        "zh-CN": "高阳市一山东区",
+        "zh-TW": "高陽市一山東區",
+        "zh-HK": "高陽市一山東區"
+      }
+    },
+    {
+      "code": "41287",
+      "sourceName": "고양시 일산서구",
+      "translations": {
+        "en": "Ilsanseo-gu, Goyang-si",
+        "ja": "高陽市一山西区",
+        "zh-CN": "高阳市一山西区",
+        "zh-TW": "高陽市一山西區",
+        "zh-HK": "高陽市一山西區"
+      }
+    },
+    {
+      "code": "41290",
+      "sourceName": "과천시",
+      "translations": {
+        "en": "Gwacheon City",
+        "ja": "果川市",
+        "zh-CN": "果川市",
+        "zh-TW": "果川市",
+        "zh-HK": "果川市"
+      }
+    },
+    {
+      "code": "41310",
+      "sourceName": "구리시",
+      "translations": {
+        "en": "Guri City",
+        "ja": "銅市",
+        "zh-CN": "古里市",
+        "zh-TW": "古里市",
+        "zh-HK": "古里市"
+      }
+    },
+    {
+      "code": "41360",
+      "sourceName": "남양주시",
+      "translations": {
+        "en": "Namyangju City",
+        "ja": "南楊州市",
+        "zh-CN": "南阳州市",
+        "zh-TW": "南陽州市",
+        "zh-HK": "南陽州市"
+      }
+    },
+    {
+      "code": "41370",
+      "sourceName": "오산시",
+      "translations": {
+        "en": "Osan City",
+        "ja": "大山市",
+        "zh-CN": "乌山市",
+        "zh-TW": "烏山市",
+        "zh-HK": "烏山市"
+      }
+    },
+    {
+      "code": "41390",
+      "sourceName": "시흥시",
+      "translations": {
+        "en": "Siheung City",
+        "ja": "始興市",
+        "zh-CN": "始兴市",
+        "zh-TW": "始興市",
+        "zh-HK": "始興市"
+      }
+    },
+    {
+      "code": "41410",
+      "sourceName": "군포시",
+      "translations": {
+        "en": "Gunpo City",
+        "ja": "群浦市",
+        "zh-CN": "军浦市",
+        "zh-TW": "軍浦市",
+        "zh-HK": "軍浦市"
+      }
+    },
+    {
+      "code": "41430",
+      "sourceName": "의왕시",
+      "translations": {
+        "en": "Uiwang City",
+        "ja": "義王市",
+        "zh-CN": "义王市",
+        "zh-TW": "義王市",
+        "zh-HK": "義王市"
+      }
+    },
+    {
+      "code": "41450",
+      "sourceName": "하남시",
+      "translations": {
+        "en": "Hanam City",
+        "ja": "河南市",
+        "zh-CN": "河南市",
+        "zh-TW": "河南市",
+        "zh-HK": "河南市"
+      }
+    },
+    {
+      "code": "41461",
+      "sourceName": "용인시 처인구",
+      "translations": {
+        "en": "Cheoin-gu, Yongin-si",
+        "ja": "龍仁市",
+        "zh-CN": "千仁区，龙仁市",
+        "zh-TW": "千仁區，龍仁市",
+        "zh-HK": "千仁區，龍仁市"
+      }
+    },
+    {
+      "code": "41463",
+      "sourceName": "용인시 기흥구",
+      "translations": {
+        "en": "Giheung-gu, Yongin-si",
+        "ja": "龍仁市ギフン区",
+        "zh-CN": "龙仁市机兴区",
+        "zh-TW": "龍仁市機興區",
+        "zh-HK": "龍仁市機興區"
+      }
+    },
+    {
+      "code": "41465",
+      "sourceName": "용인시 수지구",
+      "translations": {
+        "en": "Suji-gu, Yongin-si",
+        "ja": "龍仁市樹脂区",
+        "zh-CN": "龙仁市水地区",
+        "zh-TW": "龍仁市水地區",
+        "zh-HK": "龍仁市水地區"
+      }
+    },
+    {
+      "code": "41480",
+      "sourceName": "파주시",
+      "translations": {
+        "en": "Paju City",
+        "ja": "坡州市",
+        "zh-CN": "坡州市",
+        "zh-TW": "坡州市",
+        "zh-HK": "坡州市"
+      }
+    },
+    {
+      "code": "41500",
+      "sourceName": "이천시",
+      "translations": {
+        "en": "Icheon City",
+        "ja": "利川市",
+        "zh-CN": "利川市",
+        "zh-TW": "利川市",
+        "zh-HK": "利川市"
+      }
+    },
+    {
+      "code": "41550",
+      "sourceName": "안성시",
+      "translations": {
+        "en": "Anseong City",
+        "ja": "安城市",
+        "zh-CN": "安城市",
+        "zh-TW": "安城市",
+        "zh-HK": "安城市"
+      }
+    },
+    {
+      "code": "41570",
+      "sourceName": "김포시",
+      "translations": {
+        "en": "Gimpo City",
+        "ja": "金浦市",
+        "zh-CN": "金浦市",
+        "zh-TW": "金浦市",
+        "zh-HK": "金浦市"
+      }
+    },
+    {
+      "code": "41591",
+      "sourceName": "화성시 만세구",
+      "translations": {
+        "en": "Hwaseong City Manse-gu",
+        "ja": "華城市万世区",
+        "zh-CN": "华城市万世区",
+        "zh-TW": "華城市萬世區",
+        "zh-HK": "華城市萬世區"
+      }
+    },
+    {
+      "code": "41593",
+      "sourceName": "화성시 효행구",
+      "translations": {
+        "en": "Hyohaeng-gu, Hwaseong-si",
+        "ja": "華城市孝行区",
+        "zh-CN": "孝行区，华城市",
+        "zh-TW": "孝行區，華城市",
+        "zh-HK": "孝行區，華城市"
+      }
+    },
+    {
+      "code": "41595",
+      "sourceName": "화성시 병점구",
+      "translations": {
+        "en": "Byeongjeom-gu, Hwaseong-si",
+        "ja": "華城市病院",
+        "zh-CN": "华城市炳指区",
+        "zh-TW": "華城市炳指區",
+        "zh-HK": "華城市炳指區"
+      }
+    },
+    {
+      "code": "41597",
+      "sourceName": "화성시 동탄구",
+      "translations": {
+        "en": "Dongtan-gu, Hwaseong-si",
+        "ja": "華城市東タン区",
+        "zh-CN": "华城市东滩区",
+        "zh-TW": "華城市東灘區",
+        "zh-HK": "華城市東灘區"
+      }
+    },
+    {
+      "code": "41610",
+      "sourceName": "광주시",
+      "translations": {
+        "en": "Gwangju City",
+        "ja": "光州市",
+        "zh-CN": "光州市",
+        "zh-TW": "光州市",
+        "zh-HK": "光州市"
+      }
+    },
+    {
+      "code": "41630",
+      "sourceName": "양주시",
+      "translations": {
+        "en": "Yangju City",
+        "ja": "楊州市",
+        "zh-CN": "杨州市",
+        "zh-TW": "楊州市",
+        "zh-HK": "楊州市"
+      }
+    },
+    {
+      "code": "41650",
+      "sourceName": "포천시",
+      "translations": {
+        "en": "Pocheon City",
+        "ja": "浦川市",
+        "zh-CN": "抱川市",
+        "zh-TW": "抱川市",
+        "zh-HK": "抱川市"
+      }
+    },
+    {
+      "code": "41670",
+      "sourceName": "여주시",
+      "translations": {
+        "en": "Yeoju City",
+        "ja": "ヨジュ市",
+        "zh-CN": "骊州市",
+        "zh-TW": "驪州市",
+        "zh-HK": "驪州市"
+      }
+    },
+    {
+      "code": "41800",
+      "sourceName": "연천군",
+      "translations": {
+        "en": "Yeoncheon-gun",
+        "ja": "延川郡",
+        "zh-CN": "延川郡",
+        "zh-TW": "延川郡",
+        "zh-HK": "延川郡"
+      }
+    },
+    {
+      "code": "41820",
+      "sourceName": "가평군",
+      "translations": {
+        "en": "Gapyeong-gun",
+        "ja": "加平郡",
+        "zh-CN": "加平郡",
+        "zh-TW": "加平郡",
+        "zh-HK": "加平郡"
+      }
+    },
+    {
+      "code": "41830",
+      "sourceName": "양평군",
+      "translations": {
+        "en": "Yangpyeong-gun",
+        "ja": "楊平郡",
+        "zh-CN": "杨平郡",
+        "zh-TW": "楊平郡",
+        "zh-HK": "楊平郡"
+      }
+    },
+    {
+      "code": "43111",
+      "sourceName": "청주시 상당구",
+      "translations": {
+        "en": "Sangdang-gu, Cheongju",
+        "ja": "清州市相当区",
+        "zh-CN": "清州市上堂区",
+        "zh-TW": "清州市上堂區",
+        "zh-HK": "清州市上堂區"
+      }
+    },
+    {
+      "code": "43112",
+      "sourceName": "청주시 서원구",
+      "translations": {
+        "en": "Seowon-gu, Cheongju-si",
+        "ja": "清州市西原区",
+        "zh-CN": "清州市西原区",
+        "zh-TW": "清州市西原區",
+        "zh-HK": "清州市西原區"
+      }
+    },
+    {
+      "code": "43113",
+      "sourceName": "청주시 흥덕구",
+      "translations": {
+        "en": "Heungdeok-gu, Cheongju-si",
+        "ja": "清州市興徳区",
+        "zh-CN": "清州市兴德区",
+        "zh-TW": "清州市興德區",
+        "zh-HK": "清州市興德區"
+      }
+    },
+    {
+      "code": "43114",
+      "sourceName": "청주시 청원구",
+      "translations": {
+        "en": "Cheongwon-gu, Cheongju-si",
+        "ja": "清州市清原区",
+        "zh-CN": "清州市清原区",
+        "zh-TW": "清州市清原區",
+        "zh-HK": "清州市清原區"
+      }
+    },
+    {
+      "code": "43130",
+      "sourceName": "충주시",
+      "translations": {
+        "en": "Chungju City",
+        "ja": "忠州市",
+        "zh-CN": "忠州市",
+        "zh-TW": "忠州市",
+        "zh-HK": "忠州市"
+      }
+    },
+    {
+      "code": "43150",
+      "sourceName": "제천시",
+      "translations": {
+        "en": "Jecheon City",
+        "ja": "済川市",
+        "zh-CN": "堤川市",
+        "zh-TW": "堤川市",
+        "zh-HK": "堤川市"
+      }
+    },
+    {
+      "code": "43710",
+      "sourceName": "청원군",
+      "translations": {
+        "en": "Cheongwon-gun",
+        "ja": "清原郡",
+        "zh-CN": "清原郡",
+        "zh-TW": "清原郡",
+        "zh-HK": "清原郡"
+      }
+    },
+    {
+      "code": "43720",
+      "sourceName": "보은군",
+      "translations": {
+        "en": "Boeun-gun",
+        "ja": "ボウン郡",
+        "zh-CN": "宝恩根",
+        "zh-TW": "寶恩根",
+        "zh-HK": "寶恩根"
+      }
+    },
+    {
+      "code": "43730",
+      "sourceName": "옥천군",
+      "translations": {
+        "en": "Okcheon-gun",
+        "ja": "玉川郡",
+        "zh-CN": "沃川郡",
+        "zh-TW": "沃川郡",
+        "zh-HK": "沃川郡"
+      }
+    },
+    {
+      "code": "43740",
+      "sourceName": "영동군",
+      "translations": {
+        "en": "Yeongdong-gun",
+        "ja": "永東郡",
+        "zh-CN": "永东郡",
+        "zh-TW": "永東郡",
+        "zh-HK": "永東郡"
+      }
+    },
+    {
+      "code": "43745",
+      "sourceName": "증평군",
+      "translations": {
+        "en": "Jeungpyeong-gun",
+        "ja": "増平郡",
+        "zh-CN": "井平郡",
+        "zh-TW": "井平郡",
+        "zh-HK": "井平郡"
+      }
+    },
+    {
+      "code": "43750",
+      "sourceName": "진천군",
+      "translations": {
+        "en": "Jincheon-gun",
+        "ja": "鎮川郡",
+        "zh-CN": "镇川郡",
+        "zh-TW": "鎮川郡",
+        "zh-HK": "鎮川郡"
+      }
+    },
+    {
+      "code": "43760",
+      "sourceName": "괴산군",
+      "translations": {
+        "en": "Goesan-gun",
+        "ja": "ゲサン郡",
+        "zh-CN": "五山郡",
+        "zh-TW": "五山郡",
+        "zh-HK": "五山郡"
+      }
+    },
+    {
+      "code": "43770",
+      "sourceName": "음성군",
+      "translations": {
+        "en": "Eumseong-gun",
+        "ja": "音声群",
+        "zh-CN": "阴城郡",
+        "zh-TW": "陰城郡",
+        "zh-HK": "陰城郡"
+      }
+    },
+    {
+      "code": "43800",
+      "sourceName": "단양군",
+      "translations": {
+        "en": "Danyang-gun",
+        "ja": "丹陽郡",
+        "zh-CN": "丹阳郡",
+        "zh-TW": "丹陽郡",
+        "zh-HK": "丹陽郡"
+      }
+    },
+    {
+      "code": "44131",
+      "sourceName": "천안시 동남구",
+      "translations": {
+        "en": "Dongnam-gu, Cheonan-si",
+        "ja": "天安市東南区",
+        "zh-CN": "天安市东南区",
+        "zh-TW": "天安市東南區",
+        "zh-HK": "天安市東南區"
+      }
+    },
+    {
+      "code": "44133",
+      "sourceName": "천안시 서북구",
+      "translations": {
+        "en": "Seobuk-gu, Cheonan-si",
+        "ja": "天安市西北区",
+        "zh-CN": "天安市西北区",
+        "zh-TW": "天安市西北區",
+        "zh-HK": "天安市西北區"
+      }
+    },
+    {
+      "code": "44150",
+      "sourceName": "공주시",
+      "translations": {
+        "en": "Gongju City",
+        "ja": "姫市",
+        "zh-CN": "公州市",
+        "zh-TW": "公州市",
+        "zh-HK": "公州市"
+      }
+    },
+    {
+      "code": "44180",
+      "sourceName": "보령시",
+      "translations": {
+        "en": "Boryeong City",
+        "ja": "保寧市",
+        "zh-CN": "保宁市",
+        "zh-TW": "保寧市",
+        "zh-HK": "保寧市"
+      }
+    },
+    {
+      "code": "44200",
+      "sourceName": "아산시",
+      "translations": {
+        "en": "Asan City",
+        "ja": "牙山市",
+        "zh-CN": "阿山市",
+        "zh-TW": "阿山市",
+        "zh-HK": "阿山市"
+      }
+    },
+    {
+      "code": "44210",
+      "sourceName": "서산시",
+      "translations": {
+        "en": "Seosan City",
+        "ja": "西山市",
+        "zh-CN": "瑞山市",
+        "zh-TW": "瑞山市",
+        "zh-HK": "瑞山市"
+      }
+    },
+    {
+      "code": "44230",
+      "sourceName": "논산시",
+      "translations": {
+        "en": "Nonsan City",
+        "ja": "論山市",
+        "zh-CN": "论山市",
+        "zh-TW": "論山市",
+        "zh-HK": "論山市"
+      }
+    },
+    {
+      "code": "44250",
+      "sourceName": "계룡시",
+      "translations": {
+        "en": "Gyeryong City",
+        "ja": "桂龍市",
+        "zh-CN": "鸡龙市",
+        "zh-TW": "雞龍市",
+        "zh-HK": "雞龍市"
+      }
+    },
+    {
+      "code": "44270",
+      "sourceName": "당진시",
+      "translations": {
+        "en": "Dangjin City",
+        "ja": "唐津市",
+        "zh-CN": "唐津市",
+        "zh-TW": "唐津市",
+        "zh-HK": "唐津市"
+      }
+    },
+    {
+      "code": "44710",
+      "sourceName": "금산군",
+      "translations": {
+        "en": "Geumsan-gun",
+        "ja": "金山郡",
+        "zh-CN": "锦山郡",
+        "zh-TW": "錦山郡",
+        "zh-HK": "錦山郡"
+      }
+    },
+    {
+      "code": "44760",
+      "sourceName": "부여군",
+      "translations": {
+        "en": "Buyeo-gun",
+        "ja": "付与軍",
+        "zh-CN": "布约枪",
+        "zh-TW": "布約槍",
+        "zh-HK": "布約槍"
+      }
+    },
+    {
+      "code": "44770",
+      "sourceName": "서천군",
+      "translations": {
+        "en": "Seocheon-gun",
+        "ja": "西川郡",
+        "zh-CN": "瑞川郡",
+        "zh-TW": "瑞川郡",
+        "zh-HK": "瑞川郡"
+      }
+    },
+    {
+      "code": "44790",
+      "sourceName": "청양군",
+      "translations": {
+        "en": "Cheongyang-gun",
+        "ja": "清陽郡",
+        "zh-CN": "青阳郡",
+        "zh-TW": "青陽郡",
+        "zh-HK": "青陽郡"
+      }
+    },
+    {
+      "code": "44800",
+      "sourceName": "홍성군",
+      "translations": {
+        "en": "Hongseong-gun",
+        "ja": "洪城郡",
+        "zh-CN": "洪城郡",
+        "zh-TW": "洪城郡",
+        "zh-HK": "洪城郡"
+      }
+    },
+    {
+      "code": "44810",
+      "sourceName": "예산군",
+      "translations": {
+        "en": "Yesan County",
+        "ja": "予算郡",
+        "zh-CN": "益山县",
+        "zh-TW": "益山縣",
+        "zh-HK": "益山縣"
+      }
+    },
+    {
+      "code": "44825",
+      "sourceName": "태안군",
+      "translations": {
+        "en": "Taean-gun",
+        "ja": "泰安郡",
+        "zh-CN": "泰安根",
+        "zh-TW": "泰安根",
+        "zh-HK": "泰安根"
+      }
+    },
+    {
+      "code": "46110",
+      "sourceName": "목포시",
+      "translations": {
+        "en": "Mokpo City",
+        "ja": "木浦市",
+        "zh-CN": "木浦市",
+        "zh-TW": "木浦市",
+        "zh-HK": "木浦市"
+      }
+    },
+    {
+      "code": "46130",
+      "sourceName": "여수시",
+      "translations": {
+        "en": "Yeosu City",
+        "ja": "麗水市",
+        "zh-CN": "丽水市",
+        "zh-TW": "麗水市",
+        "zh-HK": "麗水市"
+      }
+    },
+    {
+      "code": "46150",
+      "sourceName": "순천시",
+      "translations": {
+        "en": "Suncheon City",
+        "ja": "順天市",
+        "zh-CN": "顺天市",
+        "zh-TW": "順天市",
+        "zh-HK": "順天市"
+      }
+    },
+    {
+      "code": "46170",
+      "sourceName": "나주시",
+      "translations": {
+        "en": "Naju City",
+        "ja": "ナジュ",
+        "zh-CN": "罗州市",
+        "zh-TW": "羅州市",
+        "zh-HK": "羅州市"
+      }
+    },
+    {
+      "code": "46230",
+      "sourceName": "광양시",
+      "translations": {
+        "en": "Gwangyang City",
+        "ja": "光陽市",
+        "zh-CN": "光阳市",
+        "zh-TW": "光陽市",
+        "zh-HK": "光陽市"
+      }
+    },
+    {
+      "code": "46710",
+      "sourceName": "담양군",
+      "translations": {
+        "en": "Damyang-gun",
+        "ja": "潭陽郡",
+        "zh-CN": "潭阳郡",
+        "zh-TW": "潭陽郡",
+        "zh-HK": "潭陽郡"
+      }
+    },
+    {
+      "code": "46720",
+      "sourceName": "곡성군",
+      "translations": {
+        "en": "Gokseong County",
+        "ja": "ゴクソン郡",
+        "zh-CN": "谷城郡",
+        "zh-TW": "谷城郡",
+        "zh-HK": "谷城郡"
+      }
+    },
+    {
+      "code": "46730",
+      "sourceName": "구례군",
+      "translations": {
+        "en": "Gurye-gun",
+        "ja": "旧礼郡",
+        "zh-CN": "求礼根",
+        "zh-TW": "求禮根",
+        "zh-HK": "求禮根"
+      }
+    },
+    {
+      "code": "46770",
+      "sourceName": "고흥군",
+      "translations": {
+        "en": "Goheung-gun",
+        "ja": "高興郡",
+        "zh-CN": "高兴根",
+        "zh-TW": "高興根",
+        "zh-HK": "高興根"
+      }
+    },
+    {
+      "code": "46780",
+      "sourceName": "보성군",
+      "translations": {
+        "en": "Boseong-gun",
+        "ja": "ポソン郡",
+        "zh-CN": "宝城郡",
+        "zh-TW": "寶城郡",
+        "zh-HK": "寶城郡"
+      }
+    },
+    {
+      "code": "46790",
+      "sourceName": "화순군",
+      "translations": {
+        "en": "Hwasun-gun",
+        "ja": "華順郡",
+        "zh-CN": "华顺郡",
+        "zh-TW": "華順郡",
+        "zh-HK": "華順郡"
+      }
+    },
+    {
+      "code": "46800",
+      "sourceName": "장흥군",
+      "translations": {
+        "en": "Jangheung-gun",
+        "ja": "チャン・フン郡",
+        "zh-CN": "长兴根",
+        "zh-TW": "長興根",
+        "zh-HK": "長興根"
+      }
+    },
+    {
+      "code": "46810",
+      "sourceName": "강진군",
+      "translations": {
+        "en": "Gangjin-gun",
+        "ja": "江津郡",
+        "zh-CN": "康津郡",
+        "zh-TW": "康津郡",
+        "zh-HK": "康津郡"
+      }
+    },
+    {
+      "code": "46820",
+      "sourceName": "해남군",
+      "translations": {
+        "en": "Haenam-gun",
+        "ja": "海南郡",
+        "zh-CN": "海南郡",
+        "zh-TW": "海南郡",
+        "zh-HK": "海南郡"
+      }
+    },
+    {
+      "code": "46830",
+      "sourceName": "영암군",
+      "translations": {
+        "en": "Yeongam-gun",
+        "ja": "霊岩郡",
+        "zh-CN": "灵岩郡",
+        "zh-TW": "靈岩郡",
+        "zh-HK": "靈岩郡"
+      }
+    },
+    {
+      "code": "46840",
+      "sourceName": "무안군",
+      "translations": {
+        "en": "Muan-gun",
+        "ja": "ムアン郡",
+        "zh-CN": "慕安根",
+        "zh-TW": "慕安根",
+        "zh-HK": "慕安根"
+      }
+    },
+    {
+      "code": "46860",
+      "sourceName": "함평군",
+      "translations": {
+        "en": "Hampyeong-gun",
+        "ja": "咸平郡",
+        "zh-CN": "咸平郡",
+        "zh-TW": "鹹平郡",
+        "zh-HK": "鹹平郡"
+      }
+    },
+    {
+      "code": "46870",
+      "sourceName": "영광군",
+      "translations": {
+        "en": "Yeonggwang-gun",
+        "ja": "栄光郡",
+        "zh-CN": "永光郡",
+        "zh-TW": "永光郡",
+        "zh-HK": "永光郡"
+      }
+    },
+    {
+      "code": "46880",
+      "sourceName": "장성군",
+      "translations": {
+        "en": "Jangseong-gun",
+        "ja": "長城郡",
+        "zh-CN": "长城郡",
+        "zh-TW": "長城郡",
+        "zh-HK": "長城郡"
+      }
+    },
+    {
+      "code": "46890",
+      "sourceName": "완도군",
+      "translations": {
+        "en": "Wando-gun",
+        "ja": "ワンド郡",
+        "zh-CN": "万多枪",
+        "zh-TW": "萬多槍",
+        "zh-HK": "萬多槍"
+      }
+    },
+    {
+      "code": "46900",
+      "sourceName": "진도군",
+      "translations": {
+        "en": "Jindo County",
+        "ja": "珍島郡",
+        "zh-CN": "珍岛县",
+        "zh-TW": "珍島縣",
+        "zh-HK": "珍島縣"
+      }
+    },
+    {
+      "code": "46910",
+      "sourceName": "신안군",
+      "translations": {
+        "en": "Sinan-gun",
+        "ja": "新安郡",
+        "zh-CN": "锡南郡",
+        "zh-TW": "錫南郡",
+        "zh-HK": "錫南郡"
+      }
+    },
+    {
+      "code": "47111",
+      "sourceName": "포항시 남구",
+      "translations": {
+        "en": "Nam-gu, Pohang-si",
+        "ja": "浦項市南区",
+        "zh-CN": "浦项市南区",
+        "zh-TW": "浦項市南區",
+        "zh-HK": "浦項市南區"
+      }
+    },
+    {
+      "code": "47113",
+      "sourceName": "포항시 북구",
+      "translations": {
+        "en": "Pohang-si Buk-gu",
+        "ja": "浦項市北区",
+        "zh-CN": "浦项市北区",
+        "zh-TW": "浦項市北區",
+        "zh-HK": "浦項市北區"
+      }
+    },
+    {
+      "code": "47130",
+      "sourceName": "경주시",
+      "translations": {
+        "en": "Gyeongju City",
+        "ja": "慶州市",
+        "zh-CN": "庆州市",
+        "zh-TW": "慶州市",
+        "zh-HK": "慶州市"
+      }
+    },
+    {
+      "code": "47150",
+      "sourceName": "김천시",
+      "translations": {
+        "en": "Gimcheon City",
+        "ja": "キムチョンシ",
+        "zh-CN": "金泉市",
+        "zh-TW": "金泉市",
+        "zh-HK": "金泉市"
+      }
+    },
+    {
+      "code": "47170",
+      "sourceName": "안동시",
+      "translations": {
+        "en": "Andong City",
+        "ja": "安東市",
+        "zh-CN": "安东市",
+        "zh-TW": "安東市",
+        "zh-HK": "安東市"
+      }
+    },
+    {
+      "code": "47190",
+      "sourceName": "구미시",
+      "translations": {
+        "en": "Gumi City",
+        "ja": "亀尾市",
+        "zh-CN": "龟尾市",
+        "zh-TW": "龜尾市",
+        "zh-HK": "龜尾市"
+      }
+    },
+    {
+      "code": "47210",
+      "sourceName": "영주시",
+      "translations": {
+        "en": "Yeongju City",
+        "ja": "永州市",
+        "zh-CN": "荣州市",
+        "zh-TW": "榮州市",
+        "zh-HK": "榮州市"
+      }
+    },
+    {
+      "code": "47230",
+      "sourceName": "영천시",
+      "translations": {
+        "en": "Yeongcheon City",
+        "ja": "永川市",
+        "zh-CN": "永川市",
+        "zh-TW": "永川市",
+        "zh-HK": "永川市"
+      }
+    },
+    {
+      "code": "47250",
+      "sourceName": "상주시",
+      "translations": {
+        "en": "Sangju City",
+        "ja": "常州市",
+        "zh-CN": "尚州市",
+        "zh-TW": "尚州市",
+        "zh-HK": "尚州市"
+      }
+    },
+    {
+      "code": "47280",
+      "sourceName": "문경시",
+      "translations": {
+        "en": "Mungyeong City",
+        "ja": "ムンギョン市",
+        "zh-CN": "闻庆市",
+        "zh-TW": "聞慶市",
+        "zh-HK": "聞慶市"
+      }
+    },
+    {
+      "code": "47290",
+      "sourceName": "경산시",
+      "translations": {
+        "en": "Gyeongsan City",
+        "ja": "慶山市",
+        "zh-CN": "庆山市",
+        "zh-TW": "慶山市",
+        "zh-HK": "慶山市"
+      }
+    },
+    {
+      "code": "47730",
+      "sourceName": "의성군",
+      "translations": {
+        "en": "Uiseong-gun",
+        "ja": "義城郡",
+        "zh-CN": "义城郡",
+        "zh-TW": "義城郡",
+        "zh-HK": "義城郡"
+      }
+    },
+    {
+      "code": "47750",
+      "sourceName": "청송군",
+      "translations": {
+        "en": "Cheongsong-gun",
+        "ja": "チョンソン郡",
+        "zh-CN": "青松根",
+        "zh-TW": "青松根",
+        "zh-HK": "青松根"
+      }
+    },
+    {
+      "code": "47760",
+      "sourceName": "영양군",
+      "translations": {
+        "en": "Yeongyang-gun",
+        "ja": "栄養群",
+        "zh-CN": "永阳郡",
+        "zh-TW": "永陽郡",
+        "zh-HK": "永陽郡"
+      }
+    },
+    {
+      "code": "47770",
+      "sourceName": "영덕군",
+      "translations": {
+        "en": "Yeongdeok-gun",
+        "ja": "ヨンドク郡",
+        "zh-CN": "永德郡",
+        "zh-TW": "永德郡",
+        "zh-HK": "永德郡"
+      }
+    },
+    {
+      "code": "47820",
+      "sourceName": "청도군",
+      "translations": {
+        "en": "Cheongdo-gun",
+        "ja": "青島郡",
+        "zh-CN": "清道郡",
+        "zh-TW": "清道郡",
+        "zh-HK": "清道郡"
+      }
+    },
+    {
+      "code": "47830",
+      "sourceName": "고령군",
+      "translations": {
+        "en": "Goryeong-gun",
+        "ja": "高齢軍",
+        "zh-CN": "高灵郡",
+        "zh-TW": "高靈郡",
+        "zh-HK": "高靈郡"
+      }
+    },
+    {
+      "code": "47840",
+      "sourceName": "성주군",
+      "translations": {
+        "en": "Seongju-gun",
+        "ja": "城州郡",
+        "zh-CN": "圣州郡",
+        "zh-TW": "聖州郡",
+        "zh-HK": "聖州郡"
+      }
+    },
+    {
+      "code": "47850",
+      "sourceName": "칠곡군",
+      "translations": {
+        "en": "Chilgok-gun",
+        "ja": "チルゴク郡",
+        "zh-CN": "赤谷郡",
+        "zh-TW": "赤谷郡",
+        "zh-HK": "赤谷郡"
+      }
+    },
+    {
+      "code": "47900",
+      "sourceName": "예천군",
+      "translations": {
+        "en": "Yecheon-gun",
+        "ja": "イェチョン郡",
+        "zh-CN": "礼川郡",
+        "zh-TW": "禮川郡",
+        "zh-HK": "禮川郡"
+      }
+    },
+    {
+      "code": "47920",
+      "sourceName": "봉화군",
+      "translations": {
+        "en": "Bonghwa County",
+        "ja": "奉化郡",
+        "zh-CN": "奉化郡",
+        "zh-TW": "奉化郡",
+        "zh-HK": "奉化郡"
+      }
+    },
+    {
+      "code": "47930",
+      "sourceName": "울진군",
+      "translations": {
+        "en": "Uljin-gun",
+        "ja": "ウルジン郡",
+        "zh-CN": "蔚真军",
+        "zh-TW": "蔚真軍",
+        "zh-HK": "蔚真軍"
+      }
+    },
+    {
+      "code": "47940",
+      "sourceName": "울릉군",
+      "translations": {
+        "en": "Ulleung-gun",
+        "ja": "鬱陵郡",
+        "zh-CN": "郁陵郡",
+        "zh-TW": "鬱陵郡",
+        "zh-HK": "鬱陵郡"
+      }
+    },
+    {
+      "code": "48121",
+      "sourceName": "창원시 의창구",
+      "translations": {
+        "en": "Uichang-gu, Changwon-si",
+        "ja": "昌原市義昌区",
+        "zh-CN": "昌原市宜昌区",
+        "zh-TW": "昌原市宜昌區",
+        "zh-HK": "昌原市宜昌區"
+      }
+    },
+    {
+      "code": "48123",
+      "sourceName": "창원시 성산구",
+      "translations": {
+        "en": "Seongsan-gu, Changwon-si",
+        "ja": "昌原市城山区",
+        "zh-CN": "昌原市城山区",
+        "zh-TW": "昌原市城山區",
+        "zh-HK": "昌原市城山區"
+      }
+    },
+    {
+      "code": "48125",
+      "sourceName": "창원시 마산합포구",
+      "translations": {
+        "en": "Masan Happo-gu, Changwon City",
+        "ja": "昌原市馬山合浦区",
+        "zh-CN": "昌原市马山八方区",
+        "zh-TW": "昌原市馬山八方區",
+        "zh-HK": "昌原市馬山八方區"
+      }
+    },
+    {
+      "code": "48127",
+      "sourceName": "창원시 마산회원구",
+      "translations": {
+        "en": "Masanhoewon-gu, Changwon-si",
+        "ja": "昌原市馬山会員区",
+        "zh-CN": "昌原市马山会院区",
+        "zh-TW": "昌原市馬山會院區",
+        "zh-HK": "昌原市馬山會院區"
+      }
+    },
+    {
+      "code": "48129",
+      "sourceName": "창원시 진해구",
+      "translations": {
+        "en": "Jinhae-gu, Changwon-si",
+        "ja": "昌原市鎮海区",
+        "zh-CN": "昌原市镇海区",
+        "zh-TW": "昌原市鎮海區",
+        "zh-HK": "昌原市鎮海區"
+      }
+    },
+    {
+      "code": "48170",
+      "sourceName": "진주시",
+      "translations": {
+        "en": "Jinju City",
+        "ja": "真珠市",
+        "zh-CN": "晋州市",
+        "zh-TW": "晉州市",
+        "zh-HK": "晉州市"
+      }
+    },
+    {
+      "code": "48220",
+      "sourceName": "통영시",
+      "translations": {
+        "en": "Tongyeong City",
+        "ja": "統営市",
+        "zh-CN": "统营市",
+        "zh-TW": "統營市",
+        "zh-HK": "統營市"
+      }
+    },
+    {
+      "code": "48240",
+      "sourceName": "사천시",
+      "translations": {
+        "en": "Sacheon City",
+        "ja": "四川市",
+        "zh-CN": "泗川市",
+        "zh-TW": "泗川市",
+        "zh-HK": "泗川市"
+      }
+    },
+    {
+      "code": "48250",
+      "sourceName": "김해시",
+      "translations": {
+        "en": "Gimhae City",
+        "ja": "キム・ヘシ",
+        "zh-CN": "金海市",
+        "zh-TW": "金海市",
+        "zh-HK": "金海市"
+      }
+    },
+    {
+      "code": "48270",
+      "sourceName": "밀양시",
+      "translations": {
+        "en": "Miryang City",
+        "ja": "密陽市",
+        "zh-CN": "密阳市",
+        "zh-TW": "密陽市",
+        "zh-HK": "密陽市"
+      }
+    },
+    {
+      "code": "48310",
+      "sourceName": "거제시",
+      "translations": {
+        "en": "Geoje City",
+        "ja": "巨済市",
+        "zh-CN": "巨济市",
+        "zh-TW": "巨濟市",
+        "zh-HK": "巨濟市"
+      }
+    },
+    {
+      "code": "48330",
+      "sourceName": "양산시",
+      "translations": {
+        "en": "Yangsan City",
+        "ja": "量産市",
+        "zh-CN": "梁山市",
+        "zh-TW": "梁山市",
+        "zh-HK": "梁山市"
+      }
+    },
+    {
+      "code": "48720",
+      "sourceName": "의령군",
+      "translations": {
+        "en": "Uiryeong-gun",
+        "ja": "義令郡",
+        "zh-CN": "宜宁郡",
+        "zh-TW": "宜寧郡",
+        "zh-HK": "宜寧郡"
+      }
+    },
+    {
+      "code": "48730",
+      "sourceName": "함안군",
+      "translations": {
+        "en": "Haman-gun",
+        "ja": "咸安郡",
+        "zh-CN": "哈曼枪",
+        "zh-TW": "哈曼槍",
+        "zh-HK": "哈曼槍"
+      }
+    },
+    {
+      "code": "48740",
+      "sourceName": "창녕군",
+      "translations": {
+        "en": "Changnyeong-gun",
+        "ja": "昌寧郡",
+        "zh-CN": "昌宁郡",
+        "zh-TW": "昌寧郡",
+        "zh-HK": "昌寧郡"
+      }
+    },
+    {
+      "code": "48820",
+      "sourceName": "고성군",
+      "translations": {
+        "en": "Goseong-gun",
+        "ja": "高城郡",
+        "zh-CN": "高城郡",
+        "zh-TW": "高城郡",
+        "zh-HK": "高城郡"
+      }
+    },
+    {
+      "code": "48840",
+      "sourceName": "남해군",
+      "translations": {
+        "en": "Namhae-gun",
+        "ja": "南海郡",
+        "zh-CN": "南海郡",
+        "zh-TW": "南海郡",
+        "zh-HK": "南海郡"
+      }
+    },
+    {
+      "code": "48850",
+      "sourceName": "하동군",
+      "translations": {
+        "en": "Hadong-gun",
+        "ja": "ハドン郡",
+        "zh-CN": "河东郡",
+        "zh-TW": "河東郡",
+        "zh-HK": "河東郡"
+      }
+    },
+    {
+      "code": "48860",
+      "sourceName": "산청군",
+      "translations": {
+        "en": "Sancheong-gun",
+        "ja": "山清郡",
+        "zh-CN": "山清郡",
+        "zh-TW": "山清郡",
+        "zh-HK": "山清郡"
+      }
+    },
+    {
+      "code": "48870",
+      "sourceName": "함양군",
+      "translations": {
+        "en": "Hamyang-gun",
+        "ja": "咸陽郡",
+        "zh-CN": "咸阳郡",
+        "zh-TW": "鹹陽郡",
+        "zh-HK": "鹹陽郡"
+      }
+    },
+    {
+      "code": "48880",
+      "sourceName": "거창군",
+      "translations": {
+        "en": "Geochang-gun",
+        "ja": "巨昌郡",
+        "zh-CN": "巨昌枪",
+        "zh-TW": "大麥克槍",
+        "zh-HK": "大麥克槍"
+      }
+    },
+    {
+      "code": "48890",
+      "sourceName": "합천군",
+      "translations": {
+        "en": "Hapcheon-gun",
+        "ja": "ハプチョン郡",
+        "zh-CN": "合川郡",
+        "zh-TW": "合川郡",
+        "zh-HK": "合川郡"
+      }
+    },
+    {
+      "code": "50110",
+      "sourceName": "제주시",
+      "translations": {
+        "en": "Jeju City",
+        "ja": "済州市",
+        "zh-CN": "济州市",
+        "zh-TW": "濟州市",
+        "zh-HK": "濟州市"
+      }
+    },
+    {
+      "code": "50130",
+      "sourceName": "서귀포시",
+      "translations": {
+        "en": "Seogwipo City",
+        "ja": "西帰浦市",
+        "zh-CN": "西归浦市",
+        "zh-TW": "西歸浦市",
+        "zh-HK": "西歸浦市"
+      }
+    },
+    {
+      "code": "51110",
+      "sourceName": "춘천시",
+      "translations": {
+        "en": "Chuncheon City",
+        "ja": "春川市",
+        "zh-CN": "春川市",
+        "zh-TW": "春川市",
+        "zh-HK": "春川市"
+      }
+    },
+    {
+      "code": "51130",
+      "sourceName": "원주시",
+      "translations": {
+        "en": "Wonju City",
+        "ja": "原州市",
+        "zh-CN": "原州市",
+        "zh-TW": "原州市",
+        "zh-HK": "原州市"
+      }
+    },
+    {
+      "code": "51150",
+      "sourceName": "강릉시",
+      "translations": {
+        "en": "Gangneung City",
+        "ja": "江陵市",
+        "zh-CN": "江陵市",
+        "zh-TW": "江陵市",
+        "zh-HK": "江陵市"
+      }
+    },
+    {
+      "code": "51170",
+      "sourceName": "동해시",
+      "translations": {
+        "en": "Donghae City",
+        "ja": "東海市",
+        "zh-CN": "东海市",
+        "zh-TW": "東海市",
+        "zh-HK": "東海市"
+      }
+    },
+    {
+      "code": "51190",
+      "sourceName": "태백시",
+      "translations": {
+        "en": "Taebaek City",
+        "ja": "太白市",
+        "zh-CN": "太白市",
+        "zh-TW": "太白市",
+        "zh-HK": "太白市"
+      }
+    },
+    {
+      "code": "51210",
+      "sourceName": "속초시",
+      "translations": {
+        "en": "Sokcho City",
+        "ja": "束草市",
+        "zh-CN": "束草市",
+        "zh-TW": "束草市",
+        "zh-HK": "束草市"
+      }
+    },
+    {
+      "code": "51230",
+      "sourceName": "삼척시",
+      "translations": {
+        "en": "Samcheok City",
+        "ja": "三尺市",
+        "zh-CN": "三陟市",
+        "zh-TW": "三陟市",
+        "zh-HK": "三陟市"
+      }
+    },
+    {
+      "code": "51720",
+      "sourceName": "홍천군",
+      "translations": {
+        "en": "Hongcheon-gun",
+        "ja": "洪川郡",
+        "zh-CN": "洪川郡",
+        "zh-TW": "洪川郡",
+        "zh-HK": "洪川郡"
+      }
+    },
+    {
+      "code": "51730",
+      "sourceName": "횡성군",
+      "translations": {
+        "en": "Hoengseong-gun",
+        "ja": "横城郡",
+        "zh-CN": "横城郡",
+        "zh-TW": "橫城郡",
+        "zh-HK": "橫城郡"
+      }
+    },
+    {
+      "code": "51750",
+      "sourceName": "영월군",
+      "translations": {
+        "en": "Yeongwol County",
+        "ja": "ヨンウォル郡",
+        "zh-CN": "灵月郡",
+        "zh-TW": "靈月郡",
+        "zh-HK": "靈月郡"
+      }
+    },
+    {
+      "code": "51760",
+      "sourceName": "평창군",
+      "translations": {
+        "en": "Pyeongchang County",
+        "ja": "平昌郡",
+        "zh-CN": "平昌郡",
+        "zh-TW": "平昌郡",
+        "zh-HK": "平昌郡"
+      }
+    },
+    {
+      "code": "51770",
+      "sourceName": "정선군",
+      "translations": {
+        "en": "Jeongseon-gun",
+        "ja": "チョンソン郡",
+        "zh-CN": "旌善根",
+        "zh-TW": "旌善根",
+        "zh-HK": "旌善根"
+      }
+    },
+    {
+      "code": "51780",
+      "sourceName": "철원군",
+      "translations": {
+        "en": "Cheorwon-gun",
+        "ja": "チョルウォン郡",
+        "zh-CN": "铁原郡",
+        "zh-TW": "鐵原郡",
+        "zh-HK": "鐵原郡"
+      }
+    },
+    {
+      "code": "51790",
+      "sourceName": "화천군",
+      "translations": {
+        "en": "Hwacheon-gun",
+        "ja": "華川郡",
+        "zh-CN": "华川郡",
+        "zh-TW": "華川郡",
+        "zh-HK": "華川郡"
+      }
+    },
+    {
+      "code": "51800",
+      "sourceName": "양구군",
+      "translations": {
+        "en": "Yanggu-gun",
+        "ja": "両区郡",
+        "zh-CN": "阳口郡",
+        "zh-TW": "陽口郡",
+        "zh-HK": "陽口郡"
+      }
+    },
+    {
+      "code": "51810",
+      "sourceName": "인제군",
+      "translations": {
+        "en": "Inje-gun",
+        "ja": "仁済郡",
+        "zh-CN": "印治枪",
+        "zh-TW": "印治槍",
+        "zh-HK": "印治槍"
+      }
+    },
+    {
+      "code": "51820",
+      "sourceName": "고성군",
+      "translations": {
+        "en": "Goseong-gun",
+        "ja": "高城郡",
+        "zh-CN": "高城郡",
+        "zh-TW": "高城郡",
+        "zh-HK": "高城郡"
+      }
+    },
+    {
+      "code": "51830",
+      "sourceName": "양양군",
+      "translations": {
+        "en": "Yangyang-gun",
+        "ja": "陽陽郡",
+        "zh-CN": "襄阳郡",
+        "zh-TW": "襄陽郡",
+        "zh-HK": "襄陽郡"
+      }
+    },
+    {
+      "code": "52111",
+      "sourceName": "전주시 완산구",
+      "translations": {
+        "en": "Wansan-gu, Jeonju-si",
+        "ja": "全州市万山区",
+        "zh-CN": "全州市完山区",
+        "zh-TW": "全州市完山區",
+        "zh-HK": "全州市完山區"
+      }
+    },
+    {
+      "code": "52113",
+      "sourceName": "전주시 덕진구",
+      "translations": {
+        "en": "Deokjin-gu, Jeonju-si",
+        "ja": "全州市徳津区",
+        "zh-CN": "全州市德津区",
+        "zh-TW": "全州市德津區",
+        "zh-HK": "全州市德津區"
+      }
+    },
+    {
+      "code": "52130",
+      "sourceName": "군산시",
+      "translations": {
+        "en": "Gunsan City",
+        "ja": "群山市",
+        "zh-CN": "群山市",
+        "zh-TW": "群山市",
+        "zh-HK": "群山市"
+      }
+    },
+    {
+      "code": "52140",
+      "sourceName": "익산시",
+      "translations": {
+        "en": "Iksan City",
+        "ja": "益山市",
+        "zh-CN": "益山市",
+        "zh-TW": "益山市",
+        "zh-HK": "益山市"
+      }
+    },
+    {
+      "code": "52180",
+      "sourceName": "정읍시",
+      "translations": {
+        "en": "Jeongeup City",
+        "ja": "鄭邑市",
+        "zh-CN": "井邑市",
+        "zh-TW": "井邑市",
+        "zh-HK": "井邑市"
+      }
+    },
+    {
+      "code": "52190",
+      "sourceName": "남원시",
+      "translations": {
+        "en": "Namwon City",
+        "ja": "南原市",
+        "zh-CN": "南原市",
+        "zh-TW": "南原市",
+        "zh-HK": "南原市"
+      }
+    },
+    {
+      "code": "52210",
+      "sourceName": "김제시",
+      "translations": {
+        "en": "Gimje City",
+        "ja": "キム・ジェシ",
+        "zh-CN": "吉姆杰市",
+        "zh-TW": "吉姆傑市",
+        "zh-HK": "吉姆傑市"
+      }
+    },
+    {
+      "code": "52710",
+      "sourceName": "완주군",
+      "translations": {
+        "en": "Wanju-gun",
+        "ja": "ワンジュ郡",
+        "zh-CN": "完州郡",
+        "zh-TW": "完州郡",
+        "zh-HK": "完州郡"
+      }
+    },
+    {
+      "code": "52720",
+      "sourceName": "진안군",
+      "translations": {
+        "en": "Jinan-gun",
+        "ja": "鎮安郡",
+        "zh-CN": "济南郡",
+        "zh-TW": "濟南郡",
+        "zh-HK": "濟南郡"
+      }
+    },
+    {
+      "code": "52730",
+      "sourceName": "무주군",
+      "translations": {
+        "en": "Muju-gun",
+        "ja": "ムジュ郡",
+        "zh-CN": "无朱郡",
+        "zh-TW": "無朱郡",
+        "zh-HK": "無朱郡"
+      }
+    },
+    {
+      "code": "52740",
+      "sourceName": "장수군",
+      "translations": {
+        "en": "Jangsu-gun",
+        "ja": "長寿郡",
+        "zh-CN": "长寿郡",
+        "zh-TW": "長壽郡",
+        "zh-HK": "長壽郡"
+      }
+    },
+    {
+      "code": "52750",
+      "sourceName": "임실군",
+      "translations": {
+        "en": "Imsil-gun",
+        "ja": "イムシル郡",
+        "zh-CN": "伊姆西尔枪",
+        "zh-TW": "伊姆西爾槍",
+        "zh-HK": "伊姆西爾槍"
+      }
+    },
+    {
+      "code": "52770",
+      "sourceName": "순창군",
+      "translations": {
+        "en": "Sunchang-gun",
+        "ja": "順昌郡",
+        "zh-CN": "淳昌郡",
+        "zh-TW": "淳昌郡",
+        "zh-HK": "淳昌郡"
+      }
+    },
+    {
+      "code": "52790",
+      "sourceName": "고창군",
+      "translations": {
+        "en": "Gochang-gun",
+        "ja": "高昌郡",
+        "zh-CN": "高敞郡",
+        "zh-TW": "高敞郡",
+        "zh-HK": "高敞郡"
+      }
+    },
+    {
+      "code": "52800",
+      "sourceName": "부안군",
+      "translations": {
+        "en": "Buan-gun",
+        "ja": "ブアン郡",
+        "zh-CN": "布安根",
+        "zh-TW": "布安根",
+        "zh-HK": "布安根"
+      }
+    }
+  ]
+}
