@@ -1,0 +1,97 @@
+name: Region translation production read-only check
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [before, after]
+        required: true
+        description: Check canonical codes before rollout or translations after rollout
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toilet-api-production-observation
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'toilet-project/toilet-api' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify migration snapshot and prepare code list
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -B -m unittest discover -s scripts -p test_region_translation_production.py
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          sql = Path('src/main/resources/db/migration/V32__seed_region_sigungu_translation.sql').read_text()
+          rows = re.findall(r"\('([0-9]{5})', '(en|ja|zh-CN|zh-TW|zh-HK)'", sql)
+          codes = list(dict.fromkeys(code for code, _ in rows))
+          assert len(rows) == 1435 and len(codes) == 287
+          assert all({locale for row_code, locale in rows if row_code == code}
+                     == {'en', 'ja', 'zh-CN', 'zh-TW', 'zh-HK'} for code in codes)
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write('EXPECTED_CODES=' + ','.join(codes) + '\n')
+          PY
+      - name: Prepare pinned Tunnel SSH transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 10 --max-time 60 \
+            https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64.deb \
+            -o "$RUNNER_TEMP/cloudflared.deb"
+          printf '%s  %s\n' 660b348d473bba81997445b534e7eaefaf4c4e16331866922326c338a7013dd9 "$RUNNER_TEMP/cloudflared.deb" | sha256sum -c -
+          dpkg-deb --extract "$RUNNER_TEMP/cloudflared.deb" "$RUNNER_TEMP/cloudflared-package"
+      - name: Read production schema and translation counts
+        shell: bash
+        env:
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
+          DEPLOY_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
+          TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
+          TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
+          TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+          CHECK_MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${TUNNEL_SERVICE_TOKEN_ID:?missing Access ID}"
+          : "${TUNNEL_SERVICE_TOKEN_SECRET:?missing Access secret}"
+          : "${DEPLOY_SSH_KEY:?missing SSH key}"
+          : "${TUNNEL_KNOWN_HOSTS:?missing pinned host keys}"
+          test "$TUNNEL_SSH_HOST" = ssh-deploy.geupddong.com
+          [[ "$TUNNEL_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$EXPECTED_CODES" =~ ^[0-9,]+$ ]]
+          [[ "$CHECK_MODE" == before || "$CHECK_MODE" == after ]]
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/region-translation-key"
+          printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/region-translation-hosts"
+          ssh-keygen -y -P '' -f "$RUNNER_TEMP/region-translation-key" >/dev/null
+          export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+          timeout 10m ssh -F /dev/null -T -i "$RUNNER_TEMP/region-translation-key" \
+            -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/region-translation-hosts" \
+            -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 \
+            -o ForwardAgent=no -o ClearAllForwardings=yes \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
+            "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+            "python3 -B - --mode $CHECK_MODE --expected-codes $EXPECTED_CODES" \
+            < scripts/check_region_translation_production.py
+      - name: Remove runner-only credentials
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_TEMP:?}"
+          rm -f -- "$RUNNER_TEMP/region-translation-key" "$RUNNER_TEMP/region-translation-hosts"

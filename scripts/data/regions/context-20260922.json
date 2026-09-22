@@ -1,0 +1,3449 @@
+{
+  "source": "region_sigungu_reference",
+  "districts": [
+    {
+      "code": "11110",
+      "sourceName": "종로구",
+      "sourceFullName": "서울특별시 종로구",
+      "translations": {
+        "en": "Jongno-gu, Seoul",
+        "ja": "ソウル特別市鍾路区",
+        "zh-CN": "首尔市钟路区",
+        "zh-TW": "首爾市鐘路區",
+        "zh-HK": "首爾市鐘路區"
+      }
+    },
+    {
+      "code": "11140",
+      "sourceName": "중구",
+      "sourceFullName": "서울특별시 중구",
+      "translations": {
+        "en": "Jung-gu, Seoul",
+        "ja": "ソウル特別市中区",
+        "zh-CN": "首尔市中区",
+        "zh-TW": "首爾市中區",
+        "zh-HK": "首爾市中區"
+      }
+    },
+    {
+      "code": "11170",
+      "sourceName": "용산구",
+      "sourceFullName": "서울특별시 용산구",
+      "translations": {
+        "en": "Yongsan-gu, Seoul",
+        "ja": "ソウル特別市龍山区",
+        "zh-CN": "首尔市龙山区",
+        "zh-TW": "首爾市龍山區",
+        "zh-HK": "首爾市龍山區"
+      }
+    },
+    {
+      "code": "11200",
+      "sourceName": "성동구",
+      "sourceFullName": "서울특별시 성동구",
+      "translations": {
+        "en": "Seongdong-gu, Seoul",
+        "ja": "ソウル特別市城東区",
+        "zh-CN": "首尔市城东区",
+        "zh-TW": "首爾市城東區",
+        "zh-HK": "首爾市城東區"
+      }
+    },
+    {
+      "code": "11215",
+      "sourceName": "광진구",
+      "sourceFullName": "서울특별시 광진구",
+      "translations": {
+        "en": "Gwangjin-gu, Seoul",
+        "ja": "ソウル特別市広津区",
+        "zh-CN": "首尔市广津区",
+        "zh-TW": "首爾市廣津區",
+        "zh-HK": "首爾市廣津區"
+      }
+    },
+    {
+      "code": "11230",
+      "sourceName": "동대문구",
+      "sourceFullName": "서울특별시 동대문구",
+      "translations": {
+        "en": "Dongdaemun-gu, Seoul",
+        "ja": "ソウル特別市東大門区",
+        "zh-CN": "首尔市东大门区",
+        "zh-TW": "首爾市東大門區",
+        "zh-HK": "首爾市東大門區"
+      }
+    },
+    {
+      "code": "11260",
+      "sourceName": "중랑구",
+      "sourceFullName": "서울특별시 중랑구",
+      "translations": {
+        "en": "Jungnang-gu, Seoul",
+        "ja": "ソウル特別市中南区",
+        "zh-CN": "首尔市中浪区",
+        "zh-TW": "首爾市中浪區",
+        "zh-HK": "首爾市中浪區"
+      }
+    },
+    {
+      "code": "11290",
+      "sourceName": "성북구",
+      "sourceFullName": "서울특별시 성북구",
+      "translations": {
+        "en": "Seongbuk-gu, Seoul",
+        "ja": "ソウル特別市城北区",
+        "zh-CN": "首尔市城北区",
+        "zh-TW": "首爾市城北區",
+        "zh-HK": "首爾市城北區"
+      }
+    },
+    {
+      "code": "11305",
+      "sourceName": "강북구",
+      "sourceFullName": "서울특별시 강북구",
+      "translations": {
+        "en": "Gangbuk-gu, Seoul",
+        "ja": "ソウル特別市江北区",
+        "zh-CN": "首尔市江北区",
+        "zh-TW": "首爾市江北區",
+        "zh-HK": "首爾市江北區"
+      }
+    },
+    {
+      "code": "11320",
+      "sourceName": "도봉구",
+      "sourceFullName": "서울특별시 도봉구",
+      "translations": {
+        "en": "Dobong-gu, Seoul",
+        "ja": "ソウル特別市道鳳区",
+        "zh-CN": "首尔市道峰区",
+        "zh-TW": "首爾市道峰區",
+        "zh-HK": "首爾市道峰區"
+      }
+    },
+    {
+      "code": "11350",
+      "sourceName": "노원구",
+      "sourceFullName": "서울특별시 노원구",
+      "translations": {
+        "en": "Nowon-gu, Seoul",
+        "ja": "ソウル特別市 ノウォン区",
+        "zh-CN": "首尔市芦原区",
+        "zh-TW": "首爾市蘆原區",
+        "zh-HK": "首爾市蘆原區"
+      }
+    },
+    {
+      "code": "11380",
+      "sourceName": "은평구",
+      "sourceFullName": "서울특별시 은평구",
+      "translations": {
+        "en": "Eunpyeong-gu, Seoul",
+        "ja": "ソウル特別市 平平区",
+        "zh-CN": "首尔市恩平区",
+        "zh-TW": "首爾市恩平區",
+        "zh-HK": "首爾市恩平區"
+      }
+    },
+    {
+      "code": "11410",
+      "sourceName": "서대문구",
+      "sourceFullName": "서울특별시 서대문구",
+      "translations": {
+        "en": "Seodaemun-gu, Seoul",
+        "ja": "ソウル特別市西大門区",
+        "zh-CN": "首尔市西大门区",
+        "zh-TW": "首爾市西大門區",
+        "zh-HK": "首爾市西大門區"
+      }
+    },
+    {
+      "code": "11440",
+      "sourceName": "마포구",
+      "sourceFullName": "서울특별시 마포구",
+      "translations": {
+        "en": "Mapo-gu, Seoul",
+        "ja": "ソウル特別市麻浦区",
+        "zh-CN": "首尔市麻浦区",
+        "zh-TW": "首爾市麻浦區",
+        "zh-HK": "首爾市麻浦區"
+      }
+    },
+    {
+      "code": "11470",
+      "sourceName": "양천구",
+      "sourceFullName": "서울특별시 양천구",
+      "translations": {
+        "en": "Yangcheon-gu, Seoul",
+        "ja": "ソウル特別市楊川区",
+        "zh-CN": "首尔市阳川区",
+        "zh-TW": "首爾市陽川區",
+        "zh-HK": "首爾市陽川區"
+      }
+    },
+    {
+      "code": "11500",
+      "sourceName": "강서구",
+      "sourceFullName": "서울특별시 강서구",
+      "translations": {
+        "en": "Gangseo-gu, Seoul",
+        "ja": "ソウル特別市江西区",
+        "zh-CN": "首尔市江西区",
+        "zh-TW": "首爾市江西區",
+        "zh-HK": "首爾市江西區"
+      }
+    },
+    {
+      "code": "11530",
+      "sourceName": "구로구",
+      "sourceFullName": "서울특별시 구로구",
+      "translations": {
+        "en": "Guro-gu, Seoul",
+        "ja": "ソウル特別市黒区",
+        "zh-CN": "首尔市九老区",
+        "zh-TW": "首爾市九老區",
+        "zh-HK": "首爾市九老區"
+      }
+    },
+    {
+      "code": "11545",
+      "sourceName": "금천구",
+      "sourceFullName": "서울특별시 금천구",
+      "translations": {
+        "en": "Geumcheon-gu, Seoul",
+        "ja": "ソウル特別市錦川区",
+        "zh-CN": "首尔市衿川区",
+        "zh-TW": "首爾市衿川區",
+        "zh-HK": "首爾市衿川區"
+      }
+    },
+    {
+      "code": "11560",
+      "sourceName": "영등포구",
+      "sourceFullName": "서울특별시 영등포구",
+      "translations": {
+        "en": "Yeongdeungpo-gu, Seoul",
+        "ja": "ソウル特別市永登浦区",
+        "zh-CN": "首尔市永登浦区",
+        "zh-TW": "首爾市永登浦區",
+        "zh-HK": "首爾市永登浦區"
+      }
+    },
+    {
+      "code": "11590",
+      "sourceName": "동작구",
+      "sourceFullName": "서울특별시 동작구",
+      "translations": {
+        "en": "Dongjak-gu, Seoul",
+        "ja": "ソウル特別市",
+        "zh-CN": "首尔市铜雀区",
+        "zh-TW": "首爾市銅雀區",
+        "zh-HK": "首爾市銅雀區"
+      }
+    },
+    {
+      "code": "11620",
+      "sourceName": "관악구",
+      "sourceFullName": "서울특별시 관악구",
+      "translations": {
+        "en": "Gwanak-gu, Seoul",
+        "ja": "ソウル特別市冠岳区",
+        "zh-CN": "首尔市冠岳区",
+        "zh-TW": "首爾市冠岳區",
+        "zh-HK": "首爾市冠岳區"
+      }
+    },
+    {
+      "code": "11650",
+      "sourceName": "서초구",
+      "sourceFullName": "서울특별시 서초구",
+      "translations": {
+        "en": "Seocho-gu, Seoul",
+        "ja": "ソウル特別市瑞草区",
+        "zh-CN": "首尔市瑞草区",
+        "zh-TW": "首爾市瑞草區",
+        "zh-HK": "首爾市瑞草區"
+      }
+    },
+    {
+      "code": "11680",
+      "sourceName": "강남구",
+      "sourceFullName": "서울특별시 강남구",
+      "translations": {
+        "en": "Gangnam-gu, Seoul",
+        "ja": "ソウル特別市江南区",
+        "zh-CN": "首尔市江南区",
+        "zh-TW": "首爾市江南區",
+        "zh-HK": "首爾市江南區"
+      }
+    },
+    {
+      "code": "11710",
+      "sourceName": "송파구",
+      "sourceFullName": "서울특별시 송파구",
+      "translations": {
+        "en": "Songpa-gu, Seoul",
+        "ja": "ソウル特別市松坡区",
+        "zh-CN": "首尔市松坡区",
+        "zh-TW": "首爾市松坡區",
+        "zh-HK": "首爾市松坡區"
+      }
+    },
+    {
+      "code": "11740",
+      "sourceName": "강동구",
+      "sourceFullName": "서울특별시 강동구",
+      "translations": {
+        "en": "Gangdong-gu, Seoul",
+        "ja": "ソウル特別市江東区",
+        "zh-CN": "首尔市江东区",
+        "zh-TW": "首爾市江東區",
+        "zh-HK": "首爾市江東區"
+      }
+    },
+    {
+      "code": "12110",
+      "sourceName": "목포시",
+      "sourceFullName": "전남광주통합특별시 목포시",
+      "translations": {
+        "en": "Mokpo City, Jeonnam-Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市木浦市",
+        "zh-CN": "全南光州综合特区木浦市",
+        "zh-TW": "全南光州綜合特區木浦市",
+        "zh-HK": "全南光州綜合特區木浦市"
+      }
+    },
+    {
+      "code": "12130",
+      "sourceName": "여수시",
+      "sourceFullName": "전남광주통합특별시 여수시",
+      "translations": {
+        "en": "Jeonnam Gwangju Integrated Special City Yeosu City",
+        "ja": "全南光州統合特別市麗水市",
+        "zh-CN": "全南光州综合特区丽水市",
+        "zh-TW": "全南光州綜合特區麗水市",
+        "zh-HK": "全南光州綜合特區麗水市"
+      }
+    },
+    {
+      "code": "12150",
+      "sourceName": "순천시",
+      "sourceFullName": "전남광주통합특별시 순천시",
+      "translations": {
+        "en": "Suncheon City, Jeonnam-Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市順天市",
+        "zh-CN": "全南光州综合特区顺天市",
+        "zh-TW": "全南光州綜合特區順天市",
+        "zh-HK": "全南光州綜合特區順天市"
+      }
+    },
+    {
+      "code": "12170",
+      "sourceName": "나주시",
+      "sourceFullName": "전남광주통합특별시 나주시",
+      "translations": {
+        "en": "Naju City, Jeonnam-Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市ナジュ市",
+        "zh-CN": "罗州市、全南光州综合特别市",
+        "zh-TW": "羅州市、全南光州綜合特別市",
+        "zh-HK": "羅州市、全南光州綜合特別市"
+      }
+    },
+    {
+      "code": "12190",
+      "sourceName": "광양시",
+      "sourceFullName": "전남광주통합특별시 광양시",
+      "translations": {
+        "en": "Gwangyang City, Jeonnam-Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市光陽市",
+        "zh-CN": "全南光州综合特别市光阳市",
+        "zh-TW": "全南光州綜合特別市光陽市",
+        "zh-HK": "全南光州綜合特別市光陽市"
+      }
+    },
+    {
+      "code": "12210",
+      "sourceName": "동구",
+      "sourceFullName": "전남광주통합특별시 동구",
+      "translations": {
+        "en": "Dong-gu, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市東区",
+        "zh-CN": "光州东区综合特别市",
+        "zh-TW": "全羅南道光州綜合特區東區",
+        "zh-HK": "全羅南道光州綜合特區東區"
+      }
+    },
+    {
+      "code": "12240",
+      "sourceName": "서구",
+      "sourceFullName": "전남광주통합특별시 서구",
+      "translations": {
+        "en": "Seo-gu, Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市西区",
+        "zh-CN": "光州综合特区西区",
+        "zh-TW": "光州綜合特區西區",
+        "zh-HK": "光州綜合特區西區"
+      }
+    },
+    {
+      "code": "12270",
+      "sourceName": "남구",
+      "sourceFullName": "전남광주통합특별시 남구",
+      "translations": {
+        "en": "Nam-gu, Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市南区",
+        "zh-CN": "光州综合特区南区",
+        "zh-TW": "光州綜合特區南區",
+        "zh-HK": "光州綜合特區南區"
+      }
+    },
+    {
+      "code": "12300",
+      "sourceName": "북구",
+      "sourceFullName": "전남광주통합특별시 북구",
+      "translations": {
+        "en": "Buk-gu, Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市北区",
+        "zh-CN": "光州北区综合特别市",
+        "zh-TW": "光州北區綜合特別市",
+        "zh-HK": "光州北區綜合特別市"
+      }
+    },
+    {
+      "code": "12330",
+      "sourceName": "광산구",
+      "sourceFullName": "전남광주통합특별시 광산구",
+      "translations": {
+        "en": "Gwangsan-gu, Jeonnam-Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市光山区",
+        "zh-CN": "全南光州综合特区光山区",
+        "zh-TW": "全南光州綜合特區光山區",
+        "zh-HK": "全南光州綜合特區光山區"
+      }
+    },
+    {
+      "code": "12710",
+      "sourceName": "담양군",
+      "sourceFullName": "전남광주통합특별시 담양군",
+      "translations": {
+        "en": "Damyang-gun, Jeonnam-Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市潭陽郡",
+        "zh-CN": "全罗南道光州综合特别市潭阳郡",
+        "zh-TW": "全南光州綜合特市潭陽郡",
+        "zh-HK": "全南光州綜合特市潭陽郡"
+      }
+    },
+    {
+      "code": "12720",
+      "sourceName": "곡성군",
+      "sourceFullName": "전남광주통합특별시 곡성군",
+      "translations": {
+        "en": "Gokseong-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全羅南道光州統合特別市ゴクソン郡",
+        "zh-CN": "全罗南道光州综合特区谷城郡",
+        "zh-TW": "全羅南道光州綜合特區谷城郡",
+        "zh-HK": "全羅南道光州綜合特區谷城郡"
+      }
+    },
+    {
+      "code": "12730",
+      "sourceName": "구례군",
+      "sourceFullName": "전남광주통합특별시 구례군",
+      "translations": {
+        "en": "Gurye-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市旧礼郡",
+        "zh-CN": "全罗南道光州综合特区求礼郡",
+        "zh-TW": "全羅南道光州綜合特區求禮郡",
+        "zh-HK": "全羅南道光州綜合特區求禮郡"
+      }
+    },
+    {
+      "code": "12740",
+      "sourceName": "고흥군",
+      "sourceFullName": "전남광주통합특별시 고흥군",
+      "translations": {
+        "en": "Goheung-gun, Jeonnam-Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市高興郡",
+        "zh-CN": "全南光州综合特区高兴郡",
+        "zh-TW": "全南光綜合特區高興郡",
+        "zh-HK": "全南光綜合特區高興郡"
+      }
+    },
+    {
+      "code": "12750",
+      "sourceName": "보성군",
+      "sourceFullName": "전남광주통합특별시 보성군",
+      "translations": {
+        "en": "Boseong-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市保城郡",
+        "zh-CN": "全罗南道光州综合特区宝城郡",
+        "zh-TW": "全羅南道光州綜合特區寶城郡",
+        "zh-HK": "全羅南道光州綜合特區寶城郡"
+      }
+    },
+    {
+      "code": "12760",
+      "sourceName": "화순군",
+      "sourceFullName": "전남광주통합특별시 화순군",
+      "translations": {
+        "en": "Hwasun-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市華順郡",
+        "zh-CN": "全罗南道光州综合特别市和顺郡",
+        "zh-TW": "全羅南道光州綜合特別市和順郡",
+        "zh-HK": "全羅南道光州綜合特別市和順郡"
+      }
+    },
+    {
+      "code": "12770",
+      "sourceName": "장흥군",
+      "sourceFullName": "전남광주통합특별시 장흥군",
+      "translations": {
+        "en": "Jangheung-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市長興郡",
+        "zh-CN": "全罗南道光州综合特区长兴郡",
+        "zh-TW": "全羅南道光州綜合特區長興郡",
+        "zh-HK": "全羅南道光州綜合特區長興郡"
+      }
+    },
+    {
+      "code": "12780",
+      "sourceName": "강진군",
+      "sourceFullName": "전남광주통합특별시 강진군",
+      "translations": {
+        "en": "Gangjin-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市江津郡",
+        "zh-CN": "全罗南道光州综合特市江津郡",
+        "zh-TW": "全羅南道光州綜合特市江津郡",
+        "zh-HK": "全羅南道光州綜合特市江津郡"
+      }
+    },
+    {
+      "code": "12790",
+      "sourceName": "해남군",
+      "sourceFullName": "전남광주통합특별시 해남군",
+      "translations": {
+        "en": "Haenam-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市海南郡",
+        "zh-CN": "全罗南道光州综合特区海南郡",
+        "zh-TW": "全羅南道光州綜合特區海南郡",
+        "zh-HK": "全羅南道光州綜合特區海南郡"
+      }
+    },
+    {
+      "code": "12800",
+      "sourceName": "영암군",
+      "sourceFullName": "전남광주통합특별시 영암군",
+      "translations": {
+        "en": "Yeongam-gun, Gwangju Integrated Special City, Jeollanam-do",
+        "ja": "全南光州統合特別市ヨンアム郡",
+        "zh-CN": "全罗南道光州综合特别市灵岩郡",
+        "zh-TW": "全羅南道光州綜合特別市靈岩郡",
+        "zh-HK": "全羅南道光州綜合特別市靈岩郡"
+      }
+    },
+    {
+      "code": "12810",
+      "sourceName": "무안군",
+      "sourceFullName": "전남광주통합특별시 무안군",
+      "translations": {
+        "en": "Muan-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市武安郡",
+        "zh-CN": "务安郡、光州综合特别市、全罗南道",
+        "zh-TW": "務安郡、光州綜合特別市、全羅南道",
+        "zh-HK": "務安郡、光州綜合特別市、全羅南道"
+      }
+    },
+    {
+      "code": "12820",
+      "sourceName": "함평군",
+      "sourceFullName": "전남광주통합특별시 함평군",
+      "translations": {
+        "en": "Hampyeong-gun, Jeonnam-Gwangju Integrated Special City",
+        "ja": "全南光州統合特別市咸平郡",
+        "zh-CN": "全南光州综合特市咸平郡",
+        "zh-TW": "全南光州綜合特市鹹平郡",
+        "zh-HK": "全南光州綜合特市鹹平郡"
+      }
+    },
+    {
+      "code": "12830",
+      "sourceName": "영광군",
+      "sourceFullName": "전남광주통합특별시 영광군",
+      "translations": {
+        "en": "Yeonggwang-gun, Gwangju Integrated Special City, Jeollanam-do",
+        "ja": "全南光州統合特別市栄光郡",
+        "zh-CN": "全罗南道光州综合特区灵光郡",
+        "zh-TW": "全南光綜合特區靈光郡",
+        "zh-HK": "全南光綜合特區靈光郡"
+      }
+    },
+    {
+      "code": "12840",
+      "sourceName": "장성군",
+      "sourceFullName": "전남광주통합특별시 장성군",
+      "translations": {
+        "en": "Jangseong-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市長城郡",
+        "zh-CN": "全罗南道光州综合特区长城郡",
+        "zh-TW": "全羅南道光州綜合特區長城郡",
+        "zh-HK": "全羅南道光州綜合特區長城郡"
+      }
+    },
+    {
+      "code": "12850",
+      "sourceName": "완도군",
+      "sourceFullName": "전남광주통합특별시 완도군",
+      "translations": {
+        "en": "Wando-gun, Gwangju Integrated Special City, Jeollanam-do",
+        "ja": "全南光州統合特別市ワンド郡",
+        "zh-CN": "全罗南道光州综合特别市莞岛郡",
+        "zh-TW": "全羅南道光州綜合特別市莞島郡",
+        "zh-HK": "全羅南道光州綜合特別市莞島郡"
+      }
+    },
+    {
+      "code": "12860",
+      "sourceName": "진도군",
+      "sourceFullName": "전남광주통합특별시 진도군",
+      "translations": {
+        "en": "Jindo-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市珍島郡",
+        "zh-CN": "全罗南道光州综合特区珍岛郡",
+        "zh-TW": "全羅南道光州綜合特區珍島郡",
+        "zh-HK": "全羅南道光州綜合特區珍島郡"
+      }
+    },
+    {
+      "code": "12870",
+      "sourceName": "신안군",
+      "sourceFullName": "전남광주통합특별시 신안군",
+      "translations": {
+        "en": "Sinan-gun, Gwangju Integrated Special City, Jeonnam",
+        "ja": "全南光州統合特別市新安郡",
+        "zh-CN": "全罗南道光州综合特区新安郡",
+        "zh-TW": "全羅南道光州綜合特區新安郡",
+        "zh-HK": "全羅南道光州綜合特區新安郡"
+      }
+    },
+    {
+      "code": "26110",
+      "sourceName": "중구",
+      "sourceFullName": "부산광역시 중구",
+      "translations": {
+        "en": "Jung-gu, Busan Metropolitan City",
+        "ja": "釜山広域市中区",
+        "zh-CN": "釜山广域市中区",
+        "zh-TW": "釜山廣域市中區",
+        "zh-HK": "釜山廣域市中區"
+      }
+    },
+    {
+      "code": "26140",
+      "sourceName": "서구",
+      "sourceFullName": "부산광역시 서구",
+      "translations": {
+        "en": "Seo-gu, Busan Metropolitan City",
+        "ja": "釜山広域市西区",
+        "zh-CN": "釜山广域市西区",
+        "zh-TW": "釜山廣域市西區",
+        "zh-HK": "釜山廣域市西區"
+      }
+    },
+    {
+      "code": "26170",
+      "sourceName": "동구",
+      "sourceFullName": "부산광역시 동구",
+      "translations": {
+        "en": "Dong-gu, Busan Metropolitan City",
+        "ja": "釜山広域市東区",
+        "zh-CN": "釜山广域市东区",
+        "zh-TW": "釜山廣域市東區",
+        "zh-HK": "釜山廣域市東區"
+      }
+    },
+    {
+      "code": "26200",
+      "sourceName": "영도구",
+      "sourceFullName": "부산광역시 영도구",
+      "translations": {
+        "en": "Yeongdo-gu, Busan Metropolitan City",
+        "ja": "釜山広域市永道区",
+        "zh-CN": "釜山广域市影岛区",
+        "zh-TW": "釜山廣域市影島區",
+        "zh-HK": "釜山廣域市影島區"
+      }
+    },
+    {
+      "code": "26230",
+      "sourceName": "부산진구",
+      "sourceFullName": "부산광역시 부산진구",
+      "translations": {
+        "en": "Busanjin-gu, Busan Metropolitan City",
+        "ja": "釜山広域市釜山神宮",
+        "zh-CN": "釜山广域市釜山镇区",
+        "zh-TW": "釜山廣域市釜山鎮區",
+        "zh-HK": "釜山廣域市釜山鎮區"
+      }
+    },
+    {
+      "code": "26260",
+      "sourceName": "동래구",
+      "sourceFullName": "부산광역시 동래구",
+      "translations": {
+        "en": "Dongnae-gu, Busan Metropolitan City",
+        "ja": "釜山広域市東レ区",
+        "zh-CN": "釜山广域市东莱区",
+        "zh-TW": "釜山廣域市東萊區",
+        "zh-HK": "釜山廣域市東萊區"
+      }
+    },
+    {
+      "code": "26290",
+      "sourceName": "남구",
+      "sourceFullName": "부산광역시 남구",
+      "translations": {
+        "en": "Nam-gu, Busan Metropolitan City",
+        "ja": "釜山広域市南区",
+        "zh-CN": "釜山广域市南区",
+        "zh-TW": "釜山廣域市南區",
+        "zh-HK": "釜山廣域市南區"
+      }
+    },
+    {
+      "code": "26320",
+      "sourceName": "북구",
+      "sourceFullName": "부산광역시 북구",
+      "translations": {
+        "en": "Buk-gu, Busan Metropolitan City",
+        "ja": "釜山広域市北区",
+        "zh-CN": "釜山广域市北区",
+        "zh-TW": "釜山廣域市北區",
+        "zh-HK": "釜山廣域市北區"
+      }
+    },
+    {
+      "code": "26350",
+      "sourceName": "해운대구",
+      "sourceFullName": "부산광역시 해운대구",
+      "translations": {
+        "en": "Haeundae-gu, Busan Metropolitan City",
+        "ja": "釜山広域市海雲台区",
+        "zh-CN": "釜山广域市海云台区",
+        "zh-TW": "釜山廣域市海雲台區",
+        "zh-HK": "釜山廣域市海雲台區"
+      }
+    },
+    {
+      "code": "26380",
+      "sourceName": "사하구",
+      "sourceFullName": "부산광역시 사하구",
+      "translations": {
+        "en": "Saha-gu, Busan Metropolitan City",
+        "ja": "釜山広域市サハグ",
+        "zh-CN": "釜山广域市沙下区",
+        "zh-TW": "釜山廣域市沙下區",
+        "zh-HK": "釜山廣域市沙下區"
+      }
+    },
+    {
+      "code": "26410",
+      "sourceName": "금정구",
+      "sourceFullName": "부산광역시 금정구",
+      "translations": {
+        "en": "Geumjeong-gu, Busan Metropolitan City",
+        "ja": "釜山広域市金正区",
+        "zh-CN": "釜山广域市金井区",
+        "zh-TW": "釜山廣域市金井區",
+        "zh-HK": "釜山廣域市金井區"
+      }
+    },
+    {
+      "code": "26440",
+      "sourceName": "강서구",
+      "sourceFullName": "부산광역시 강서구",
+      "translations": {
+        "en": "Gangseo-gu, Busan Metropolitan City",
+        "ja": "釜山広域市江西区",
+        "zh-CN": "釜山广域市江西区",
+        "zh-TW": "釜山廣域市江西區",
+        "zh-HK": "釜山廣域市江西區"
+      }
+    },
+    {
+      "code": "26470",
+      "sourceName": "연제구",
+      "sourceFullName": "부산광역시 연제구",
+      "translations": {
+        "en": "Yeonje-gu, Busan Metropolitan City",
+        "ja": "釜山広域市延済区",
+        "zh-CN": "釜山广域市延济区",
+        "zh-TW": "釜山廣域市延濟區",
+        "zh-HK": "釜山廣域市延濟區"
+      }
+    },
+    {
+      "code": "26500",
+      "sourceName": "수영구",
+      "sourceFullName": "부산광역시 수영구",
+      "translations": {
+        "en": "Suyeong-gu, Busan Metropolitan City",
+        "ja": "釜山広域市水泳区",
+        "zh-CN": "釜山广域市水营区",
+        "zh-TW": "釜山廣域市水營區",
+        "zh-HK": "釜山廣域市水營區"
+      }
+    },
+    {
+      "code": "26530",
+      "sourceName": "사상구",
+      "sourceFullName": "부산광역시 사상구",
+      "translations": {
+        "en": "Sasang-gu, Busan Metropolitan City",
+        "ja": "釜山広域市思想区",
+        "zh-CN": "釜山广域市沙上区",
+        "zh-TW": "釜山廣域市沙上區",
+        "zh-HK": "釜山廣域市沙上區"
+      }
+    },
+    {
+      "code": "26710",
+      "sourceName": "기장군",
+      "sourceFullName": "부산광역시 기장군",
+      "translations": {
+        "en": "Gijang-gun, Busan Metropolitan City",
+        "ja": "釜山広域市キジャン郡",
+        "zh-CN": "釜山广域市机张郡",
+        "zh-TW": "釜山廣域市機張郡",
+        "zh-HK": "釜山廣域市機張郡"
+      }
+    },
+    {
+      "code": "27110",
+      "sourceName": "중구",
+      "sourceFullName": "대구광역시 중구",
+      "translations": {
+        "en": "Jung-gu, Daegu Metropolitan City",
+        "ja": "大邱広域市中区",
+        "zh-CN": "大邱广域市中区",
+        "zh-TW": "大邱廣域市中區",
+        "zh-HK": "大邱廣域市中區"
+      }
+    },
+    {
+      "code": "27140",
+      "sourceName": "동구",
+      "sourceFullName": "대구광역시 동구",
+      "translations": {
+        "en": "Dong-gu, Daegu Metropolitan City",
+        "ja": "大邱広域市東区",
+        "zh-CN": "大邱广域市东区",
+        "zh-TW": "大邱廣域市東區",
+        "zh-HK": "大邱廣域市東區"
+      }
+    },
+    {
+      "code": "27170",
+      "sourceName": "서구",
+      "sourceFullName": "대구광역시 서구",
+      "translations": {
+        "en": "Seo-gu, Daegu Metropolitan City",
+        "ja": "大邱広域市西区",
+        "zh-CN": "大邱广域市西区",
+        "zh-TW": "大邱廣域市西區",
+        "zh-HK": "大邱廣域市西區"
+      }
+    },
+    {
+      "code": "27200",
+      "sourceName": "남구",
+      "sourceFullName": "대구광역시 남구",
+      "translations": {
+        "en": "Nam-gu, Daegu Metropolitan City",
+        "ja": "大邱広域市南区",
+        "zh-CN": "大邱广域市南区",
+        "zh-TW": "大邱廣域市南區",
+        "zh-HK": "大邱廣域市南區"
+      }
+    },
+    {
+      "code": "27230",
+      "sourceName": "북구",
+      "sourceFullName": "대구광역시 북구",
+      "translations": {
+        "en": "Buk-gu, Daegu Metropolitan City",
+        "ja": "大邱広域市北区",
+        "zh-CN": "大邱广域市北区",
+        "zh-TW": "大邱廣域市北區",
+        "zh-HK": "大邱廣域市北區"
+      }
+    },
+    {
+      "code": "27260",
+      "sourceName": "수성구",
+      "sourceFullName": "대구광역시 수성구",
+      "translations": {
+        "en": "Suseong-gu, Daegu Metropolitan City",
+        "ja": "大邱広域市水城区",
+        "zh-CN": "大邱广域市寿城区",
+        "zh-TW": "大邱廣域壽城區",
+        "zh-HK": "大邱廣域壽城區"
+      }
+    },
+    {
+      "code": "27290",
+      "sourceName": "달서구",
+      "sourceFullName": "대구광역시 달서구",
+      "translations": {
+        "en": "Dalseo-gu, Daegu Metropolitan City",
+        "ja": "大邱広域市ダルソ区",
+        "zh-CN": "大邱广域市达西区",
+        "zh-TW": "大邱廣域市達西區",
+        "zh-HK": "大邱廣域市達西區"
+      }
+    },
+    {
+      "code": "27710",
+      "sourceName": "달성군",
+      "sourceFullName": "대구광역시 달성군",
+      "translations": {
+        "en": "Dalseong-gun, Daegu Metropolitan City",
+        "ja": "大邱広域市達成群",
+        "zh-CN": "大邱广域市达城郡",
+        "zh-TW": "大邱廣域市達城郡",
+        "zh-HK": "大邱廣域市達城郡"
+      }
+    },
+    {
+      "code": "27720",
+      "sourceName": "군위군",
+      "sourceFullName": "대구광역시 군위군",
+      "translations": {
+        "en": "Gunwi-gun, Daegu Metropolitan City",
+        "ja": "大邱広域市軍衛軍",
+        "zh-CN": "大邱广域市军威郡",
+        "zh-TW": "大邱廣域市軍威郡",
+        "zh-HK": "大邱廣域市軍威郡"
+      }
+    },
+    {
+      "code": "28110",
+      "sourceName": "중구",
+      "sourceFullName": "인천광역시 중구",
+      "translations": {
+        "en": "Jung-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市中区",
+        "zh-CN": "仁川广域市中区",
+        "zh-TW": "仁川廣域市中區",
+        "zh-HK": "仁川廣域市中區"
+      }
+    },
+    {
+      "code": "28125",
+      "sourceName": "제물포구",
+      "sourceFullName": "인천광역시 제물포구",
+      "translations": {
+        "en": "Jemulpo-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市製物砲口",
+        "zh-CN": "仁川广域市济物浦区",
+        "zh-TW": "仁川廣域市濟物浦區",
+        "zh-HK": "仁川廣域市濟物浦區"
+      }
+    },
+    {
+      "code": "28140",
+      "sourceName": "동구",
+      "sourceFullName": "인천광역시 동구",
+      "translations": {
+        "en": "Dong-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市東区",
+        "zh-CN": "仁川广域市东区",
+        "zh-TW": "仁川廣域市東區",
+        "zh-HK": "仁川廣域市東區"
+      }
+    },
+    {
+      "code": "28155",
+      "sourceName": "영종구",
+      "sourceFullName": "인천광역시 영종구",
+      "translations": {
+        "en": "Yeongjong-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市永宗区",
+        "zh-CN": "仁川广域市永宗区",
+        "zh-TW": "仁川廣域市永宗區",
+        "zh-HK": "仁川廣域市永宗區"
+      }
+    },
+    {
+      "code": "28177",
+      "sourceName": "미추홀구",
+      "sourceFullName": "인천광역시 미추홀구",
+      "translations": {
+        "en": "Michuhol-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市ミチュホール区",
+        "zh-CN": "仁川广域市密周区",
+        "zh-TW": "仁川廣域市密週區",
+        "zh-HK": "仁川廣域市密週區"
+      }
+    },
+    {
+      "code": "28185",
+      "sourceName": "연수구",
+      "sourceFullName": "인천광역시 연수구",
+      "translations": {
+        "en": "Yeonsu-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市延寿区",
+        "zh-CN": "仁川广域市延寿区",
+        "zh-TW": "仁川廣域市延壽區",
+        "zh-HK": "仁川廣域市延壽區"
+      }
+    },
+    {
+      "code": "28200",
+      "sourceName": "남동구",
+      "sourceFullName": "인천광역시 남동구",
+      "translations": {
+        "en": "Namdong-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市南東区",
+        "zh-CN": "仁川广域市南洞区",
+        "zh-TW": "仁川廣域市南洞區",
+        "zh-HK": "仁川廣域市南洞區"
+      }
+    },
+    {
+      "code": "28237",
+      "sourceName": "부평구",
+      "sourceFullName": "인천광역시 부평구",
+      "translations": {
+        "en": "Bupyeong-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市富平区",
+        "zh-CN": "仁川广域市富平区",
+        "zh-TW": "仁川廣域市富平區",
+        "zh-HK": "仁川廣域市富平區"
+      }
+    },
+    {
+      "code": "28245",
+      "sourceName": "계양구",
+      "sourceFullName": "인천광역시 계양구",
+      "translations": {
+        "en": "Gyeyang-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市桂陽区",
+        "zh-CN": "仁川广域市桂阳区",
+        "zh-TW": "仁川廣域市貴陽區",
+        "zh-HK": "仁川廣域市貴陽區"
+      }
+    },
+    {
+      "code": "28260",
+      "sourceName": "서구",
+      "sourceFullName": "인천광역시 서구",
+      "translations": {
+        "en": "Seo-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市西区",
+        "zh-CN": "仁川广域市西区",
+        "zh-TW": "仁川廣域市西區",
+        "zh-HK": "仁川廣域市西區"
+      }
+    },
+    {
+      "code": "28275",
+      "sourceName": "서해구",
+      "sourceFullName": "인천광역시 서해구",
+      "translations": {
+        "en": "Seohae-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市西海区",
+        "zh-CN": "仁川广域市西海区",
+        "zh-TW": "仁川廣域市西海區",
+        "zh-HK": "仁川廣域市西海區"
+      }
+    },
+    {
+      "code": "28290",
+      "sourceName": "검단구",
+      "sourceFullName": "인천광역시 검단구",
+      "translations": {
+        "en": "Geomdan-gu, Incheon Metropolitan City",
+        "ja": "仁川広域市検団区",
+        "zh-CN": "仁川广域市巨潭区",
+        "zh-TW": "仁川廣域市巨潭區",
+        "zh-HK": "仁川廣域市巨潭區"
+      }
+    },
+    {
+      "code": "28710",
+      "sourceName": "강화군",
+      "sourceFullName": "인천광역시 강화군",
+      "translations": {
+        "en": "Ganghwa-gun, Incheon Metropolitan City",
+        "ja": "仁川広域市江華郡",
+        "zh-CN": "仁川广域市江华郡",
+        "zh-TW": "仁川廣域市江華郡",
+        "zh-HK": "仁川廣域市江華郡"
+      }
+    },
+    {
+      "code": "28720",
+      "sourceName": "옹진군",
+      "sourceFullName": "인천광역시 옹진군",
+      "translations": {
+        "en": "Ongjin-gun, Incheon Metropolitan City",
+        "ja": "仁川広域市オンジン郡",
+        "zh-CN": "仁川广域市瓮津郡",
+        "zh-TW": "仁川廣域市甕津郡",
+        "zh-HK": "仁川廣域市甕津郡"
+      }
+    },
+    {
+      "code": "29110",
+      "sourceName": "동구",
+      "sourceFullName": "광주광역시 동구",
+      "translations": {
+        "en": "Dong-gu, Gwangju Metropolitan City",
+        "ja": "光州広域市東区",
+        "zh-CN": "光州广域市东区",
+        "zh-TW": "光州廣域市東區",
+        "zh-HK": "光州廣域市東區"
+      }
+    },
+    {
+      "code": "29140",
+      "sourceName": "서구",
+      "sourceFullName": "광주광역시 서구",
+      "translations": {
+        "en": "Seo-gu, Gwangju Metropolitan City",
+        "ja": "光州広域市西区",
+        "zh-CN": "光州广域市西区",
+        "zh-TW": "光州廣域市西區",
+        "zh-HK": "光州廣域市西區"
+      }
+    },
+    {
+      "code": "29155",
+      "sourceName": "남구",
+      "sourceFullName": "광주광역시 남구",
+      "translations": {
+        "en": "Nam-gu, Gwangju Metropolitan City",
+        "ja": "光州広域市南区",
+        "zh-CN": "光州广域市南区",
+        "zh-TW": "光州廣域市南區",
+        "zh-HK": "光州廣域市南區"
+      }
+    },
+    {
+      "code": "29170",
+      "sourceName": "북구",
+      "sourceFullName": "광주광역시 북구",
+      "translations": {
+        "en": "Buk-gu, Gwangju Metropolitan City",
+        "ja": "光州広域市北区",
+        "zh-CN": "光州广域市北区",
+        "zh-TW": "光州廣域市北區",
+        "zh-HK": "光州廣域市北區"
+      }
+    },
+    {
+      "code": "29200",
+      "sourceName": "광산구",
+      "sourceFullName": "광주광역시 광산구",
+      "translations": {
+        "en": "Gwangsan-gu, Gwangju Metropolitan City",
+        "ja": "光州広域市光山区",
+        "zh-CN": "光州广域市光山区",
+        "zh-TW": "光州廣域市光山區",
+        "zh-HK": "光州廣域市光山區"
+      }
+    },
+    {
+      "code": "30110",
+      "sourceName": "동구",
+      "sourceFullName": "대전광역시 동구",
+      "translations": {
+        "en": "Dong-gu, Daejeon Metropolitan City",
+        "ja": "大田広域市東区",
+        "zh-CN": "大田广域市东区",
+        "zh-TW": "大田廣域市東區",
+        "zh-HK": "大田廣域市東區"
+      }
+    },
+    {
+      "code": "30140",
+      "sourceName": "중구",
+      "sourceFullName": "대전광역시 중구",
+      "translations": {
+        "en": "Jung-gu, Daejeon Metropolitan City",
+        "ja": "大田広域市中区",
+        "zh-CN": "大田广域市中区",
+        "zh-TW": "大田廣域市中區",
+        "zh-HK": "大田廣域市中區"
+      }
+    },
+    {
+      "code": "30170",
+      "sourceName": "서구",
+      "sourceFullName": "대전광역시 서구",
+      "translations": {
+        "en": "Seo-gu, Daejeon Metropolitan City",
+        "ja": "大田広域市西区",
+        "zh-CN": "大田广域市西区",
+        "zh-TW": "大田廣域市西區",
+        "zh-HK": "大田廣域市西區"
+      }
+    },
+    {
+      "code": "30200",
+      "sourceName": "유성구",
+      "sourceFullName": "대전광역시 유성구",
+      "translations": {
+        "en": "Yuseong-gu, Daejeon Metropolitan City",
+        "ja": "大田広域市儒城区",
+        "zh-CN": "大田广域市儒城区",
+        "zh-TW": "大田廣域市儒城區",
+        "zh-HK": "大田廣域市儒城區"
+      }
+    },
+    {
+      "code": "30230",
+      "sourceName": "대덕구",
+      "sourceFullName": "대전광역시 대덕구",
+      "translations": {
+        "en": "Daedeok-gu, Daejeon Metropolitan City",
+        "ja": "大田広域市大徳区",
+        "zh-CN": "大田广域市大德区",
+        "zh-TW": "大田廣域市大德區",
+        "zh-HK": "大田廣域市大德區"
+      }
+    },
+    {
+      "code": "31110",
+      "sourceName": "중구",
+      "sourceFullName": "울산광역시 중구",
+      "translations": {
+        "en": "Jung-gu, Ulsan Metropolitan City",
+        "ja": "蔚山広域市中区",
+        "zh-CN": "蔚山广域市中区",
+        "zh-TW": "蔚山廣域市中區",
+        "zh-HK": "蔚山廣域市中區"
+      }
+    },
+    {
+      "code": "31140",
+      "sourceName": "남구",
+      "sourceFullName": "울산광역시 남구",
+      "translations": {
+        "en": "Nam-gu, Ulsan Metropolitan City",
+        "ja": "蔚山広域市南区",
+        "zh-CN": "蔚山广域市南区",
+        "zh-TW": "蔚山廣域市南區",
+        "zh-HK": "蔚山廣域市南區"
+      }
+    },
+    {
+      "code": "31170",
+      "sourceName": "동구",
+      "sourceFullName": "울산광역시 동구",
+      "translations": {
+        "en": "Dong-gu, Ulsan Metropolitan City",
+        "ja": "蔚山広域市東区",
+        "zh-CN": "蔚山广域市东区",
+        "zh-TW": "蔚山廣域市東區",
+        "zh-HK": "蔚山廣域市東區"
+      }
+    },
+    {
+      "code": "31200",
+      "sourceName": "북구",
+      "sourceFullName": "울산광역시 북구",
+      "translations": {
+        "en": "Buk-gu, Ulsan Metropolitan City",
+        "ja": "蔚山広域市北区",
+        "zh-CN": "蔚山广域市北区",
+        "zh-TW": "蔚山廣域市北區",
+        "zh-HK": "蔚山廣域市北區"
+      }
+    },
+    {
+      "code": "31710",
+      "sourceName": "울주군",
+      "sourceFullName": "울산광역시 울주군",
+      "translations": {
+        "en": "Ulju-gun, Ulsan Metropolitan City",
+        "ja": "蔚山広域市蔚州郡",
+        "zh-CN": "蔚山广域市蔚州郡",
+        "zh-TW": "蔚山廣域市蔚州郡",
+        "zh-HK": "蔚山廣域市蔚州郡"
+      }
+    },
+    {
+      "code": "36110",
+      "sourceName": "세종특별자치시",
+      "sourceFullName": "세종특별자치시",
+      "translations": {
+        "en": "Sejong Special Self-Governing City",
+        "ja": "世宗特別自治区",
+        "zh-CN": "世宗特别自治市",
+        "zh-TW": "世宗特別自治市",
+        "zh-HK": "世宗特別自治市"
+      }
+    },
+    {
+      "code": "41111",
+      "sourceName": "수원시 장안구",
+      "sourceFullName": "경기도 수원시 장안구",
+      "translations": {
+        "en": "Jangan-gu, Suwon-si, Gyeonggi-do",
+        "ja": "京畿道水原市長安区",
+        "zh-CN": "京畿道水原市长安区",
+        "zh-TW": "京畿道水原市長安區",
+        "zh-HK": "京畿道水原市長安區"
+      }
+    },
+    {
+      "code": "41113",
+      "sourceName": "수원시 권선구",
+      "sourceFullName": "경기도 수원시 권선구",
+      "translations": {
+        "en": "Gwonseon-gu, Suwon-si, Gyeonggi-do",
+        "ja": "京畿道水原市巻線区",
+        "zh-CN": "京畿道水原市权善区",
+        "zh-TW": "京畿道水原市權善區",
+        "zh-HK": "京畿道水原市權善區"
+      }
+    },
+    {
+      "code": "41115",
+      "sourceName": "수원시 팔달구",
+      "sourceFullName": "경기도 수원시 팔달구",
+      "translations": {
+        "en": "Paldal-gu, Suwon-si, Gyeonggi-do",
+        "ja": "京畿道水原市パルダル区",
+        "zh-CN": "京畿道水原市八达区",
+        "zh-TW": "京畿道水原市八達區",
+        "zh-HK": "京畿道水原市八達區"
+      }
+    },
+    {
+      "code": "41117",
+      "sourceName": "수원시 영통구",
+      "sourceFullName": "경기도 수원시 영통구",
+      "translations": {
+        "en": "Yeongtong-gu, Suwon-si, Gyeonggi-do",
+        "ja": "京畿道水原市永通区",
+        "zh-CN": "京畿道水原市灵通区",
+        "zh-TW": "京畿道水原市靈通區",
+        "zh-HK": "京畿道水原市靈通區"
+      }
+    },
+    {
+      "code": "41131",
+      "sourceName": "성남시 수정구",
+      "sourceFullName": "경기도 성남시 수정구",
+      "translations": {
+        "en": "Sujeong-gu, Seongnam-si, Gyeonggi-do",
+        "ja": "京畿道城南市水晶区",
+        "zh-CN": "京畿道城南市水井区",
+        "zh-TW": "京畿道城南市水井區",
+        "zh-HK": "京畿道城南市水井區"
+      }
+    },
+    {
+      "code": "41133",
+      "sourceName": "성남시 중원구",
+      "sourceFullName": "경기도 성남시 중원구",
+      "translations": {
+        "en": "Jungwon-gu, Seongnam-si, Gyeonggi-do",
+        "ja": "京畿道城南市中原区",
+        "zh-CN": "京畿道城南市中原区",
+        "zh-TW": "京畿道城南市中原區",
+        "zh-HK": "京畿道城南市中原區"
+      }
+    },
+    {
+      "code": "41135",
+      "sourceName": "성남시 분당구",
+      "sourceFullName": "경기도 성남시 분당구",
+      "translations": {
+        "en": "Bundang-gu, Seongnam-si, Gyeonggi-do",
+        "ja": "京畿道城南市盆唐区",
+        "zh-CN": "京畿道城南市盆唐区",
+        "zh-TW": "京畿道城南市盆唐區",
+        "zh-HK": "京畿道城南市盆唐區"
+      }
+    },
+    {
+      "code": "41150",
+      "sourceName": "의정부시",
+      "sourceFullName": "경기도 의정부시",
+      "translations": {
+        "en": "Uijeongbu City, Gyeonggi Province",
+        "ja": "京畿道ウィジョンブ市",
+        "zh-CN": "京畿道议政府市",
+        "zh-TW": "京畿道議政府市",
+        "zh-HK": "京畿道議政府市"
+      }
+    },
+    {
+      "code": "41171",
+      "sourceName": "안양시 만안구",
+      "sourceFullName": "경기도 안양시 만안구",
+      "translations": {
+        "en": "Manan-gu, Anyang-si, Gyeonggi-do",
+        "ja": "京畿道安養市万安区",
+        "zh-CN": "京畿道安养市万安区",
+        "zh-TW": "京畿道安養市萬安區",
+        "zh-HK": "京畿道安養市萬安區"
+      }
+    },
+    {
+      "code": "41173",
+      "sourceName": "안양시 동안구",
+      "sourceFullName": "경기도 안양시 동안구",
+      "translations": {
+        "en": "Dongan-gu, Anyang-si, Gyeonggi-do",
+        "ja": "京畿道安養市中区",
+        "zh-CN": "京畿道安阳市东安区",
+        "zh-TW": "京畿道安陽市東安區",
+        "zh-HK": "京畿道安陽市東安區"
+      }
+    },
+    {
+      "code": "41192",
+      "sourceName": "부천시 원미구",
+      "sourceFullName": "경기도 부천시 원미구",
+      "translations": {
+        "en": "Wonmi-gu, Bucheon-si, Gyeonggi-do",
+        "ja": "京畿道富川市原美区",
+        "zh-CN": "京畿道富川市远美区",
+        "zh-TW": "京畿道富川市遠美區",
+        "zh-HK": "京畿道富川市遠美區"
+      }
+    },
+    {
+      "code": "41194",
+      "sourceName": "부천시 소사구",
+      "sourceFullName": "경기도 부천시 소사구",
+      "translations": {
+        "en": "Sosa-gu, Bucheon-si, Gyeonggi-do",
+        "ja": "京畿道富川市総寺区",
+        "zh-CN": "京畿道富川市索沙区",
+        "zh-TW": "京畿道富川市索沙區",
+        "zh-HK": "京畿道富川市索沙區"
+      }
+    },
+    {
+      "code": "41196",
+      "sourceName": "부천시 오정구",
+      "sourceFullName": "경기도 부천시 오정구",
+      "translations": {
+        "en": "Ojeong-gu, Bucheon-si, Gyeonggi-do",
+        "ja": "京畿道富川市大井区",
+        "zh-CN": "京畿道富川市乌井区",
+        "zh-TW": "京畿道富川市烏井區",
+        "zh-HK": "京畿道富川市烏井區"
+      }
+    },
+    {
+      "code": "41210",
+      "sourceName": "광명시",
+      "sourceFullName": "경기도 광명시",
+      "translations": {
+        "en": "Gwangmyeong-si, Gyeonggi-do",
+        "ja": "京畿道光明市",
+        "zh-CN": "京畿道光明市",
+        "zh-TW": "京畿道光明市",
+        "zh-HK": "京畿道光明市"
+      }
+    },
+    {
+      "code": "41220",
+      "sourceName": "평택시",
+      "sourceFullName": "경기도 평택시",
+      "translations": {
+        "en": "Pyeongtaek, Gyeonggi-do",
+        "ja": "京畿道平沢市",
+        "zh-CN": "京畿道平泽",
+        "zh-TW": "京畿道平澤",
+        "zh-HK": "京畿道平澤"
+      }
+    },
+    {
+      "code": "41250",
+      "sourceName": "동두천시",
+      "sourceFullName": "경기도 동두천시",
+      "translations": {
+        "en": "Dongducheon City, Gyeonggi Province",
+        "ja": "京畿道東豆川市",
+        "zh-CN": "京畿道东豆川市",
+        "zh-TW": "京畿道東豆川市",
+        "zh-HK": "京畿道東豆川市"
+      }
+    },
+    {
+      "code": "41271",
+      "sourceName": "안산시 상록구",
+      "sourceFullName": "경기도 안산시 상록구",
+      "translations": {
+        "en": "Sangnok-gu, Ansan-si, Gyeonggi-do",
+        "ja": "京畿道安山市常緑区",
+        "zh-CN": "京畿道安山市常绿区",
+        "zh-TW": "京畿道安山市常綠區",
+        "zh-HK": "京畿道安山市常綠區"
+      }
+    },
+    {
+      "code": "41273",
+      "sourceName": "안산시 단원구",
+      "sourceFullName": "경기도 안산시 단원구",
+      "translations": {
+        "en": "Danwon-gu, Ansan-si, Gyeonggi-do",
+        "ja": "京畿道安山市丹原区",
+        "zh-CN": "京畿道安山市檀园区",
+        "zh-TW": "京畿道安山市檀園區",
+        "zh-HK": "京畿道安山市檀園區"
+      }
+    },
+    {
+      "code": "41281",
+      "sourceName": "고양시 덕양구",
+      "sourceFullName": "경기도 고양시 덕양구",
+      "translations": {
+        "en": "Deogyang-gu, Goyang-si, Gyeonggi-do",
+        "ja": "京畿道高陽市徳陽区",
+        "zh-CN": "京畿道高阳市德阳区",
+        "zh-TW": "京畿道高陽市德陽區",
+        "zh-HK": "京畿道高陽市德陽區"
+      }
+    },
+    {
+      "code": "41285",
+      "sourceName": "고양시 일산동구",
+      "sourceFullName": "경기도 고양시 일산동구",
+      "translations": {
+        "en": "Ilsandong-gu, Goyang-si, Gyeonggi-do",
+        "ja": "京畿道高陽市一山東区",
+        "zh-CN": "京畿道高阳市一山东区",
+        "zh-TW": "京畿道高陽市一山東區",
+        "zh-HK": "京畿道高陽市一山東區"
+      }
+    },
+    {
+      "code": "41287",
+      "sourceName": "고양시 일산서구",
+      "sourceFullName": "경기도 고양시 일산서구",
+      "translations": {
+        "en": "Ilsanseo-gu, Goyang-si, Gyeonggi-do",
+        "ja": "京畿道高陽市一山西区",
+        "zh-CN": "京畿道高阳市一山西区",
+        "zh-TW": "京畿道高陽市一山西區",
+        "zh-HK": "京畿道高陽市一山西區"
+      }
+    },
+    {
+      "code": "41290",
+      "sourceName": "과천시",
+      "sourceFullName": "경기도 과천시",
+      "translations": {
+        "en": "Gwacheon-si, Gyeonggi-do",
+        "ja": "京畿道果川市",
+        "zh-CN": "京畿道果川市",
+        "zh-TW": "京畿道果川市",
+        "zh-HK": "京畿道果川市"
+      }
+    },
+    {
+      "code": "41310",
+      "sourceName": "구리시",
+      "sourceFullName": "경기도 구리시",
+      "translations": {
+        "en": "Guri-si, Gyeonggi-do",
+        "ja": "京畿道九里",
+        "zh-CN": "京畿道九里市",
+        "zh-TW": "京畿道九里市",
+        "zh-HK": "京畿道九里市"
+      }
+    },
+    {
+      "code": "41360",
+      "sourceName": "남양주시",
+      "sourceFullName": "경기도 남양주시",
+      "translations": {
+        "en": "Namyangju, Gyeonggi-do",
+        "ja": "京畿道南楊州市",
+        "zh-CN": "京畿道南杨州市",
+        "zh-TW": "京畿道南楊州市",
+        "zh-HK": "京畿道南楊州市"
+      }
+    },
+    {
+      "code": "41370",
+      "sourceName": "오산시",
+      "sourceFullName": "경기도 오산시",
+      "translations": {
+        "en": "Osan City, Gyeonggi Province",
+        "ja": "京畿道烏山市",
+        "zh-CN": "京畿道乌山市",
+        "zh-TW": "京畿道烏山市",
+        "zh-HK": "京畿道烏山市"
+      }
+    },
+    {
+      "code": "41390",
+      "sourceName": "시흥시",
+      "sourceFullName": "경기도 시흥시",
+      "translations": {
+        "en": "Siheung-si, Gyeonggi-do",
+        "ja": "京畿道始興市",
+        "zh-CN": "京畿道始兴市",
+        "zh-TW": "京畿道始興市",
+        "zh-HK": "京畿道始興市"
+      }
+    },
+    {
+      "code": "41410",
+      "sourceName": "군포시",
+      "sourceFullName": "경기도 군포시",
+      "translations": {
+        "en": "Gunpo City, Gyeonggi Province",
+        "ja": "京畿道郡浦市",
+        "zh-CN": "京畿道军浦市",
+        "zh-TW": "京畿道軍浦市",
+        "zh-HK": "京畿道軍浦市"
+      }
+    },
+    {
+      "code": "41430",
+      "sourceName": "의왕시",
+      "sourceFullName": "경기도 의왕시",
+      "translations": {
+        "en": "Uiwang-si, Gyeonggi-do",
+        "ja": "京畿道義王市",
+        "zh-CN": "京畿道义王市",
+        "zh-TW": "京畿道義王市",
+        "zh-HK": "京畿道義王市"
+      }
+    },
+    {
+      "code": "41450",
+      "sourceName": "하남시",
+      "sourceFullName": "경기도 하남시",
+      "translations": {
+        "en": "Hanam City, Gyeonggi Province",
+        "ja": "京畿道河南市",
+        "zh-CN": "京畿道河南市",
+        "zh-TW": "京畿道河南市",
+        "zh-HK": "京畿道河南市"
+      }
+    },
+    {
+      "code": "41461",
+      "sourceName": "용인시 처인구",
+      "sourceFullName": "경기도 용인시 처인구",
+      "translations": {
+        "en": "Cheoin-gu, Yongin-si, Gyeonggi-do",
+        "ja": "京畿道龍仁市",
+        "zh-CN": "京畿道龙仁市处仁区",
+        "zh-TW": "京畿道龍仁市仁區",
+        "zh-HK": "京畿道龍仁市仁區"
+      }
+    },
+    {
+      "code": "41463",
+      "sourceName": "용인시 기흥구",
+      "sourceFullName": "경기도 용인시 기흥구",
+      "translations": {
+        "en": "Giheung-gu, Yongin-si, Gyeonggi-do",
+        "ja": "京畿道龍仁市ギフン区",
+        "zh-CN": "京畿道龙仁市器兴区",
+        "zh-TW": "京畿道龍仁市器興區",
+        "zh-HK": "京畿道龍仁市器興區"
+      }
+    },
+    {
+      "code": "41465",
+      "sourceName": "용인시 수지구",
+      "sourceFullName": "경기도 용인시 수지구",
+      "translations": {
+        "en": "Suji-gu, Yongin-si, Gyeonggi-do",
+        "ja": "京畿道龍仁市樹脂区",
+        "zh-CN": "京畿道龙仁市水池区",
+        "zh-TW": "京畿道龍仁市水池區",
+        "zh-HK": "京畿道龍仁市水池區"
+      }
+    },
+    {
+      "code": "41480",
+      "sourceName": "파주시",
+      "sourceFullName": "경기도 파주시",
+      "translations": {
+        "en": "Paju, Gyeonggi-do",
+        "ja": "京畿道坡州市",
+        "zh-CN": "京畿道坡州市",
+        "zh-TW": "京畿道坡州市",
+        "zh-HK": "京畿道坡州市"
+      }
+    },
+    {
+      "code": "41500",
+      "sourceName": "이천시",
+      "sourceFullName": "경기도 이천시",
+      "translations": {
+        "en": "Icheon City, Gyeonggi Province",
+        "ja": "京畿道利川市",
+        "zh-CN": "京畿道利川市",
+        "zh-TW": "京畿道利川市",
+        "zh-HK": "京畿道利川市"
+      }
+    },
+    {
+      "code": "41550",
+      "sourceName": "안성시",
+      "sourceFullName": "경기도 안성시",
+      "translations": {
+        "en": "Anseong-si, Gyeonggi-do",
+        "ja": "京畿道安城市",
+        "zh-CN": "京畿道安城市",
+        "zh-TW": "京畿道安城市",
+        "zh-HK": "京畿道安城市"
+      }
+    },
+    {
+      "code": "41570",
+      "sourceName": "김포시",
+      "sourceFullName": "경기도 김포시",
+      "translations": {
+        "en": "Gimpo City, Gyeonggi Province",
+        "ja": "京畿道金浦市",
+        "zh-CN": "京畿道金浦市",
+        "zh-TW": "京畿道金浦市",
+        "zh-HK": "京畿道金浦市"
+      }
+    },
+    {
+      "code": "41591",
+      "sourceName": "화성시 만세구",
+      "sourceFullName": "경기도 화성시 만세구",
+      "translations": {
+        "en": "Manse-gu, Hwaseong-si, Gyeonggi-do",
+        "ja": "京畿道華城市万世区",
+        "zh-CN": "京畿道华城市万世区",
+        "zh-TW": "京畿道華城市萬世區",
+        "zh-HK": "京畿道華城市萬世區"
+      }
+    },
+    {
+      "code": "41593",
+      "sourceName": "화성시 효행구",
+      "sourceFullName": "경기도 화성시 효행구",
+      "translations": {
+        "en": "Hyohaeng-gu, Hwaseong-si, Gyeonggi-do",
+        "ja": "京畿道華城市孝行区",
+        "zh-CN": "京畿道华城市孝行区",
+        "zh-TW": "京畿道華城市孝行區",
+        "zh-HK": "京畿道華城市孝行區"
+      }
+    },
+    {
+      "code": "41595",
+      "sourceName": "화성시 병점구",
+      "sourceFullName": "경기도 화성시 병점구",
+      "translations": {
+        "en": "Byeongjeom-gu, Hwaseong-si, Gyeonggi-do",
+        "ja": "京畿道華城市病院",
+        "zh-CN": "京畿道华城市并田区",
+        "zh-TW": "京畿道華市併田區",
+        "zh-HK": "京畿道華市併田區"
+      }
+    },
+    {
+      "code": "41597",
+      "sourceName": "화성시 동탄구",
+      "sourceFullName": "경기도 화성시 동탄구",
+      "translations": {
+        "en": "Dongtan-gu, Hwaseong-si, Gyeonggi-do",
+        "ja": "京畿道華城市東谷区",
+        "zh-CN": "京畿道华城市东滩区",
+        "zh-TW": "京畿道華城市東灘區",
+        "zh-HK": "京畿道華城市東灘區"
+      }
+    },
+    {
+      "code": "41610",
+      "sourceName": "광주시",
+      "sourceFullName": "경기도 광주시",
+      "translations": {
+        "en": "Gwangju City, Gyeonggi Province",
+        "ja": "京畿道光州市",
+        "zh-CN": "京畿道光州市",
+        "zh-TW": "京畿道光州市",
+        "zh-HK": "京畿道光州市"
+      }
+    },
+    {
+      "code": "41630",
+      "sourceName": "양주시",
+      "sourceFullName": "경기도 양주시",
+      "translations": {
+        "en": "Yangju City, Gyeonggi Province",
+        "ja": "京畿道楊州市",
+        "zh-CN": "京畿道杨州市",
+        "zh-TW": "京畿道楊州市",
+        "zh-HK": "京畿道楊州市"
+      }
+    },
+    {
+      "code": "41650",
+      "sourceName": "포천시",
+      "sourceFullName": "경기도 포천시",
+      "translations": {
+        "en": "Pocheon City, Gyeonggi Province",
+        "ja": "京畿道浦川市",
+        "zh-CN": "京畿道抱川市",
+        "zh-TW": "京畿道抱川市",
+        "zh-HK": "京畿道抱川市"
+      }
+    },
+    {
+      "code": "41670",
+      "sourceName": "여주시",
+      "sourceFullName": "경기도 여주시",
+      "translations": {
+        "en": "Yeoju City, Gyeonggi Province",
+        "ja": "京畿道ヨジュ市",
+        "zh-CN": "京畿道骊州市",
+        "zh-TW": "京畿道驍州市",
+        "zh-HK": "京畿道驍州市"
+      }
+    },
+    {
+      "code": "41800",
+      "sourceName": "연천군",
+      "sourceFullName": "경기도 연천군",
+      "translations": {
+        "en": "Yeoncheon-gun, Gyeonggi-do",
+        "ja": "京畿道延川郡",
+        "zh-CN": "京畿道延川郡",
+        "zh-TW": "京畿道延川郡",
+        "zh-HK": "京畿道延川郡"
+      }
+    },
+    {
+      "code": "41820",
+      "sourceName": "가평군",
+      "sourceFullName": "경기도 가평군",
+      "translations": {
+        "en": "Gapyeong-gun, Gyeonggi-do",
+        "ja": "京畿道加平郡",
+        "zh-CN": "京畿道加平郡",
+        "zh-TW": "京畿道加平郡",
+        "zh-HK": "京畿道加平郡"
+      }
+    },
+    {
+      "code": "41830",
+      "sourceName": "양평군",
+      "sourceFullName": "경기도 양평군",
+      "translations": {
+        "en": "Yangpyeong-gun, Gyeonggi-do",
+        "ja": "京畿道楊平郡",
+        "zh-CN": "京畿道杨平郡",
+        "zh-TW": "京畿道楊平郡",
+        "zh-HK": "京畿道楊平郡"
+      }
+    },
+    {
+      "code": "43111",
+      "sourceName": "청주시 상당구",
+      "sourceFullName": "충청북도 청주시 상당구",
+      "translations": {
+        "en": "Sangdang-gu, Cheongju-si, Chungcheongbuk-do",
+        "ja": "忠清北道清州市サンダン区",
+        "zh-CN": "忠清北道清州市上堂区",
+        "zh-TW": "忠清北道清州市上堂區",
+        "zh-HK": "忠清北道清州市上堂區"
+      }
+    },
+    {
+      "code": "43112",
+      "sourceName": "청주시 서원구",
+      "sourceFullName": "충청북도 청주시 서원구",
+      "translations": {
+        "en": "Seowon-gu, Cheongju-si, Chungcheongbuk-do",
+        "ja": "忠清北道清州市西原区",
+        "zh-CN": "忠清北道清州市西原区",
+        "zh-TW": "忠清北道清州市西原區",
+        "zh-HK": "忠清北道清州市西原區"
+      }
+    },
+    {
+      "code": "43113",
+      "sourceName": "청주시 흥덕구",
+      "sourceFullName": "충청북도 청주시 흥덕구",
+      "translations": {
+        "en": "Heungdeok-gu, Cheongju-si, Chungcheongbuk-do",
+        "ja": "忠清北道清州市興徳区",
+        "zh-CN": "忠清北道清州市兴德区",
+        "zh-TW": "忠清北道清州市興德區",
+        "zh-HK": "忠清北道清州市興德區"
+      }
+    },
+    {
+      "code": "43114",
+      "sourceName": "청주시 청원구",
+      "sourceFullName": "충청북도 청주시 청원구",
+      "translations": {
+        "en": "Cheongwon-gu, Cheongju-si, Chungcheongbuk-do",
+        "ja": "忠清北道清州市清原区",
+        "zh-CN": "忠清北道清州市清原区",
+        "zh-TW": "忠清北道清州市清原區",
+        "zh-HK": "忠清北道清州市清原區"
+      }
+    },
+    {
+      "code": "43130",
+      "sourceName": "충주시",
+      "sourceFullName": "충청북도 충주시",
+      "translations": {
+        "en": "Chungju, Chungcheongbuk-do",
+        "ja": "忠清北道忠州市",
+        "zh-CN": "忠清北道忠州市",
+        "zh-TW": "忠清北道忠州市",
+        "zh-HK": "忠清北道忠州市"
+      }
+    },
+    {
+      "code": "43150",
+      "sourceName": "제천시",
+      "sourceFullName": "충청북도 제천시",
+      "translations": {
+        "en": "Jecheon City, Chungcheongbuk-do",
+        "ja": "忠清北道済川市",
+        "zh-CN": "忠清北道堤川市",
+        "zh-TW": "忠清北道堤川市",
+        "zh-HK": "忠清北道堤川市"
+      }
+    },
+    {
+      "code": "43710",
+      "sourceName": "청원군",
+      "sourceFullName": "충청북도 청원군",
+      "translations": {
+        "en": "Cheongwon-gun, Chungcheongbuk-do",
+        "ja": "忠清北道清原郡",
+        "zh-CN": "忠清北道清原郡",
+        "zh-TW": "忠清北道清原郡",
+        "zh-HK": "忠清北道清原郡"
+      }
+    },
+    {
+      "code": "43720",
+      "sourceName": "보은군",
+      "sourceFullName": "충청북도 보은군",
+      "translations": {
+        "en": "Boeun-gun, Chungcheongbuk-do",
+        "ja": "忠清北道",
+        "zh-CN": "忠清北道普恩郡",
+        "zh-TW": "忠清北道普恩郡",
+        "zh-HK": "忠清北道普恩郡"
+      }
+    },
+    {
+      "code": "43730",
+      "sourceName": "옥천군",
+      "sourceFullName": "충청북도 옥천군",
+      "translations": {
+        "en": "Okcheon-gun, Chungcheongbuk-do",
+        "ja": "忠清北道オクチョン郡",
+        "zh-CN": "忠清北道沃川郡",
+        "zh-TW": "忠清北道沃川郡",
+        "zh-HK": "忠清北道沃川郡"
+      }
+    },
+    {
+      "code": "43740",
+      "sourceName": "영동군",
+      "sourceFullName": "충청북도 영동군",
+      "translations": {
+        "en": "Yeongdong-gun, Chungcheongbuk-do",
+        "ja": "忠清北道永東郡",
+        "zh-CN": "忠清北道永东郡",
+        "zh-TW": "忠清北道永東郡",
+        "zh-HK": "忠清北道永東郡"
+      }
+    },
+    {
+      "code": "43745",
+      "sourceName": "증평군",
+      "sourceFullName": "충청북도 증평군",
+      "translations": {
+        "en": "Jeungpyeong-gun, Chungcheongbuk-do",
+        "ja": "忠清北道杭平郡",
+        "zh-CN": "忠清北道曾平郡",
+        "zh-TW": "忠清北道曾平郡",
+        "zh-HK": "忠清北道曾平郡"
+      }
+    },
+    {
+      "code": "43750",
+      "sourceName": "진천군",
+      "sourceFullName": "충청북도 진천군",
+      "translations": {
+        "en": "Jincheon-gun, Chungcheongbuk-do",
+        "ja": "忠清北道鎮川郡",
+        "zh-CN": "忠清北道镇川郡",
+        "zh-TW": "忠清北道鎮川郡",
+        "zh-HK": "忠清北道鎮川郡"
+      }
+    },
+    {
+      "code": "43760",
+      "sourceName": "괴산군",
+      "sourceFullName": "충청북도 괴산군",
+      "translations": {
+        "en": "Goesan-gun, Chungcheongbuk-do",
+        "ja": "忠清北道塊山郡",
+        "zh-CN": "忠清北道龟山郡",
+        "zh-TW": "忠清北道龜山郡",
+        "zh-HK": "忠清北道龜山郡"
+      }
+    },
+    {
+      "code": "43770",
+      "sourceName": "음성군",
+      "sourceFullName": "충청북도 음성군",
+      "translations": {
+        "en": "Eumseong-gun, Chungcheongbuk-do",
+        "ja": "忠清北道音声群",
+        "zh-CN": "忠清北道阴城郡",
+        "zh-TW": "忠清北道陰城郡",
+        "zh-HK": "忠清北道陰城郡"
+      }
+    },
+    {
+      "code": "43800",
+      "sourceName": "단양군",
+      "sourceFullName": "충청북도 단양군",
+      "translations": {
+        "en": "Danyang-gun, Chungcheongbuk-do",
+        "ja": "忠清北道丹陽郡",
+        "zh-CN": "忠清北道丹阳郡",
+        "zh-TW": "忠清北道丹陽郡",
+        "zh-HK": "忠清北道丹陽郡"
+      }
+    },
+    {
+      "code": "44131",
+      "sourceName": "천안시 동남구",
+      "sourceFullName": "충청남도 천안시 동남구",
+      "translations": {
+        "en": "Dongnam-gu, Cheonan-si, Chungcheongnam-do",
+        "ja": "忠清南道天安市東南区",
+        "zh-CN": "忠清南道天安市东南区",
+        "zh-TW": "忠清南道天安市東南區",
+        "zh-HK": "忠清南道天安市東南區"
+      }
+    },
+    {
+      "code": "44133",
+      "sourceName": "천안시 서북구",
+      "sourceFullName": "충청남도 천안시 서북구",
+      "translations": {
+        "en": "Seobuk-gu, Cheonan-si, Chungcheongnam-do",
+        "ja": "忠清南道天安市西北区",
+        "zh-CN": "忠清南道天安市西北区",
+        "zh-TW": "忠清南道天安市西北區",
+        "zh-HK": "忠清南道天安市西北區"
+      }
+    },
+    {
+      "code": "44150",
+      "sourceName": "공주시",
+      "sourceFullName": "충청남도 공주시",
+      "translations": {
+        "en": "Gongju City, Chungcheongnam-do",
+        "ja": "忠清南道姫市",
+        "zh-CN": "忠清南道公州市",
+        "zh-TW": "忠清南道公州市",
+        "zh-HK": "忠清南道公州市"
+      }
+    },
+    {
+      "code": "44180",
+      "sourceName": "보령시",
+      "sourceFullName": "충청남도 보령시",
+      "translations": {
+        "en": "Boryeong-si, Chungcheongnam-do",
+        "ja": "忠清南道保寧市",
+        "zh-CN": "忠清南道保宁市",
+        "zh-TW": "忠清南道保寧市",
+        "zh-HK": "忠清南道保寧市"
+      }
+    },
+    {
+      "code": "44200",
+      "sourceName": "아산시",
+      "sourceFullName": "충청남도 아산시",
+      "translations": {
+        "en": "Asan City, Chungcheongnam-do",
+        "ja": "忠清南道牙山市",
+        "zh-CN": "忠清南道牙山市",
+        "zh-TW": "忠清南道牙山市",
+        "zh-HK": "忠清南道牙山市"
+      }
+    },
+    {
+      "code": "44210",
+      "sourceName": "서산시",
+      "sourceFullName": "충청남도 서산시",
+      "translations": {
+        "en": "Seosan City, Chungcheongnam-do",
+        "ja": "忠清南道西山市",
+        "zh-CN": "忠清南道瑞山市",
+        "zh-TW": "忠清南道瑞山市",
+        "zh-HK": "忠清南道瑞山市"
+      }
+    },
+    {
+      "code": "44230",
+      "sourceName": "논산시",
+      "sourceFullName": "충청남도 논산시",
+      "translations": {
+        "en": "Nonsan City, Chungcheongnam-do",
+        "ja": "忠清南道論山市",
+        "zh-CN": "忠清南道论山市",
+        "zh-TW": "忠清南道論山市",
+        "zh-HK": "忠清南道論山市"
+      }
+    },
+    {
+      "code": "44250",
+      "sourceName": "계룡시",
+      "sourceFullName": "충청남도 계룡시",
+      "translations": {
+        "en": "Gyeryong City, Chungcheongnam-do",
+        "ja": "忠清南道桂龍市",
+        "zh-CN": "忠清南道鸡龙市",
+        "zh-TW": "忠清南道雞龍市",
+        "zh-HK": "忠清南道雞龍市"
+      }
+    },
+    {
+      "code": "44270",
+      "sourceName": "당진시",
+      "sourceFullName": "충청남도 당진시",
+      "translations": {
+        "en": "Dangjin City, Chungcheongnam-do",
+        "ja": "忠清南道唐津市",
+        "zh-CN": "忠清南道唐津市",
+        "zh-TW": "忠清南道唐津市",
+        "zh-HK": "忠清南道唐津市"
+      }
+    },
+    {
+      "code": "44710",
+      "sourceName": "금산군",
+      "sourceFullName": "충청남도 금산군",
+      "translations": {
+        "en": "Geumsan-gun, Chungcheongnam-do",
+        "ja": "忠清南道金山郡",
+        "zh-CN": "忠清南道锦山郡",
+        "zh-TW": "忠清南道錦山郡",
+        "zh-HK": "忠清南道錦山郡"
+      }
+    },
+    {
+      "code": "44760",
+      "sourceName": "부여군",
+      "sourceFullName": "충청남도 부여군",
+      "translations": {
+        "en": "Buyeo-gun, Chungcheongnam-do",
+        "ja": "忠清南道扶余郡",
+        "zh-CN": "忠清南道扶余郡",
+        "zh-TW": "忠清南道扶餘郡",
+        "zh-HK": "忠清南道扶餘郡"
+      }
+    },
+    {
+      "code": "44770",
+      "sourceName": "서천군",
+      "sourceFullName": "충청남도 서천군",
+      "translations": {
+        "en": "Seocheon-gun, Chungcheongnam-do",
+        "ja": "忠清南道西川郡",
+        "zh-CN": "忠清南道瑞川郡",
+        "zh-TW": "忠清南道瑞川郡",
+        "zh-HK": "忠清南道瑞川郡"
+      }
+    },
+    {
+      "code": "44790",
+      "sourceName": "청양군",
+      "sourceFullName": "충청남도 청양군",
+      "translations": {
+        "en": "Cheongyang-gun, Chungcheongnam-do",
+        "ja": "忠清南道清陽郡",
+        "zh-CN": "忠清南道青阳郡",
+        "zh-TW": "忠清南道青陽郡",
+        "zh-HK": "忠清南道青陽郡"
+      }
+    },
+    {
+      "code": "44800",
+      "sourceName": "홍성군",
+      "sourceFullName": "충청남도 홍성군",
+      "translations": {
+        "en": "Hongseong-gun, Chungcheongnam-do",
+        "ja": "忠清南道洪城郡",
+        "zh-CN": "忠清南道洪城郡",
+        "zh-TW": "忠清南道洪城郡",
+        "zh-HK": "忠清南道洪城郡"
+      }
+    },
+    {
+      "code": "44810",
+      "sourceName": "예산군",
+      "sourceFullName": "충청남도 예산군",
+      "translations": {
+        "en": "Yesan-gun, Chungcheongnam-do",
+        "ja": "忠清南道予算郡",
+        "zh-CN": "忠清南道礼山郡",
+        "zh-TW": "忠清南道禮山郡",
+        "zh-HK": "忠清南道禮山郡"
+      }
+    },
+    {
+      "code": "44825",
+      "sourceName": "태안군",
+      "sourceFullName": "충청남도 태안군",
+      "translations": {
+        "en": "Taean-gun, Chungcheongnam-do",
+        "ja": "忠清南道泰安郡",
+        "zh-CN": "忠清南道泰安郡",
+        "zh-TW": "忠清南道泰安郡",
+        "zh-HK": "忠清南道泰安郡"
+      }
+    },
+    {
+      "code": "46110",
+      "sourceName": "목포시",
+      "sourceFullName": "전라남도 목포시",
+      "translations": {
+        "en": "Mokpo City, Jeollanam-do",
+        "ja": "全羅南道木浦市",
+        "zh-CN": "全罗南道木浦市",
+        "zh-TW": "全羅南道木浦市",
+        "zh-HK": "全羅南道木浦市"
+      }
+    },
+    {
+      "code": "46130",
+      "sourceName": "여수시",
+      "sourceFullName": "전라남도 여수시",
+      "translations": {
+        "en": "Yeosu City, Jeollanam-do",
+        "ja": "全羅南道麗水市",
+        "zh-CN": "全罗南道丽水市",
+        "zh-TW": "全羅南道麗水市",
+        "zh-HK": "全羅南道麗水市"
+      }
+    },
+    {
+      "code": "46150",
+      "sourceName": "순천시",
+      "sourceFullName": "전라남도 순천시",
+      "translations": {
+        "en": "Suncheon City, Jeollanam-do",
+        "ja": "全羅南道順天市",
+        "zh-CN": "全罗南道顺天市",
+        "zh-TW": "全羅南道順天市",
+        "zh-HK": "全羅南道順天市"
+      }
+    },
+    {
+      "code": "46170",
+      "sourceName": "나주시",
+      "sourceFullName": "전라남도 나주시",
+      "translations": {
+        "en": "Naju City, Jeollanam-do",
+        "ja": "全羅南道",
+        "zh-CN": "全罗南道罗州市",
+        "zh-TW": "全羅南道羅州市",
+        "zh-HK": "全羅南道羅州市"
+      }
+    },
+    {
+      "code": "46230",
+      "sourceName": "광양시",
+      "sourceFullName": "전라남도 광양시",
+      "translations": {
+        "en": "Gwangyang City, Jeollanam-do",
+        "ja": "全羅南道光陽市",
+        "zh-CN": "全罗南道光阳市",
+        "zh-TW": "全羅南道光陽市",
+        "zh-HK": "全羅南道光陽市"
+      }
+    },
+    {
+      "code": "46710",
+      "sourceName": "담양군",
+      "sourceFullName": "전라남도 담양군",
+      "translations": {
+        "en": "Damyang-gun, Jeollanam-do",
+        "ja": "全羅南道潭陽郡",
+        "zh-CN": "全罗南道潭阳郡",
+        "zh-TW": "全羅南道潭陽郡",
+        "zh-HK": "全羅南道潭陽郡"
+      }
+    },
+    {
+      "code": "46720",
+      "sourceName": "곡성군",
+      "sourceFullName": "전라남도 곡성군",
+      "translations": {
+        "en": "Gokseong-gun, Jeollanam-do",
+        "ja": "全羅南道曲城郡",
+        "zh-CN": "全罗南道谷城郡",
+        "zh-TW": "全羅南道谷城郡",
+        "zh-HK": "全羅南道谷城郡"
+      }
+    },
+    {
+      "code": "46730",
+      "sourceName": "구례군",
+      "sourceFullName": "전라남도 구례군",
+      "translations": {
+        "en": "Gurye-gun, Jeollanam-do",
+        "ja": "全羅南道旧礼郡",
+        "zh-CN": "全罗南道求礼郡",
+        "zh-TW": "全羅南道求禮郡",
+        "zh-HK": "全羅南道求禮郡"
+      }
+    },
+    {
+      "code": "46770",
+      "sourceName": "고흥군",
+      "sourceFullName": "전라남도 고흥군",
+      "translations": {
+        "en": "Goheung-gun, Jeollanam-do",
+        "ja": "全羅南道高興郡",
+        "zh-CN": "全罗南道高兴郡",
+        "zh-TW": "全羅南道高興郡",
+        "zh-HK": "全羅南道高興郡"
+      }
+    },
+    {
+      "code": "46780",
+      "sourceName": "보성군",
+      "sourceFullName": "전라남도 보성군",
+      "translations": {
+        "en": "Boseong-gun, Jeollanam-do",
+        "ja": "全羅南道宝城郡",
+        "zh-CN": "全罗南道宝城郡",
+        "zh-TW": "全羅南道寶城郡",
+        "zh-HK": "全羅南道寶城郡"
+      }
+    },
+    {
+      "code": "46790",
+      "sourceName": "화순군",
+      "sourceFullName": "전라남도 화순군",
+      "translations": {
+        "en": "Hwasun-gun, Jeollanam-do",
+        "ja": "全羅南道華順郡",
+        "zh-CN": "全罗南道和顺郡",
+        "zh-TW": "全羅南道和順郡",
+        "zh-HK": "全羅南道和順郡"
+      }
+    },
+    {
+      "code": "46800",
+      "sourceName": "장흥군",
+      "sourceFullName": "전라남도 장흥군",
+      "translations": {
+        "en": "Jangheung-gun, Jeollanam-do",
+        "ja": "全羅南道長興郡",
+        "zh-CN": "全罗南道长兴郡",
+        "zh-TW": "全羅南道長興郡",
+        "zh-HK": "全羅南道長興郡"
+      }
+    },
+    {
+      "code": "46810",
+      "sourceName": "강진군",
+      "sourceFullName": "전라남도 강진군",
+      "translations": {
+        "en": "Gangjin-gun, Jeollanam-do",
+        "ja": "全羅南道江津郡",
+        "zh-CN": "全罗南道康津郡",
+        "zh-TW": "全羅南道康津郡",
+        "zh-HK": "全羅南道康津郡"
+      }
+    },
+    {
+      "code": "46820",
+      "sourceName": "해남군",
+      "sourceFullName": "전라남도 해남군",
+      "translations": {
+        "en": "Haenam-gun, Jeollanam-do",
+        "ja": "全羅南道海南郡",
+        "zh-CN": "全罗南道海南郡",
+        "zh-TW": "全羅南道海南郡",
+        "zh-HK": "全羅南道海南郡"
+      }
+    },
+    {
+      "code": "46830",
+      "sourceName": "영암군",
+      "sourceFullName": "전라남도 영암군",
+      "translations": {
+        "en": "Yeongam-gun, Jeollanam-do",
+        "ja": "全羅南道永岩郡",
+        "zh-CN": "全罗南道灵岩郡",
+        "zh-TW": "全羅南道靈岩郡",
+        "zh-HK": "全羅南道靈岩郡"
+      }
+    },
+    {
+      "code": "46840",
+      "sourceName": "무안군",
+      "sourceFullName": "전라남도 무안군",
+      "translations": {
+        "en": "Muan-gun, Jeollanam-do",
+        "ja": "全羅南道武安郡",
+        "zh-CN": "全罗南道务安郡",
+        "zh-TW": "全羅南道務安郡",
+        "zh-HK": "全羅南道務安郡"
+      }
+    },
+    {
+      "code": "46860",
+      "sourceName": "함평군",
+      "sourceFullName": "전라남도 함평군",
+      "translations": {
+        "en": "Hampyeong-gun, Jeollanam-do",
+        "ja": "全羅南道咸平郡",
+        "zh-CN": "全罗南道咸平郡",
+        "zh-TW": "全羅南道鹹平郡",
+        "zh-HK": "全羅南道鹹平郡"
+      }
+    },
+    {
+      "code": "46870",
+      "sourceName": "영광군",
+      "sourceFullName": "전라남도 영광군",
+      "translations": {
+        "en": "Yeonggwang-gun, Jeollanam-do",
+        "ja": "全羅南道栄光郡",
+        "zh-CN": "全罗南道灵光郡",
+        "zh-TW": "全羅南道靈光郡",
+        "zh-HK": "全羅南道靈光郡"
+      }
+    },
+    {
+      "code": "46880",
+      "sourceName": "장성군",
+      "sourceFullName": "전라남도 장성군",
+      "translations": {
+        "en": "Jangseong-gun, Jeollanam-do",
+        "ja": "全羅南道長城郡",
+        "zh-CN": "全罗南道长城郡",
+        "zh-TW": "全羅南道長城郡",
+        "zh-HK": "全羅南道長城郡"
+      }
+    },
+    {
+      "code": "46890",
+      "sourceName": "완도군",
+      "sourceFullName": "전라남도 완도군",
+      "translations": {
+        "en": "Wando-gun, Jeollanam-do",
+        "ja": "全羅南道ワンド郡",
+        "zh-CN": "全罗南道完道郡",
+        "zh-TW": "全羅南道完道郡",
+        "zh-HK": "全羅南道完道郡"
+      }
+    },
+    {
+      "code": "46900",
+      "sourceName": "진도군",
+      "sourceFullName": "전라남도 진도군",
+      "translations": {
+        "en": "Jindo-gun, Jeollanam-do",
+        "ja": "全羅南道珍島郡",
+        "zh-CN": "全罗南道珍岛郡",
+        "zh-TW": "全羅南道珍島郡",
+        "zh-HK": "全羅南道珍島郡"
+      }
+    },
+    {
+      "code": "46910",
+      "sourceName": "신안군",
+      "sourceFullName": "전라남도 신안군",
+      "translations": {
+        "en": "Sinan-gun, Jeollanam-do",
+        "ja": "全羅南道新安郡",
+        "zh-CN": "全罗南道新安郡",
+        "zh-TW": "全羅南道新安郡",
+        "zh-HK": "全羅南道新安郡"
+      }
+    },
+    {
+      "code": "47111",
+      "sourceName": "포항시 남구",
+      "sourceFullName": "경상북도 포항시 남구",
+      "translations": {
+        "en": "Nam-gu, Pohang-si, Gyeongsangbuk-do",
+        "ja": "慶尚北道浦項市南区",
+        "zh-CN": "庆尚北道浦项市南区",
+        "zh-TW": "慶尚北道浦項市南區",
+        "zh-HK": "慶尚北道浦項市南區"
+      }
+    },
+    {
+      "code": "47113",
+      "sourceName": "포항시 북구",
+      "sourceFullName": "경상북도 포항시 북구",
+      "translations": {
+        "en": "Buk-gu, Pohang-si, Gyeongsangbuk-do",
+        "ja": "慶尚北道浦項市北区",
+        "zh-CN": "庆尚北道浦项市北区",
+        "zh-TW": "慶尚北道浦項市北區",
+        "zh-HK": "慶尚北道浦項市北區"
+      }
+    },
+    {
+      "code": "47130",
+      "sourceName": "경주시",
+      "sourceFullName": "경상북도 경주시",
+      "translations": {
+        "en": "Gyeongju, Gyeongsangbuk-do",
+        "ja": "慶尚北道慶州市",
+        "zh-CN": "庆尚北道庆州市",
+        "zh-TW": "慶尚北道慶州市",
+        "zh-HK": "慶尚北道慶州市"
+      }
+    },
+    {
+      "code": "47150",
+      "sourceName": "김천시",
+      "sourceFullName": "경상북도 김천시",
+      "translations": {
+        "en": "Gimcheon City, Gyeongsangbuk-do",
+        "ja": "慶尚北道金川市",
+        "zh-CN": "庆尚北道金泉市",
+        "zh-TW": "慶尚北道金泉市",
+        "zh-HK": "慶尚北道金泉市"
+      }
+    },
+    {
+      "code": "47170",
+      "sourceName": "안동시",
+      "sourceFullName": "경상북도 안동시",
+      "translations": {
+        "en": "Andong City, Gyeongsangbuk-do",
+        "ja": "慶尚北道安東市",
+        "zh-CN": "庆尚北道安东市",
+        "zh-TW": "慶尚北道安東市",
+        "zh-HK": "慶尚北道安東市"
+      }
+    },
+    {
+      "code": "47190",
+      "sourceName": "구미시",
+      "sourceFullName": "경상북도 구미시",
+      "translations": {
+        "en": "Gumi City, Gyeongsangbuk-do",
+        "ja": "慶尚北道亀尾市",
+        "zh-CN": "庆尚北道龟尾市",
+        "zh-TW": "慶尚北道龜尾市",
+        "zh-HK": "慶尚北道龜尾市"
+      }
+    },
+    {
+      "code": "47210",
+      "sourceName": "영주시",
+      "sourceFullName": "경상북도 영주시",
+      "translations": {
+        "en": "Yeongju, Gyeongsangbuk-do",
+        "ja": "慶尚北道永州市",
+        "zh-CN": "庆尚北道荣州市",
+        "zh-TW": "慶尚北道榮州市",
+        "zh-HK": "慶尚北道榮州市"
+      }
+    },
+    {
+      "code": "47230",
+      "sourceName": "영천시",
+      "sourceFullName": "경상북도 영천시",
+      "translations": {
+        "en": "Yeongcheon City, Gyeongsangbuk-do",
+        "ja": "慶尚北道永川市",
+        "zh-CN": "庆尚北道永川市",
+        "zh-TW": "慶尚北道永川市",
+        "zh-HK": "慶尚北道永川市"
+      }
+    },
+    {
+      "code": "47250",
+      "sourceName": "상주시",
+      "sourceFullName": "경상북도 상주시",
+      "translations": {
+        "en": "Sangju, Gyeongsangbuk-do",
+        "ja": "慶尚北道常州市",
+        "zh-CN": "庆尚北道尚州市",
+        "zh-TW": "慶尚北道尚州市",
+        "zh-HK": "慶尚北道尚州市"
+      }
+    },
+    {
+      "code": "47280",
+      "sourceName": "문경시",
+      "sourceFullName": "경상북도 문경시",
+      "translations": {
+        "en": "Mungyeong-si, Gyeongsangbuk-do",
+        "ja": "慶尚北道文慶市",
+        "zh-CN": "庆尚北道闻庆市",
+        "zh-TW": "慶尚北道聞慶市",
+        "zh-HK": "慶尚北道聞慶市"
+      }
+    },
+    {
+      "code": "47290",
+      "sourceName": "경산시",
+      "sourceFullName": "경상북도 경산시",
+      "translations": {
+        "en": "Gyeongsan City, Gyeongsangbuk-do",
+        "ja": "慶尚北道慶山市",
+        "zh-CN": "庆尚北道庆山市",
+        "zh-TW": "慶尚北道慶山市",
+        "zh-HK": "慶尚北道慶山市"
+      }
+    },
+    {
+      "code": "47730",
+      "sourceName": "의성군",
+      "sourceFullName": "경상북도 의성군",
+      "translations": {
+        "en": "Uiseong-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道義城郡",
+        "zh-CN": "庆尚北道义城郡",
+        "zh-TW": "慶尚北道義城郡",
+        "zh-HK": "慶尚北道義城郡"
+      }
+    },
+    {
+      "code": "47750",
+      "sourceName": "청송군",
+      "sourceFullName": "경상북도 청송군",
+      "translations": {
+        "en": "Cheongsong-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道清松郡",
+        "zh-CN": "庆尚北道青松郡",
+        "zh-TW": "慶尚北道青松郡",
+        "zh-HK": "慶尚北道青松郡"
+      }
+    },
+    {
+      "code": "47760",
+      "sourceName": "영양군",
+      "sourceFullName": "경상북도 영양군",
+      "translations": {
+        "en": "Yeongyang-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道栄養郡",
+        "zh-CN": "庆尚北道英阳郡",
+        "zh-TW": "慶尚北道英陽郡",
+        "zh-HK": "慶尚北道英陽郡"
+      }
+    },
+    {
+      "code": "47770",
+      "sourceName": "영덕군",
+      "sourceFullName": "경상북도 영덕군",
+      "translations": {
+        "en": "Yeongdeok-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道永徳郡",
+        "zh-CN": "庆尚北道永德郡",
+        "zh-TW": "慶尚北道永德郡",
+        "zh-HK": "慶尚北道永德郡"
+      }
+    },
+    {
+      "code": "47820",
+      "sourceName": "청도군",
+      "sourceFullName": "경상북도 청도군",
+      "translations": {
+        "en": "Cheongdo-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道青島郡",
+        "zh-CN": "庆尚北道清道郡",
+        "zh-TW": "慶尚北道清道郡",
+        "zh-HK": "慶尚北道清道郡"
+      }
+    },
+    {
+      "code": "47830",
+      "sourceName": "고령군",
+      "sourceFullName": "경상북도 고령군",
+      "translations": {
+        "en": "Goryeong-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道高齢軍",
+        "zh-CN": "庆尚北道高灵郡",
+        "zh-TW": "慶尚北道高靈郡",
+        "zh-HK": "慶尚北道高靈郡"
+      }
+    },
+    {
+      "code": "47840",
+      "sourceName": "성주군",
+      "sourceFullName": "경상북도 성주군",
+      "translations": {
+        "en": "Seongju-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道城州郡",
+        "zh-CN": "庆尚北道星州郡",
+        "zh-TW": "慶尚北道星州郡",
+        "zh-HK": "慶尚北道星州郡"
+      }
+    },
+    {
+      "code": "47850",
+      "sourceName": "칠곡군",
+      "sourceFullName": "경상북도 칠곡군",
+      "translations": {
+        "en": "Chilgok-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道チルゴク郡",
+        "zh-CN": "庆尚北道漆谷郡",
+        "zh-TW": "慶尚北道漆谷郡",
+        "zh-HK": "慶尚北道漆谷郡"
+      }
+    },
+    {
+      "code": "47900",
+      "sourceName": "예천군",
+      "sourceFullName": "경상북도 예천군",
+      "translations": {
+        "en": "Yecheon-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道江川郡",
+        "zh-CN": "庆尚北道銮川郡",
+        "zh-TW": "慶尚北道鑾郡",
+        "zh-HK": "慶尚北道鑾郡"
+      }
+    },
+    {
+      "code": "47920",
+      "sourceName": "봉화군",
+      "sourceFullName": "경상북도 봉화군",
+      "translations": {
+        "en": "Bonghwa-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道奉化郡",
+        "zh-CN": "庆尚北道奉化郡",
+        "zh-TW": "慶尚北道奉化郡",
+        "zh-HK": "慶尚北道奉化郡"
+      }
+    },
+    {
+      "code": "47930",
+      "sourceName": "울진군",
+      "sourceFullName": "경상북도 울진군",
+      "translations": {
+        "en": "Uljin-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道ウルジン郡",
+        "zh-CN": "庆尚北道蔚珍郡",
+        "zh-TW": "慶尚北道蔚珍郡",
+        "zh-HK": "慶尚北道蔚珍郡"
+      }
+    },
+    {
+      "code": "47940",
+      "sourceName": "울릉군",
+      "sourceFullName": "경상북도 울릉군",
+      "translations": {
+        "en": "Ulleung-gun, Gyeongsangbuk-do",
+        "ja": "慶尚北道鬱陵郡",
+        "zh-CN": "庆尚北道郁陵郡",
+        "zh-TW": "慶尚北道鬱陵郡",
+        "zh-HK": "慶尚北道鬱陵郡"
+      }
+    },
+    {
+      "code": "48121",
+      "sourceName": "창원시 의창구",
+      "sourceFullName": "경상남도 창원시 의창구",
+      "translations": {
+        "en": "Uichang-gu, Changwon-si, Gyeongsangnam-do",
+        "ja": "慶尚南道昌原市義昌区",
+        "zh-CN": "庆尚南道昌原市宜昌区",
+        "zh-TW": "慶尚南道昌原市宜昌區",
+        "zh-HK": "慶尚南道昌原市宜昌區"
+      }
+    },
+    {
+      "code": "48123",
+      "sourceName": "창원시 성산구",
+      "sourceFullName": "경상남도 창원시 성산구",
+      "translations": {
+        "en": "Seongsan-gu, Changwon-si, Gyeongsangnam-do",
+        "ja": "慶尚南道昌原市城山区",
+        "zh-CN": "庆尚南道昌原市城山区",
+        "zh-TW": "慶尚南道昌原市城山區",
+        "zh-HK": "慶尚南道昌原市城山區"
+      }
+    },
+    {
+      "code": "48125",
+      "sourceName": "창원시 마산합포구",
+      "sourceFullName": "경상남도 창원시 마산합포구",
+      "translations": {
+        "en": "Masan Happo-gu, Changwon-si, Gyeongsangnam-do",
+        "ja": "慶尚南道昌原市馬山合浦区",
+        "zh-CN": "庆尚南道昌原市马山八方区",
+        "zh-TW": "慶尚南道昌原市馬山八方區",
+        "zh-HK": "慶尚南道昌原市馬山八方區"
+      }
+    },
+    {
+      "code": "48127",
+      "sourceName": "창원시 마산회원구",
+      "sourceFullName": "경상남도 창원시 마산회원구",
+      "translations": {
+        "en": "Masanhoewon-gu, Changwon-si, Gyeongsangnam-do",
+        "ja": "慶尚南道昌原市馬山会員区",
+        "zh-CN": "庆尚南道昌原市马山会院区",
+        "zh-TW": "慶尚南道昌原市馬山會院區",
+        "zh-HK": "慶尚南道昌原市馬山會院區"
+      }
+    },
+    {
+      "code": "48129",
+      "sourceName": "창원시 진해구",
+      "sourceFullName": "경상남도 창원시 진해구",
+      "translations": {
+        "en": "Jinhae-gu, Changwon-si, Gyeongsangnam-do",
+        "ja": "慶尚南道昌原市鎮海区",
+        "zh-CN": "庆尚南道昌原市镇海区",
+        "zh-TW": "慶尚南道昌原市鎮海區",
+        "zh-HK": "慶尚南道昌原市鎮海區"
+      }
+    },
+    {
+      "code": "48170",
+      "sourceName": "진주시",
+      "sourceFullName": "경상남도 진주시",
+      "translations": {
+        "en": "Jinju City, Gyeongsangnam-do",
+        "ja": "慶尚南道晋州市",
+        "zh-CN": "庆尚南道晋州市",
+        "zh-TW": "慶尚南道晉州市",
+        "zh-HK": "慶尚南道晉州市"
+      }
+    },
+    {
+      "code": "48220",
+      "sourceName": "통영시",
+      "sourceFullName": "경상남도 통영시",
+      "translations": {
+        "en": "Tongyeong City, Gyeongsangnam-do",
+        "ja": "慶尚南道統営市",
+        "zh-CN": "庆尚南道统营市",
+        "zh-TW": "慶尚南道統營市",
+        "zh-HK": "慶尚南道統營市"
+      }
+    },
+    {
+      "code": "48240",
+      "sourceName": "사천시",
+      "sourceFullName": "경상남도 사천시",
+      "translations": {
+        "en": "Sacheon City, Gyeongsangnam-do",
+        "ja": "慶尚南道四川市",
+        "zh-CN": "庆尚南道泗川市",
+        "zh-TW": "慶尚南道泗川市",
+        "zh-HK": "慶尚南道泗川市"
+      }
+    },
+    {
+      "code": "48250",
+      "sourceName": "김해시",
+      "sourceFullName": "경상남도 김해시",
+      "translations": {
+        "en": "Gimhae City, Gyeongsangnam-do",
+        "ja": "慶尚南道金海市",
+        "zh-CN": "庆尚南道金海市",
+        "zh-TW": "慶尚南道金海市",
+        "zh-HK": "慶尚南道金海市"
+      }
+    },
+    {
+      "code": "48270",
+      "sourceName": "밀양시",
+      "sourceFullName": "경상남도 밀양시",
+      "translations": {
+        "en": "Miryang City, Gyeongsangnam-do",
+        "ja": "慶尚南道密陽市",
+        "zh-CN": "庆尚南道密阳市",
+        "zh-TW": "慶尚南道密陽市",
+        "zh-HK": "慶尚南道密陽市"
+      }
+    },
+    {
+      "code": "48310",
+      "sourceName": "거제시",
+      "sourceFullName": "경상남도 거제시",
+      "translations": {
+        "en": "Geoje City, Gyeongsangnam-do",
+        "ja": "慶尚南道巨済市",
+        "zh-CN": "庆尚南道巨济市",
+        "zh-TW": "慶尚南道巨濟市",
+        "zh-HK": "慶尚南道巨濟市"
+      }
+    },
+    {
+      "code": "48330",
+      "sourceName": "양산시",
+      "sourceFullName": "경상남도 양산시",
+      "translations": {
+        "en": "Yangsan City, Gyeongsangnam-do",
+        "ja": "慶尚南道楊山市",
+        "zh-CN": "庆尚南道梁山市",
+        "zh-TW": "慶尚南道梁山市",
+        "zh-HK": "慶尚南道梁山市"
+      }
+    },
+    {
+      "code": "48720",
+      "sourceName": "의령군",
+      "sourceFullName": "경상남도 의령군",
+      "translations": {
+        "en": "Uiryeong-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道（キョンサンナムド）義霊郡",
+        "zh-CN": "庆尚南道宜宁郡",
+        "zh-TW": "慶尚南道宜寧郡",
+        "zh-HK": "慶尚南道宜寧郡"
+      }
+    },
+    {
+      "code": "48730",
+      "sourceName": "함안군",
+      "sourceFullName": "경상남도 함안군",
+      "translations": {
+        "en": "Haman-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道咸安郡",
+        "zh-CN": "庆尚南道咸满郡",
+        "zh-TW": "慶尚南道鹹滿郡",
+        "zh-HK": "慶尚南道鹹滿郡"
+      }
+    },
+    {
+      "code": "48740",
+      "sourceName": "창녕군",
+      "sourceFullName": "경상남도 창녕군",
+      "translations": {
+        "en": "Changnyeong-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道昌寧郡",
+        "zh-CN": "庆尚南道昌宁郡",
+        "zh-TW": "慶尚南道昌寧郡",
+        "zh-HK": "慶尚南道昌寧郡"
+      }
+    },
+    {
+      "code": "48820",
+      "sourceName": "고성군",
+      "sourceFullName": "경상남도 고성군",
+      "translations": {
+        "en": "Goseong-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道高城郡",
+        "zh-CN": "庆尚南道高城郡",
+        "zh-TW": "慶尚南道高城郡",
+        "zh-HK": "慶尚南道高城郡"
+      }
+    },
+    {
+      "code": "48840",
+      "sourceName": "남해군",
+      "sourceFullName": "경상남도 남해군",
+      "translations": {
+        "en": "Namhae-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道南海郡",
+        "zh-CN": "庆尚南道南海郡",
+        "zh-TW": "慶尚南道南海郡",
+        "zh-HK": "慶尚南道南海郡"
+      }
+    },
+    {
+      "code": "48850",
+      "sourceName": "하동군",
+      "sourceFullName": "경상남도 하동군",
+      "translations": {
+        "en": "Hadong-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道河東郡",
+        "zh-CN": "庆尚南道河东郡",
+        "zh-TW": "慶尚南道河東郡",
+        "zh-HK": "慶尚南道河東郡"
+      }
+    },
+    {
+      "code": "48860",
+      "sourceName": "산청군",
+      "sourceFullName": "경상남도 산청군",
+      "translations": {
+        "en": "Sancheong-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道山清郡",
+        "zh-CN": "庆尚南道山清郡",
+        "zh-TW": "慶尚南道山清郡",
+        "zh-HK": "慶尚南道山清郡"
+      }
+    },
+    {
+      "code": "48870",
+      "sourceName": "함양군",
+      "sourceFullName": "경상남도 함양군",
+      "translations": {
+        "en": "Hamyang-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道咸陽郡",
+        "zh-CN": "庆尚南道咸阳郡",
+        "zh-TW": "慶尚南道咸陽郡",
+        "zh-HK": "慶尚南道咸陽郡"
+      }
+    },
+    {
+      "code": "48880",
+      "sourceName": "거창군",
+      "sourceFullName": "경상남도 거창군",
+      "translations": {
+        "en": "Geochang-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道巨昌郡",
+        "zh-CN": "庆尚南道居昌郡",
+        "zh-TW": "慶尚南道居昌郡",
+        "zh-HK": "慶尚南道居昌郡"
+      }
+    },
+    {
+      "code": "48890",
+      "sourceName": "합천군",
+      "sourceFullName": "경상남도 합천군",
+      "translations": {
+        "en": "Hapcheon-gun, Gyeongsangnam-do",
+        "ja": "慶尚南道ハプチョン郡",
+        "zh-CN": "庆尚南道陕川郡",
+        "zh-TW": "慶尚南道陝川郡",
+        "zh-HK": "慶尚南道陝川郡"
+      }
+    },
+    {
+      "code": "50110",
+      "sourceName": "제주시",
+      "sourceFullName": "제주특별자치도 제주시",
+      "translations": {
+        "en": "Jeju Special Self-Governing Province, Jeju City",
+        "ja": "済州特別自治道済州市",
+        "zh-CN": "济州特别自治道，济州市",
+        "zh-TW": "濟州特別自治道，濟州市",
+        "zh-HK": "濟州特別自治道，濟州市"
+      }
+    },
+    {
+      "code": "50130",
+      "sourceName": "서귀포시",
+      "sourceFullName": "제주특별자치도 서귀포시",
+      "translations": {
+        "en": "Seogwipo City, Jeju Special Self-Governing Province",
+        "ja": "済州特別自治道西帰浦市",
+        "zh-CN": "济州特别自治道西归浦市",
+        "zh-TW": "濟州特別自治道西歸浦市",
+        "zh-HK": "濟州特別自治道西歸浦市"
+      }
+    },
+    {
+      "code": "51110",
+      "sourceName": "춘천시",
+      "sourceFullName": "강원특별자치도 춘천시",
+      "translations": {
+        "en": "Chuncheon City, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道春川市",
+        "zh-CN": "江原道春川市",
+        "zh-TW": "江原道春川市",
+        "zh-HK": "江原道春川市"
+      }
+    },
+    {
+      "code": "51130",
+      "sourceName": "원주시",
+      "sourceFullName": "강원특별자치도 원주시",
+      "translations": {
+        "en": "Wonju City, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道原州市",
+        "zh-CN": "江原道原州市",
+        "zh-TW": "江原道原州市",
+        "zh-HK": "江原道原州市"
+      }
+    },
+    {
+      "code": "51150",
+      "sourceName": "강릉시",
+      "sourceFullName": "강원특별자치도 강릉시",
+      "translations": {
+        "en": "Gangneung City, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道江陵市",
+        "zh-CN": "江原道江陵市",
+        "zh-TW": "江原道江陵市",
+        "zh-HK": "江原道江陵市"
+      }
+    },
+    {
+      "code": "51170",
+      "sourceName": "동해시",
+      "sourceFullName": "강원특별자치도 동해시",
+      "translations": {
+        "en": "Donghae City, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道東海市",
+        "zh-CN": "江原道东海市",
+        "zh-TW": "江原道東海市",
+        "zh-HK": "江原道東海市"
+      }
+    },
+    {
+      "code": "51190",
+      "sourceName": "태백시",
+      "sourceFullName": "강원특별자치도 태백시",
+      "translations": {
+        "en": "Taebaek City, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道太白市",
+        "zh-CN": "江原道太白市",
+        "zh-TW": "江原道太白市",
+        "zh-HK": "江原道太白市"
+      }
+    },
+    {
+      "code": "51210",
+      "sourceName": "속초시",
+      "sourceFullName": "강원특별자치도 속초시",
+      "translations": {
+        "en": "Sokcho City, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道束草市",
+        "zh-CN": "江原道束草市",
+        "zh-TW": "江原道束草市",
+        "zh-HK": "江原道束草市"
+      }
+    },
+    {
+      "code": "51230",
+      "sourceName": "삼척시",
+      "sourceFullName": "강원특별자치도 삼척시",
+      "translations": {
+        "en": "Samcheok City, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道三陵市",
+        "zh-CN": "江原道三陟市",
+        "zh-TW": "江原道三陟市",
+        "zh-HK": "江原道三陟市"
+      }
+    },
+    {
+      "code": "51720",
+      "sourceName": "홍천군",
+      "sourceFullName": "강원특별자치도 홍천군",
+      "translations": {
+        "en": "Hongcheon-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道洪川郡",
+        "zh-CN": "江原道洪川郡",
+        "zh-TW": "江原道洪川郡",
+        "zh-HK": "江原道洪川郡"
+      }
+    },
+    {
+      "code": "51730",
+      "sourceName": "횡성군",
+      "sourceFullName": "강원특별자치도 횡성군",
+      "translations": {
+        "en": "Hoengseong-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道横城郡",
+        "zh-CN": "江原道横城郡",
+        "zh-TW": "江原道橫城郡",
+        "zh-HK": "江原道橫城郡"
+      }
+    },
+    {
+      "code": "51750",
+      "sourceName": "영월군",
+      "sourceFullName": "강원특별자치도 영월군",
+      "translations": {
+        "en": "Yeongwol-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道永月郡",
+        "zh-CN": "江原道灵越郡",
+        "zh-TW": "江原道靈越郡",
+        "zh-HK": "江原道靈越郡"
+      }
+    },
+    {
+      "code": "51760",
+      "sourceName": "평창군",
+      "sourceFullName": "강원특별자치도 평창군",
+      "translations": {
+        "en": "Pyeongchang-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道平昌郡",
+        "zh-CN": "江原道平昌郡",
+        "zh-TW": "江原道平昌郡",
+        "zh-HK": "江原道平昌郡"
+      }
+    },
+    {
+      "code": "51770",
+      "sourceName": "정선군",
+      "sourceFullName": "강원특별자치도 정선군",
+      "translations": {
+        "en": "Jeongseon-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道チョンソン郡",
+        "zh-CN": "江原道旌善郡",
+        "zh-TW": "江原道旌善郡",
+        "zh-HK": "江原道旌善郡"
+      }
+    },
+    {
+      "code": "51780",
+      "sourceName": "철원군",
+      "sourceFullName": "강원특별자치도 철원군",
+      "translations": {
+        "en": "Cheorwon-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道鉄原郡",
+        "zh-CN": "江原道铁原郡",
+        "zh-TW": "江原道鐵原郡",
+        "zh-HK": "江原道鐵原郡"
+      }
+    },
+    {
+      "code": "51790",
+      "sourceName": "화천군",
+      "sourceFullName": "강원특별자치도 화천군",
+      "translations": {
+        "en": "Hwacheon-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道華川郡",
+        "zh-CN": "江原道华川郡",
+        "zh-TW": "江原道華川郡",
+        "zh-HK": "江原道華川郡"
+      }
+    },
+    {
+      "code": "51800",
+      "sourceName": "양구군",
+      "sourceFullName": "강원특별자치도 양구군",
+      "translations": {
+        "en": "Yanggu-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道両区郡",
+        "zh-CN": "江原道阳口郡",
+        "zh-TW": "江原道陽口郡",
+        "zh-HK": "江原道陽口郡"
+      }
+    },
+    {
+      "code": "51810",
+      "sourceName": "인제군",
+      "sourceFullName": "강원특별자치도 인제군",
+      "translations": {
+        "en": "Inje-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道仁済郡",
+        "zh-CN": "江原道仁济郡",
+        "zh-TW": "江原道仁濟郡",
+        "zh-HK": "江原道仁濟郡"
+      }
+    },
+    {
+      "code": "51820",
+      "sourceName": "고성군",
+      "sourceFullName": "강원특별자치도 고성군",
+      "translations": {
+        "en": "Goseong-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道高城郡",
+        "zh-CN": "江原道高城郡",
+        "zh-TW": "江原道高城郡",
+        "zh-HK": "江原道高城郡"
+      }
+    },
+    {
+      "code": "51830",
+      "sourceName": "양양군",
+      "sourceFullName": "강원특별자치도 양양군",
+      "translations": {
+        "en": "Yangyang-gun, Gangwon Special Self-Governing Province",
+        "ja": "江原特別自治道陽陽郡",
+        "zh-CN": "江原特别自治道襄阳郡",
+        "zh-TW": "江原特別自治道襄陽郡",
+        "zh-HK": "江原特別自治道襄陽郡"
+      }
+    },
+    {
+      "code": "52111",
+      "sourceName": "전주시 완산구",
+      "sourceFullName": "전북특별자치도 전주시 완산구",
+      "translations": {
+        "en": "Wansan-gu, Jeonju-si, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道全州市万山区",
+        "zh-CN": "全北特别自治道全州市完山区",
+        "zh-TW": "全北特別自治道全州市完山區",
+        "zh-HK": "全北特別自治道全州市完山區"
+      }
+    },
+    {
+      "code": "52113",
+      "sourceName": "전주시 덕진구",
+      "sourceFullName": "전북특별자치도 전주시 덕진구",
+      "translations": {
+        "en": "Deokjin-gu, Jeonju-si, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道全州市徳津区",
+        "zh-CN": "全罗北特别自治道全州市德津区",
+        "zh-TW": "全羅北特別自治道全州市德津區",
+        "zh-HK": "全羅北特別自治道全州市德津區"
+      }
+    },
+    {
+      "code": "52130",
+      "sourceName": "군산시",
+      "sourceFullName": "전북특별자치도 군산시",
+      "translations": {
+        "en": "Gunsan City, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道群山市",
+        "zh-CN": "全北特别自治道群山市",
+        "zh-TW": "全北特別自治道群山市",
+        "zh-HK": "全北特別自治道群山市"
+      }
+    },
+    {
+      "code": "52140",
+      "sourceName": "익산시",
+      "sourceFullName": "전북특별자치도 익산시",
+      "translations": {
+        "en": "Iksan City, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道益山市",
+        "zh-CN": "全北特别自治道益山市",
+        "zh-TW": "全北特別自治道益山市",
+        "zh-HK": "全北特別自治道益山市"
+      }
+    },
+    {
+      "code": "52180",
+      "sourceName": "정읍시",
+      "sourceFullName": "전북특별자치도 정읍시",
+      "translations": {
+        "en": "Jeongeup City, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道鄭邑市",
+        "zh-CN": "全罗北特别自治道井邑市",
+        "zh-TW": "全羅北特別自治道井邑市",
+        "zh-HK": "全羅北特別自治道井邑市"
+      }
+    },
+    {
+      "code": "52190",
+      "sourceName": "남원시",
+      "sourceFullName": "전북특별자치도 남원시",
+      "translations": {
+        "en": "Namwon City, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道南原市",
+        "zh-CN": "全罗北特别自治道南原市",
+        "zh-TW": "全羅北特別自治道南原市",
+        "zh-HK": "全羅北特別自治道南原市"
+      }
+    },
+    {
+      "code": "52210",
+      "sourceName": "김제시",
+      "sourceFullName": "전북특별자치도 김제시",
+      "translations": {
+        "en": "Gimje City, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道キム・ジェシ",
+        "zh-CN": "全罗北特别自治道金堤市",
+        "zh-TW": "全羅北特別自治道金堤市",
+        "zh-HK": "全羅北特別自治道金堤市"
+      }
+    },
+    {
+      "code": "52710",
+      "sourceName": "완주군",
+      "sourceFullName": "전북특별자치도 완주군",
+      "translations": {
+        "en": "Wanju-gun, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道完州郡",
+        "zh-CN": "全罗北特别自治道完州郡",
+        "zh-TW": "全羅北特別自治道完州郡",
+        "zh-HK": "全羅北特別自治道完州郡"
+      }
+    },
+    {
+      "code": "52720",
+      "sourceName": "진안군",
+      "sourceFullName": "전북특별자치도 진안군",
+      "translations": {
+        "en": "Jinan-gun, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道鎮安郡",
+        "zh-CN": "全罗北特别自治道济南郡",
+        "zh-TW": "全羅北特別自治道濟南郡",
+        "zh-HK": "全羅北特別自治道濟南郡"
+      }
+    },
+    {
+      "code": "52730",
+      "sourceName": "무주군",
+      "sourceFullName": "전북특별자치도 무주군",
+      "translations": {
+        "en": "Muju-gun, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道武州郡",
+        "zh-CN": "全罗北特别自治道茂朱郡",
+        "zh-TW": "全羅北特別自治道茂朱郡",
+        "zh-HK": "全羅北特別自治道茂朱郡"
+      }
+    },
+    {
+      "code": "52740",
+      "sourceName": "장수군",
+      "sourceFullName": "전북특별자치도 장수군",
+      "translations": {
+        "en": "Jangsu-gun, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道長寿郡",
+        "zh-CN": "全北特别自治道长寿郡",
+        "zh-TW": "全北特別自治道長壽郡",
+        "zh-HK": "全北特別自治道長壽郡"
+      }
+    },
+    {
+      "code": "52750",
+      "sourceName": "임실군",
+      "sourceFullName": "전북특별자치도 임실군",
+      "translations": {
+        "en": "Imsil-gun, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道イムシル郡",
+        "zh-CN": "全罗北特别自治道临实郡",
+        "zh-TW": "全羅北特別自治道臨實郡",
+        "zh-HK": "全羅北特別自治道臨實郡"
+      }
+    },
+    {
+      "code": "52770",
+      "sourceName": "순창군",
+      "sourceFullName": "전북특별자치도 순창군",
+      "translations": {
+        "en": "Sunchang-gun, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道順昌郡",
+        "zh-CN": "全罗北特别自治道淳昌郡",
+        "zh-TW": "全羅北特別自治道淳昌郡",
+        "zh-HK": "全羅北特別自治道淳昌郡"
+      }
+    },
+    {
+      "code": "52790",
+      "sourceName": "고창군",
+      "sourceFullName": "전북특별자치도 고창군",
+      "translations": {
+        "en": "Gochang-gun, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道高昌郡",
+        "zh-CN": "全罗北特别自治道高敞郡",
+        "zh-TW": "全羅北特別自治道高敞郡",
+        "zh-HK": "全羅北特別自治道高敞郡"
+      }
+    },
+    {
+      "code": "52800",
+      "sourceName": "부안군",
+      "sourceFullName": "전북특별자치도 부안군",
+      "translations": {
+        "en": "Buan-gun, Jeonbuk Special Self-Governing Province",
+        "ja": "全北特別自治道府安郡",
+        "zh-CN": "全罗北特别自治道扶安郡",
+        "zh-TW": "全羅北特別自治道扶安郡",
+        "zh-HK": "全羅北特別自治道扶安郡"
+      }
+    }
+  ]
+}
