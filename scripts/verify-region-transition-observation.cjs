@@ -33,6 +33,10 @@ for (const guard of [
 
 assert.ok(script.includes("docker container inspect --format '{{.State.Running}}'"));
 assert.ok(!script.includes('/home/luha/.local/bin/maintenance-preflight api'));
+assert.ok(script.includes("docker container inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-api"));
+assert.ok(script.includes('SPRING_DB_USERNAME='));
+assert.ok(script.includes('SPRING_DB_PASSWORD='));
+assert.ok(!script.includes('MYSQL_PASSWORD='));
 assert.ok(script.includes('mysql --protocol=socket --batch --raw --skip-column-names'));
 assert.ok(script.includes("--init-command='SET SESSION TRANSACTION READ ONLY'"));
 assert.ok(script.includes("trigger_type='SCHEDULED'"));
