@@ -13,13 +13,21 @@ public class ToiletSitemapController {
     private final ToiletSitemapService service;
 
     @GetMapping("/shards")
-    public ResponseEntity<List<Long>> shards() { return response(service.shards()); }
+    public ResponseEntity<List<Long>> shards(@RequestParam(required = false) String locale) {
+        return response(locale == null ? service.shards() : service.localizedShards(locale));
+    }
 
     @GetMapping("/ids")
     public ResponseEntity<List<Long>> ids(@RequestParam long shard) { return response(service.ids(shard)); }
 
-    private ResponseEntity<List<Long>> response(List<Long> ids) {
+    @GetMapping("/entries")
+    public ResponseEntity<List<ToiletSitemapService.SitemapEntry>> entries(
+            @RequestParam long shard, @RequestParam(defaultValue = "ko") String locale) {
+        return response(service.entries(shard, locale));
+    }
+
+    private <T> ResponseEntity<List<T>> response(List<T> entries) {
         return ResponseEntity.ok().header("X-Robots-Tag", "noindex")
-                .header("Cache-Control", "public, max-age=300").body(ids);
+                .header("Cache-Control", "public, max-age=300").body(entries);
     }
 }
