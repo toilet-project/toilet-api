@@ -29,7 +29,8 @@ class CacheContractTransitionTest(unittest.TestCase):
         self.assertEqual(candidate.count(b'WEB_CACHE_CONTRACT_VERSION='), 1)
 
     def test_rejects_wrong_target_duplicate_or_unready_destination(self):
-        with self.assertRaises(ValueError): contract_candidate(base(), '3')
+        with self.assertRaises(ValueError): contract_candidate(base(), '4')
+        self.assertEqual(parse_dotenv(contract_candidate(base('2'), '3'))['WEB_CACHE_CONTRACT_VERSION'], '3')
         with self.assertRaises(ValueError): contract_candidate(base('1') + b'WEB_CACHE_CONTRACT_VERSION=2\n', '2')
         with self.assertRaises(ValueError): contract_candidate(base().replace(b'https://geupddong.com', b'https://preview.geupddong.com'), '2')
         with self.assertRaises(ValueError): contract_candidate(base().replace(b'WEB_CACHE_REVALIDATION_SECRET=synthetic\n', b''), '2')

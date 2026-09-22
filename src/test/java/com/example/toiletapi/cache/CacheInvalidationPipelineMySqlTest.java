@@ -9,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -31,6 +33,7 @@ class CacheInvalidationPipelineMySqlTest {
     final AtomicInteger calls = new AtomicInteger();
     final AtomicInteger responseStatus = new AtomicInteger(200);
     final AtomicInteger validSignatures = new AtomicInteger();
+    final AtomicReference<JsonNode> lastPayload = new AtomicReference<>();
     HttpServer receiver;
     AnnotationConfigApplicationContext context;
     CacheInvalidationRepository repository;
@@ -73,6 +76,7 @@ class CacheInvalidationPipelineMySqlTest {
                 if (!expected.equals(exchange.getRequestHeaders().getFirst("x-cache-signature"))) status=401;
                 else validSignatures.incrementAndGet();
                 var payload = new ObjectMapper().readTree(body);
+                lastPayload.set(payload);
                 var events = payload.get("events");
                 var response = (events == null
                         ? "{\"ok\":true,\"acceptedIds\":"+payload.get("toiletIds")+"}"
@@ -84,12 +88,13 @@ class CacheInvalidationPipelineMySqlTest {
         });
         receiver.start();
     }
-    void startSender() {
+    void startSender() { startSender(2); }
+    void startSender(int contractVersion) {
         context = new AnnotationConfigApplicationContext();
         context.getEnvironment().getPropertySources().addFirst(new MapPropertySource("test-only",Map.of(
                 "web-cache.enabled","true", "web-cache.origin","http://127.0.0.1:"+receiver.getAddress().getPort(),
                 "web-cache.secret",CacheInvalidationClientTest.SECRET, "web-cache.poll-ms","50",
-                "web-cache.contract-version","2")));
+                "web-cache.contract-version",String.valueOf(contractVersion))));
         context.registerBean(JdbcTemplate.class,()->jdbc);
         context.registerBean(SimpleMeterRegistry.class,SimpleMeterRegistry::new);
         // Closing the old process must finish its in-flight delivery before the test
@@ -120,6 +125,17 @@ class CacheInvalidationPipelineMySqlTest {
         });
         await(()->validSignatures.get()>0 && repository.pendingCount()==0);
         assertEquals("fixture only",jdbc.queryForObject("SELECT name FROM toilet WHERE toilet_id=13144",String.class));
+    }
+    @Test void v3SendsScopedCoordinatesAndAcknowledgesThem() throws Exception {
+        startSender(3);
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude,longitude) VALUES(13144,'scoped',36.1,127.1)");
+        await(()->validSignatures.get()>0 && repository.pendingCount()==0);
+        var payload=lastPayload.get();
+        assertEquals(3,payload.path("contractVersion").asInt());
+        var event=payload.path("events").get(0);
+        assertTrue(event.path("regionScopeComplete").asBoolean());
+        assertEquals(127.1,event.path("regionBounds").path("west").asDouble(),0.0000001);
+        assertEquals(36.1,event.path("regionBounds").path("south").asDouble(),0.0000001);
     }
     @Test void rollbackIsNeverSent() throws Exception {
         new TransactionTemplate(new DataSourceTransactionManager(dataSource)).execute(status->{

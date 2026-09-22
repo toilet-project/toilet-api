@@ -45,7 +45,7 @@ class CacheInvalidationMySqlTest {
     @BeforeEach void clear() {jdbc.update("DELETE FROM toilet_display_group_translation");jdbc.update("DELETE FROM toilet_display_group_member");jdbc.update("DELETE FROM toilet_display_group");jdbc.update("DELETE FROM toilet_translation");jdbc.update("DELETE FROM toilet_region_decision");jdbc.update("DELETE FROM toilet_region_assignment");jdbc.update("DELETE FROM toilet_region");jdbc.update("DELETE FROM toilet_opening_hours");jdbc.update("DELETE FROM toilet");jdbc.update("DELETE FROM web_cache_invalidation");}
     @AfterAll static void rollbackRetainsQueueButRemovesOnlyOwnedTriggers() throws Exception {
         long before = repository.pendingCount();
-        assertEquals(29, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
+        assertEquals(32, jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()", Integer.class));
         try (var connection = new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword()).getConnection()) {
             ScriptUtils.executeSqlScript(connection,new ClassPathResource("db/cache-revalidation/rollback_triggers.sql"));
         }
@@ -149,13 +149,48 @@ class CacheInvalidationMySqlTest {
         jdbc.update("UPDATE toilet SET road_address='new road' WHERE toilet_id=1");
         assertTrue(repository.due().getFirst().catalogChanged());
     }
+    @Test void scopedEventKeepsEveryUndeliveredPositionAndClearsAfterAck() {
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude,longitude) VALUES (1,'moving',36.1,127.1)");
+        repository.acknowledgeScoped(repository.dueScoped().getFirst());
+        jdbc.update("UPDATE toilet SET latitude=36.2,longitude=127.2 WHERE toilet_id=1");
+        jdbc.update("UPDATE toilet SET latitude=36.3,longitude=127.3 WHERE toilet_id=1");
+        var pending=repository.dueScoped().getFirst();
+        assertTrue(pending.regionScopeComplete());
+        assertEquals(127.1,pending.regionBounds().west(),0.0000001);
+        assertEquals(36.1,pending.regionBounds().south(),0.0000001);
+        assertEquals(127.3,pending.regionBounds().east(),0.0000001);
+        assertEquals(36.3,pending.regionBounds().north(),0.0000001);
+        repository.acknowledgeScoped(pending);
+        jdbc.update("UPDATE toilet SET name='renamed' WHERE toilet_id=1");
+        var renamed=repository.dueScoped().getFirst();
+        assertTrue(renamed.regionScopeComplete());
+        assertEquals(127.3,renamed.regionBounds().west(),0.0000001);
+        assertEquals(127.3,renamed.regionBounds().east(),0.0000001);
+        repository.acknowledgeScoped(renamed);
+        jdbc.update("DELETE FROM toilet WHERE toilet_id=1");
+        var deleted=repository.dueScoped().getFirst();
+        assertTrue(deleted.regionScopeComplete());
+        assertEquals(127.3,deleted.regionBounds().west(),0.0000001);
+        assertEquals(36.3,deleted.regionBounds().north(),0.0000001);
+    }
+    @Test void preInstallPendingEventStaysGlobalUntilItIsDelivered() {
+        jdbc.update("INSERT INTO toilet (toilet_id,name,latitude,longitude) VALUES (1,'legacy',36.1,127.1)");
+        jdbc.update("UPDATE web_cache_invalidation SET region_scope_complete=FALSE WHERE toilet_id=1");
+        jdbc.update("UPDATE toilet SET name='changed' WHERE toilet_id=1");
+        var legacy=repository.dueScoped().getFirst();
+        assertFalse(legacy.regionScopeComplete());
+        repository.acknowledgeScoped(legacy);
+        jdbc.update("UPDATE toilet SET name='changed again' WHERE toilet_id=1");
+        assertTrue(repository.dueScoped().getFirst().regionScopeComplete());
+    }
     @Test void displayGroupMutationsQueueEveryAffectedMember() {
-        jdbc.update("INSERT INTO toilet(toilet_id,name) VALUES(1,'one'),(2,'two')");
+        jdbc.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES(1,'one',36.1,127.1),(2,'two',37.57,126.98)");
         jdbc.update("INSERT INTO toilet_display_group(group_id,display_name) VALUES(10,'group')");
         repository.due().forEach(repository::acknowledge);
         jdbc.update("INSERT INTO toilet_display_group_member(group_id,toilet_id) VALUES(10,1),(10,2)");
         assertEquals(2, repository.pendingCount());
         assertTrue(repository.due().stream().noneMatch(CacheInvalidationRepository.Pending::catalogChanged));
+        assertTrue(repository.dueScoped().stream().allMatch(item -> item.regionScopeComplete() && item.regionBounds()!=null));
         repository.due().forEach(repository::acknowledge);
         jdbc.update("UPDATE toilet_display_group SET display_name='renamed' WHERE group_id=10");
         assertEquals(2, repository.pendingCount());

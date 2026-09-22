@@ -7,8 +7,9 @@ const production={...preview,origin:'https://geupddong.com',secretName:'WEB_CACH
 test('preview retains existing key selection',()=>assert.deepEqual(validate(preview),{enabled:true,target:'preview',contractVersion:1}))
 test('production requires its dedicated key',()=>assert.deepEqual(validate({...production,contractVersion:'2'}),{enabled:true,target:'production',contractVersion:2}))
 test('unconfigured disabled sender remains supported',()=>assert.deepEqual(validate({}),{enabled:false,target:'disabled',contractVersion:1}))
-test('only cache contract versions 1 and 2 are accepted',()=>{
-  for(const contractVersion of ['', '0', '3', 'v2', '2\n']) assert.throws(()=>validate({...production,contractVersion}))
+test('only cache contract versions 1, 2 and 3 are accepted',()=>{
+  assert.equal(validate({...production,contractVersion:'3'}).contractVersion,3)
+  for(const contractVersion of ['', '0', '4', 'v2', '2\n']) assert.throws(()=>validate({...production,contractVersion}))
 })
 test('enabled sender rejects missing origin',()=>assert.throws(()=>validate({...preview,origin:''})))
 test('production never silently falls back to preview secret',()=>{

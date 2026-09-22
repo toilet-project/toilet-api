@@ -13,7 +13,7 @@ WHERE TABLE_SCHEMA = DATABASE()
 -- V3 additionally includes cache_toilet_visibility_update after cache_toilet_update.
 -- V4 adds three non-Korean translation invalidation triggers.
 -- V5 adds three normalized opening-hours invalidation triggers.
--- V6 adds sitemap-relevant source changes and nine display-group/member/translation triggers.
+-- V6 adds sitemap source changes, nine display-group triggers and three region-scope triggers.
 SELECT TRIGGER_NAME, EVENT_OBJECT_TABLE, ACTION_TIMING, EVENT_MANIPULATION, DEFINER
 FROM information_schema.TRIGGERS
 WHERE TRIGGER_SCHEMA = DATABASE()
@@ -24,7 +24,8 @@ WHERE TRIGGER_SCHEMA = DATABASE()
     'cache_toilet_region_insert', 'cache_toilet_region_update', 'cache_toilet_region_delete',
     'cache_region_assignment_insert', 'cache_region_assignment_update', 'cache_region_assignment_delete',
     'cache_region_decision_insert', 'cache_region_decision_update', 'cache_region_decision_delete',
-    'cache_toilet_sitemap_update',
+    'cache_toilet_sitemap_update', 'cache_toilet_scope_delete',
+    'cache_outbox_region_insert', 'cache_outbox_region_update',
     'cache_group_member_insert', 'cache_group_member_delete',
     'cache_group_member_update_old', 'cache_group_member_update_new',
     'cache_display_group_update', 'cache_display_group_delete',
@@ -43,3 +44,8 @@ SELECT action, catalog_changed, delivered_at IS NULL AS pending, COUNT(*) AS row
        MIN(revision) AS minimum_revision, MAX(revision) AS maximum_revision
 FROM web_cache_invalidation
 GROUP BY action, catalog_changed, delivered_at IS NULL;
+
+-- A pre-install pending event remains incomplete and must use global fallback until delivered.
+SELECT region_scope_complete, delivered_at IS NULL AS pending, COUNT(*) AS rows_count
+FROM web_cache_invalidation
+GROUP BY region_scope_complete, delivered_at IS NULL;

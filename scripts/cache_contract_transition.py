@@ -35,12 +35,12 @@ def parse_dotenv(content):
 
 
 def contract_candidate(content, target):
-    require(target in ('1', '2'), 'CACHE_CONTRACT_TARGET_REJECTED')
+    require(target in ('1', '2', '3'), 'CACHE_CONTRACT_TARGET_REJECTED')
     values = parse_dotenv(content)
     require(values.get('WEB_CACHE_REVALIDATION_ENABLED') == 'true')
     require(values.get('WEB_CACHE_ORIGIN') == 'https://geupddong.com')
     require(bool(values.get('WEB_CACHE_REVALIDATION_SECRET')))
-    require(values.get(CONTRACT_KEY, '1') in ('1', '2'))
+    require(values.get(CONTRACT_KEY, '1') in ('1', '2', '3'))
     lines = content.decode('utf-8').splitlines()
     indices = [index for index, line in enumerate(lines) if line.startswith(CONTRACT_KEY + '=')]
     require(len(indices) <= 1, 'CACHE_CONTRACT_ENV_REJECTED')
@@ -273,7 +273,7 @@ def apply(args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--operation', choices=('check', 'apply'), required=True)
-    parser.add_argument('--contract-version', choices=('1', '2'), required=True)
+    parser.add_argument('--contract-version', choices=('1', '2', '3'), required=True)
     parser.add_argument('--expected-api-commit', required=True)
     parser.add_argument('--deployment-freeze-confirmed', action='store_true')
     parser.add_argument('--schema-verified', action='store_true')

@@ -54,7 +54,19 @@ public class CacheInvalidationClient {
             if(event==null) throw new IllegalArgumentException("Invalid cache events");
             expected.add(event.toiletId()+":"+event.revision());
         }
-        JsonNode ack=exchange(json.writeValueAsString(Map.of("contractVersion",2,"events",events)));
+        sendVersionedEvents(2,events,expected);
+    }
+    public void sendEventsV3(List<CacheInvalidationEventV3> events) throws Exception {
+        if(events.isEmpty() || events.size()>100) throw new IllegalArgumentException("Invalid cache events");
+        var expected=new HashSet<String>();
+        for(var event:events) {
+            if(event==null) throw new IllegalArgumentException("Invalid cache events");
+            expected.add(event.toiletId()+":"+event.revision());
+        }
+        sendVersionedEvents(3,events,expected);
+    }
+    private void sendVersionedEvents(int contractVersion, List<?> events, Set<String> expected) throws Exception {
+        JsonNode ack=exchange(json.writeValueAsString(Map.of("contractVersion",contractVersion,"events",events)));
         if(ack==null || !ack.path("ok").asBoolean(false) || !ack.path("acceptedEvents").isArray()) throw new DeliveryException("INVALID_ACK");
         var accepted=new HashSet<String>();
         for(JsonNode event:ack.path("acceptedEvents")) {
