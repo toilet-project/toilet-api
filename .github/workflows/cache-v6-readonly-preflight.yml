@@ -1,0 +1,110 @@
+# One-shot read-only production preflight for the 30-day district-cache rollout.
+name: Cache V6 production read-only preflight
+
+on:
+  push:
+    branches: [ops/cache-v6-rollout-20260923]
+    paths: [.github/workflows/cache-v6-readonly-preflight.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toilet-api-production
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: github.repository == 'toilet-project/toilet-api' && github.ref == 'refs/heads/ops/cache-v6-rollout-20260923'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Pin reviewed source and workflow-only change
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = '9282b558fd58137191ba4a480d5cecd4f6aa280d'
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = '.github/workflows/cache-v6-readonly-preflight.yml'
+      - name: Prepare pinned Tunnel client
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 10 --max-time 60 \
+            https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64.deb \
+            -o "$RUNNER_TEMP/cloudflared.deb"
+          printf '%s  %s\n' 660b348d473bba81997445b534e7eaefaf4c4e16331866922326c338a7013dd9 "$RUNNER_TEMP/cloudflared.deb" | sha256sum -c -
+          dpkg-deb --extract "$RUNNER_TEMP/cloudflared.deb" "$RUNNER_TEMP/cloudflared-package"
+      - name: Inspect cache outbox and schema through pinned Tunnel
+        shell: bash
+        env:
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
+          DEPLOY_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
+          TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
+          TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
+          TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${TUNNEL_SERVICE_TOKEN_ID:?missing Access ID}"
+          : "${TUNNEL_SERVICE_TOKEN_SECRET:?missing Access secret}"
+          : "${DEPLOY_SSH_KEY:?missing SSH key}"
+          : "${TUNNEL_KNOWN_HOSTS:?missing pinned host keys}"
+          test "$TUNNEL_SSH_HOST" = ssh-deploy.geupddong.com
+          [[ "$TUNNEL_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/cache-v6-key"
+          printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/cache-v6-known-hosts"
+          ssh-keygen -y -P '' -f "$RUNNER_TEMP/cache-v6-key" >/dev/null
+          ssh-keygen -F geupddong-mini-pc -f "$RUNNER_TEMP/cache-v6-known-hosts" >/dev/null
+          export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+          timeout 240s ssh -F /dev/null -T -i "$RUNNER_TEMP/cache-v6-key" \
+            -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/cache-v6-known-hosts" \
+            -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 \
+            -o ForwardAgent=no -o ClearAllForwardings=yes -o LogLevel=ERROR \
+            -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 \
+            -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
+            "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          test "$(docker inspect --format '{{.State.Status}}' toilet-api)" = running
+          test "$(docker inspect --format '{{.State.Status}}' toilet-batch)" = running
+          test "$(docker inspect --format '{{.State.Status}}' toilet-mysql)" = running
+          api_environment=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' toilet-api)
+          mysql_user=$(printf '%s\n' "$api_environment" | sed -n 's/^SPRING_DB_USERNAME=//p')
+          mysql_password=$(printf '%s\n' "$api_environment" | sed -n 's/^SPRING_DB_PASSWORD=//p')
+          test -n "$mysql_user" && test -n "$mysql_password"
+          test "$(printf '%s\n' "$api_environment" | sed -n 's/^WEB_CACHE_CONTRACT_VERSION=//p')" = 2
+          test "$(printf '%s\n' "$api_environment" | sed -n 's/^WEB_CACHE_REVALIDATION_ENABLED=//p')" = true
+          test "$(printf '%s\n' "$api_environment" | sed -n 's/^WEB_CACHE_ORIGIN=//p')" = https://geupddong.com
+          mysql_query() {
+            docker exec -e MYSQL_PWD="$mysql_password" toilet-mysql mysql \
+              --protocol=tcp -h 127.0.0.1 --batch --raw --skip-column-names \
+              -u "$mysql_user" toilet_db -e "$1"
+          }
+          printf 'CACHE_V6_PREFLIGHT_V1\n'
+          printf 'api_image=%s\n' "$(docker inspect --format '{{.Config.Image}}' toilet-api)"
+          printf 'batch_image=%s\n' "$(docker inspect --format '{{.Config.Image}}' toilet-batch)"
+          printf 'cache_contract=2\ncache_sender_enabled=true\n'
+          mysql_query "SELECT CONCAT('mysql_version=', VERSION());"
+          mysql_query "SELECT CONCAT('migration_v30=', COUNT(*)) FROM flyway_schema_history WHERE version='30' AND success=1;"
+          mysql_query "SELECT CONCAT('required_tables=', COUNT(*)) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('toilet','toilet_display_group','toilet_display_group_member','toilet_display_group_translation','web_cache_invalidation');"
+          mysql_query "SELECT CONCAT('existing_cache_triggers=', COUNT(*)) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'cache_%';"
+          mysql_query "SELECT CONCAT('v6_columns=', COUNT(*)) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='web_cache_invalidation' AND COLUMN_NAME IN ('region_scope_complete','region_west','region_south','region_east','region_north');"
+          mysql_query "SELECT CONCAT('v6_triggers=', COUNT(*)) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('cache_outbox_region_insert','cache_outbox_region_update','cache_toilet_sitemap_update','cache_toilet_scope_delete','cache_group_member_insert','cache_group_member_delete','cache_group_member_update_old','cache_group_member_update_new','cache_display_group_update','cache_display_group_delete','cache_group_translation_insert','cache_group_translation_update','cache_group_translation_delete');"
+          mysql_query "SELECT CONCAT('pending=', COUNT(*), '|oldest_minutes=', COALESCE(TIMESTAMPDIFF(MINUTE,MIN(first_queued_at),UTC_TIMESTAMP()),0), '|failed=', COALESCE(SUM(last_error_code IS NOT NULL),0)) FROM web_cache_invalidation WHERE delivered_at IS NULL;"
+          mysql_query "SELECT CONCAT('total_outbox=', COUNT(*)) FROM web_cache_invalidation;"
+          printf 'CACHE_V6_PREFLIGHT_READ_ONLY_PASS\n'
+          REMOTE
+      - name: Remove ephemeral credentials
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_TEMP:?}"
+          rm -f -- "$RUNNER_TEMP/cache-v6-key" "$RUNNER_TEMP/cache-v6-known-hosts" "$RUNNER_TEMP/cloudflared.deb"
