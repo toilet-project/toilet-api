@@ -57,6 +57,7 @@ class ToiletRegionMySqlTest {
         jdbc.update("DELETE FROM toilet_region_override");
         jdbc.update("DELETE FROM toilet_region");
         jdbc.update("DELETE FROM toilet");
+        jdbc.update("DELETE FROM toilet_region_assessment_history");
         jdbc.update("INSERT INTO toilet (toilet_id,latitude,longitude,road_address,jibun_address) VALUES (1,36.8,127.1,'Road A',NULL)");
         jdbc.update("""
                 INSERT INTO toilet_region (toilet_id,sido_name,sido_code,sigungu_name,sigungu_code,
@@ -143,5 +144,29 @@ class ToiletRegionMySqlTest {
         jdbc.update("INSERT INTO toilet_region_decision VALUES (1,'41220','관할 확인',1,9,NOW())");
         jdbc.update("UPDATE toilet SET road_address='Road B',region_revision=region_revision+1");
         assertTrue(repository.findCurrentRegion(1L).isEmpty());
+    }
+
+    @Test void stageOneRollbackRestoresLegacyFromCurrentNormalizedRows() throws Exception {
+        jdbc.update("""
+                INSERT INTO toilet_region_assessment_history
+                    (toilet_id,source_hash,algorithm_version,status,reason,result_json,checked_epoch_millis,checked_at)
+                VALUES (1,REPEAT('b',64),'kakao-b-v2','VERIFIED','MATCH','{}',1,NOW())
+                """);
+        Long assessmentId = jdbc.queryForObject("SELECT assessment_id FROM toilet_region_assessment_history WHERE toilet_id=1", Long.class);
+        jdbc.update("UPDATE toilet_region_assignment SET source_hash=REPEAT('b',64),assessment_id=? WHERE toilet_id=1", assessmentId);
+        jdbc.update("INSERT INTO toilet_region_decision VALUES (1,'41220','관할 확인',1,9,NOW())");
+        jdbc.update("DELETE FROM toilet_region WHERE toilet_id=1");
+
+        var script = new ClassPathResource("db/region-single-write/restore_legacy.sql");
+        try (var connection = jdbc.getDataSource().getConnection()) {
+            ScriptUtils.executeSqlScript(connection, script);
+            ScriptUtils.executeSqlScript(connection, script);
+        }
+
+        assertEquals("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                jdbc.queryForObject("SELECT source_hash FROM toilet_region WHERE toilet_id=1", String.class));
+        assertEquals("41220", jdbc.queryForObject("SELECT sigungu_code FROM toilet_region_override WHERE toilet_id=1", String.class));
+        assertEquals("관할 확인", jdbc.queryForObject("SELECT note FROM toilet_region_override WHERE toilet_id=1", String.class));
+        assertEquals("평택시", repository.findCurrentRegion(1L).orElseThrow().getSigunguName());
     }
 }
