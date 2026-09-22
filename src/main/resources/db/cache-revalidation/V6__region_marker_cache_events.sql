@@ -17,6 +17,7 @@ INSERT INTO web_cache_invalidation
 (toilet_id,event_id,revision,action,catalog_changed,attempts,next_attempt_at,first_queued_at,last_queued_at,delivered_at,last_error_code)
 VALUES (NEW.toilet_id,UUID(),1,'UPSERT',FALSE,0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),NULL,NULL)
 ON DUPLICATE KEY UPDATE
+catalog_changed=IF(delivered_at IS NULL,catalog_changed,VALUES(catalog_changed)),
 first_queued_at=IF(delivered_at IS NULL,first_queued_at,VALUES(first_queued_at)),
 revision=revision+1,event_id=VALUES(event_id),action='UPSERT',attempts=0,
 next_attempt_at=VALUES(next_attempt_at),last_queued_at=VALUES(last_queued_at),delivered_at=NULL,last_error_code=NULL;
@@ -27,6 +28,7 @@ INSERT INTO web_cache_invalidation
 (toilet_id,event_id,revision,action,catalog_changed,attempts,next_attempt_at,first_queued_at,last_queued_at,delivered_at,last_error_code)
 VALUES (OLD.toilet_id,UUID(),1,'UPSERT',FALSE,0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),NULL,NULL)
 ON DUPLICATE KEY UPDATE
+catalog_changed=IF(delivered_at IS NULL,catalog_changed,VALUES(catalog_changed)),
 first_queued_at=IF(delivered_at IS NULL,first_queued_at,VALUES(first_queued_at)),
 revision=revision+1,event_id=VALUES(event_id),action='UPSERT',attempts=0,
 next_attempt_at=VALUES(next_attempt_at),last_queued_at=VALUES(last_queued_at),delivered_at=NULL,last_error_code=NULL;
@@ -37,6 +39,7 @@ INSERT INTO web_cache_invalidation
 (toilet_id,event_id,revision,action,catalog_changed,attempts,next_attempt_at,first_queued_at,last_queued_at,delivered_at,last_error_code)
 VALUES (OLD.toilet_id,UUID(),1,'UPSERT',FALSE,0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),NULL,NULL)
 ON DUPLICATE KEY UPDATE
+catalog_changed=IF(delivered_at IS NULL,catalog_changed,VALUES(catalog_changed)),
 first_queued_at=IF(delivered_at IS NULL,first_queued_at,VALUES(first_queued_at)),
 revision=revision+1,event_id=VALUES(event_id),action='UPSERT',attempts=0,
 next_attempt_at=VALUES(next_attempt_at),last_queued_at=VALUES(last_queued_at),delivered_at=NULL,last_error_code=NULL;
@@ -47,6 +50,7 @@ INSERT INTO web_cache_invalidation
 (toilet_id,event_id,revision,action,catalog_changed,attempts,next_attempt_at,first_queued_at,last_queued_at,delivered_at,last_error_code)
 VALUES (NEW.toilet_id,UUID(),1,'UPSERT',FALSE,0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),NULL,NULL)
 ON DUPLICATE KEY UPDATE
+catalog_changed=IF(delivered_at IS NULL,catalog_changed,VALUES(catalog_changed)),
 first_queued_at=IF(delivered_at IS NULL,first_queued_at,VALUES(first_queued_at)),
 revision=revision+1,event_id=VALUES(event_id),action='UPSERT',attempts=0,
 next_attempt_at=VALUES(next_attempt_at),last_queued_at=VALUES(last_queued_at),delivered_at=NULL,last_error_code=NULL;
@@ -58,6 +62,7 @@ INSERT INTO web_cache_invalidation
 SELECT m.toilet_id,UUID(),1,'UPSERT',FALSE,0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),NULL,NULL
 FROM toilet_display_group_member m WHERE m.group_id=NEW.group_id
 ON DUPLICATE KEY UPDATE
+catalog_changed=IF(delivered_at IS NULL,catalog_changed,VALUES(catalog_changed)),
 first_queued_at=IF(delivered_at IS NULL,first_queued_at,VALUES(first_queued_at)),
 revision=revision+1,event_id=VALUES(event_id),action='UPSERT',attempts=0,
 next_attempt_at=VALUES(next_attempt_at),last_queued_at=VALUES(last_queued_at),delivered_at=NULL,last_error_code=NULL;
@@ -70,6 +75,7 @@ INSERT INTO web_cache_invalidation
 SELECT m.toilet_id,UUID(),1,'UPSERT',FALSE,0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),NULL,NULL
 FROM toilet_display_group_member m WHERE m.group_id=OLD.group_id
 ON DUPLICATE KEY UPDATE
+catalog_changed=IF(delivered_at IS NULL,catalog_changed,VALUES(catalog_changed)),
 first_queued_at=IF(delivered_at IS NULL,first_queued_at,VALUES(first_queued_at)),
 revision=revision+1,event_id=VALUES(event_id),action='UPSERT',attempts=0,
 next_attempt_at=VALUES(next_attempt_at),last_queued_at=VALUES(last_queued_at),delivered_at=NULL,last_error_code=NULL;
@@ -81,6 +87,7 @@ INSERT INTO web_cache_invalidation
 SELECT m.toilet_id,UUID(),1,'UPSERT',FALSE,0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),NULL,NULL
 FROM toilet_display_group_member m WHERE m.group_id=NEW.group_id
 ON DUPLICATE KEY UPDATE
+catalog_changed=IF(delivered_at IS NULL,catalog_changed,VALUES(catalog_changed)),
 first_queued_at=IF(delivered_at IS NULL,first_queued_at,VALUES(first_queued_at)),
 revision=revision+1,event_id=VALUES(event_id),action='UPSERT',attempts=0,
 next_attempt_at=VALUES(next_attempt_at),last_queued_at=VALUES(last_queued_at),delivered_at=NULL,last_error_code=NULL;
@@ -92,6 +99,7 @@ INSERT INTO web_cache_invalidation
 SELECT m.toilet_id,UUID(),1,'UPSERT',FALSE,0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),NULL,NULL
 FROM toilet_display_group_member m WHERE m.group_id=NEW.group_id
 ON DUPLICATE KEY UPDATE
+catalog_changed=IF(delivered_at IS NULL,catalog_changed,VALUES(catalog_changed)),
 first_queued_at=IF(delivered_at IS NULL,first_queued_at,VALUES(first_queued_at)),
 revision=revision+1,event_id=VALUES(event_id),action='UPSERT',attempts=0,
 next_attempt_at=VALUES(next_attempt_at),last_queued_at=VALUES(last_queued_at),delivered_at=NULL,last_error_code=NULL;
@@ -103,6 +111,7 @@ INSERT INTO web_cache_invalidation
 SELECT m.toilet_id,UUID(),1,'UPSERT',FALSE,0,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),NULL,NULL
 FROM toilet_display_group_member m WHERE m.group_id=OLD.group_id
 ON DUPLICATE KEY UPDATE
+catalog_changed=IF(delivered_at IS NULL,catalog_changed,VALUES(catalog_changed)),
 first_queued_at=IF(delivered_at IS NULL,first_queued_at,VALUES(first_queued_at)),
 revision=revision+1,event_id=VALUES(event_id),action='UPSERT',attempts=0,
 next_attempt_at=VALUES(next_attempt_at),last_queued_at=VALUES(last_queued_at),delivered_at=NULL,last_error_code=NULL;

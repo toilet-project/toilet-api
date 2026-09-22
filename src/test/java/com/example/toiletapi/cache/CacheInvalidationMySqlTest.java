@@ -159,6 +159,7 @@ class CacheInvalidationMySqlTest {
         repository.due().forEach(repository::acknowledge);
         jdbc.update("UPDATE toilet_display_group SET display_name='renamed' WHERE group_id=10");
         assertEquals(2, repository.pendingCount());
+        assertTrue(repository.due().stream().noneMatch(CacheInvalidationRepository.Pending::catalogChanged));
         repository.due().forEach(repository::acknowledge);
         jdbc.update("INSERT INTO toilet_display_group_translation VALUES(10,'en','Translated group')");
         assertEquals(2, repository.pendingCount());
