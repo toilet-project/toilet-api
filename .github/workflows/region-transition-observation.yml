@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '20 17 * * *'
   workflow_dispatch:
+    inputs:
+      cutover_at_kst:
+        description: Single-write rollout time in KST (YYYY-MM-DD HH:MM:SS); leave blank before rollout
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -66,6 +71,7 @@ jobs:
           TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
           TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
           TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+          CUTOVER_AT_KST: ${{ inputs.cutover_at_kst || vars.REGION_SINGLE_WRITE_CUTOVER_AT_KST }}
         run: |
           set -euo pipefail
           umask 077
@@ -75,6 +81,10 @@ jobs:
           : "${TUNNEL_KNOWN_HOSTS:?missing pinned host keys}"
           test "$TUNNEL_SSH_HOST" = 'ssh-deploy.geupddong.com'
           [[ "$TUNNEL_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          if [[ -n "$CUTOVER_AT_KST" && ! "$CUTOVER_AT_KST" =~ ^20[0-9]{2}-[01][0-9]-[0-3][0-9][[:space:]][0-2][0-9]:[0-5][0-9]:[0-5][0-9]$ ]]; then
+            echo 'Invalid single-write cutover time.' >&2
+            exit 1
+          fi
           printf '%s\n' "$OBSERVATION_SSH_KEY" > "$RUNNER_TEMP/region-observation-key"
           printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/region-observation-known-hosts"
           ssh-keygen -y -P '' -f "$RUNNER_TEMP/region-observation-key" >/dev/null
@@ -86,7 +96,7 @@ jobs:
             -o ForwardAgent=no -o ClearAllForwardings=yes \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
-            "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" 'bash -s' \
+            "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" "bash -s -- '$CUTOVER_AT_KST'" \
             < scripts/collect-region-transition-observation.sh \
             > region-transition-observation.md
           cat region-transition-observation.md >> "$GITHUB_STEP_SUMMARY"
