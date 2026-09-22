@@ -24,6 +24,8 @@ assert.equal(collect.env.OBSERVATION_SSH_KEY, '${{ secrets.MINI_PC_KEY }}');
 assert.equal(collect.env.TUNNEL_KNOWN_HOSTS, '${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}');
 assert.equal(collect.env.TUNNEL_SSH_HOST, '${{ vars.TUNNEL_DEPLOY_SSH_HOST }}');
 assert.equal(collect.env.TUNNEL_SSH_USER, '${{ secrets.MINI_PC_USERNAME }}');
+assert.equal(collect.env.CUTOVER_AT_KST, '${{ inputs.cutover_at_kst || vars.REGION_SINGLE_WRITE_CUTOVER_AT_KST }}');
+assert.ok(collect.run.includes("bash -s -- '$CUTOVER_AT_KST'"));
 
 for (const guard of [
   'StrictHostKeyChecking=yes', 'BatchMode=yes', 'IdentitiesOnly=yes',
@@ -44,6 +46,12 @@ assert.ok(script.includes("started_at >= '2026-09-15 00:00:00'"));
 assert.ok(script.includes('recent_assignment_mismatch'));
 assert.ok(script.includes('recent_decision_mismatch'));
 assert.ok(script.includes('current_view_revision_pollution'));
+for (const metric of [
+  'post_cutover_legacy_region_rows', 'post_cutover_legacy_override_rows',
+  'post_cutover_assignment_rows', 'post_cutover_assessment_rows',
+  'post_cutover_decision_rows', 'post_cutover_scheduled_failed',
+]) assert.ok(script.includes(metric), `Missing post-cutover metric: ${metric}`);
+assert.ok(script.includes('Post-cutover legacy write or failed scheduled batch detected.'));
 assert.ok(!/(^|[\s;])(insert|update|delete|replace|alter|drop|truncate|create|grant|revoke)\s/im.test(script),
   'Observation script must not contain mutating SQL');
 assert.ok(!/docker\s+(compose|rm|stop|restart|kill)|set\s+-x/i.test(script),

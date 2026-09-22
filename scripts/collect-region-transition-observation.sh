@@ -2,6 +2,11 @@
 set -euo pipefail
 
 readonly OBSERVATION_STARTED_AT='2026-09-15 00:00:00'
+cutover_at="${1:-}"
+if [[ -n "$cutover_at" && ! "$cutover_at" =~ ^20[0-9]{2}-[01][0-9]-[0-3][0-9][[:space:]][0-2][0-9]:[0-5][0-9]:[0-5][0-9]$ ]]; then
+  printf 'Invalid single-write cutover time.\n' >&2
+  exit 1
+fi
 
 # This is a SELECT-only observation, valid while account services are active.
 # The paused-only maintenance preflight belongs to mutating deployments.
@@ -100,6 +105,7 @@ UNION ALL SELECT 'duration_max_ms',COALESCE(MAX(TIMESTAMPDIFF(MICROSECOND,starte
  WHERE job_name='PUBLIC_RESTROOM_SYNC' AND trigger_type='SCHEDULED' AND status='SUCCESS' AND started_at >= '2026-09-15 00:00:00';
 SQL
 
+if [[ -z "$cutover_at" ]]; then
 cat <<'EOF'
 ```
 
@@ -144,6 +150,7 @@ WHERE o.confirmed_at >= '2026-09-15 00:00:00'
       AND o.confirmed_by_user_id <=> d.confirmed_by_user_id
       AND o.confirmed_at <=> d.confirmed_at));
 SQL
+fi
 
 cat <<'EOF'
 ```
@@ -214,6 +221,7 @@ cat <<'EOF'
 metric	value
 EOF
 
+if [[ -z "$cutover_at" ]]; then
 mysql_readonly <<'SQL'
 SET @legacy_started=SYSDATE(6);
 SELECT COUNT(*) INTO @legacy_count
@@ -238,9 +246,51 @@ UNION ALL SELECT 'new_current_count',@current_count
 UNION ALL SELECT 'legacy_query_us',@legacy_us
 UNION ALL SELECT 'new_query_us',@current_us;
 SQL
+else
+mysql_readonly <<'SQL'
+SET @current_started=SYSDATE(6);
+SELECT COUNT(*) INTO @current_count FROM current_toilet_region;
+SET @current_us=TIMESTAMPDIFF(MICROSECOND,@current_started,SYSDATE(6));
+SELECT 'new_current_count',@current_count
+UNION ALL SELECT 'new_query_us',@current_us;
+SQL
+fi
 
 cat <<'EOF'
 ```
 EOF
+
+if [[ -n "$cutover_at" ]]; then
+  cat <<EOF
+
+## 단독 쓰기 배포 이후 기록
+
+- 전환 기준 시각: $cutover_at KST
+
+\`\`\`text
+metric\tvalue
+EOF
+
+  post_cutover_metrics="$(mysql_readonly <<SQL
+SELECT 'post_cutover_legacy_region_rows',COUNT(*) FROM toilet_region WHERE checked_at > '$cutover_at'
+UNION ALL SELECT 'post_cutover_legacy_override_rows',COUNT(*) FROM toilet_region_override WHERE confirmed_at > '$cutover_at'
+UNION ALL SELECT 'post_cutover_assignment_rows',COUNT(*) FROM toilet_region_assignment WHERE checked_at > '$cutover_at'
+UNION ALL SELECT 'post_cutover_assessment_rows',COUNT(*) FROM toilet_region_assessment_history WHERE checked_at > '$cutover_at'
+UNION ALL SELECT 'post_cutover_decision_rows',COUNT(*) FROM toilet_region_decision WHERE confirmed_at > '$cutover_at'
+UNION ALL SELECT 'post_cutover_scheduled_success',COUNT(*) FROM batch_sync_history
+ WHERE job_name='PUBLIC_RESTROOM_SYNC' AND trigger_type='SCHEDULED' AND status='SUCCESS' AND started_at > '$cutover_at'
+UNION ALL SELECT 'post_cutover_scheduled_failed',COUNT(*) FROM batch_sync_history
+ WHERE job_name='PUBLIC_RESTROOM_SYNC' AND trigger_type='SCHEDULED' AND status<>'SUCCESS' AND started_at > '$cutover_at';
+SQL
+)"
+  printf '%s\n' "$post_cutover_metrics"
+  cat <<'EOF'
+```
+EOF
+  if awk -F '\t' '$1 == "post_cutover_legacy_region_rows" || $1 == "post_cutover_legacy_override_rows" || $1 == "post_cutover_scheduled_failed" {if ($2 != 0) bad=1} END {exit !bad}' <<<"$post_cutover_metrics"; then
+    printf 'Post-cutover legacy write or failed scheduled batch detected.\n' >&2
+    exit 1
+  fi
+fi
 
 unset mysql_password
