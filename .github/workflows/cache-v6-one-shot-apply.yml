@@ -1,0 +1,105 @@
+# One-shot V6 installation. It does not deploy/restart services or change the cache contract.
+name: Cache V6 one-shot production apply
+
+on:
+  push:
+    branches: [ops/cache-v6-rollout-20260923]
+    paths: [.github/workflows/cache-v6-one-shot-apply.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toilet-api-production
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.repository == 'toilet-project/toilet-api' && github.ref == 'refs/heads/ops/cache-v6-rollout-20260923'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Pin reviewed source, operator and SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = '788284b849545e453574c4de745db0b6107096de'
+          expected=$'.github/workflows/cache-v6-one-shot-apply.yml\nscripts/cache_v6_production_apply.py'
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "$expected"
+          printf '%s  %s\n' 92e6e98acdfc2385472810757a20c5031509d716a6f9500220a8eb16cb36c648 \
+            src/main/resources/db/cache-revalidation/V6__region_marker_cache_events.sql | sha256sum -c -
+      - name: Prepare pinned Tunnel client
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 10 --max-time 60 \
+            https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64.deb \
+            -o "$RUNNER_TEMP/cloudflared.deb"
+          printf '%s  %s\n' 660b348d473bba81997445b534e7eaefaf4c4e16331866922326c338a7013dd9 "$RUNNER_TEMP/cloudflared.deb" | sha256sum -c -
+          dpkg-deb --extract "$RUNNER_TEMP/cloudflared.deb" "$RUNNER_TEMP/cloudflared-package"
+      - name: Embed reviewed SQL in fixed operator
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - scripts/cache_v6_production_apply.py \
+            src/main/resources/db/cache-revalidation/V6__region_marker_cache_events.sql \
+            "$RUNNER_TEMP/cache-v6-operator.py" <<'PY'
+          import base64
+          from pathlib import Path
+          import sys
+          source = Path(sys.argv[1]).read_bytes()
+          sql = Path(sys.argv[2]).read_bytes()
+          marker = b'__V6_SQL_BASE64__'
+          if source.count(marker) != 1:
+              raise SystemExit('operator marker mismatch')
+          Path(sys.argv[3]).write_bytes(source.replace(marker, base64.b64encode(sql)))
+          PY
+          python3 -m py_compile "$RUNNER_TEMP/cache-v6-operator.py"
+      - name: Back up, apply and verify V6 through pinned Tunnel
+        shell: bash
+        env:
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
+          DEPLOY_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
+          TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
+          TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
+          TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${TUNNEL_SERVICE_TOKEN_ID:?missing Access ID}"
+          : "${TUNNEL_SERVICE_TOKEN_SECRET:?missing Access secret}"
+          : "${DEPLOY_SSH_KEY:?missing SSH key}"
+          : "${TUNNEL_KNOWN_HOSTS:?missing pinned host keys}"
+          test "$TUNNEL_SSH_HOST" = ssh-deploy.geupddong.com
+          [[ "$TUNNEL_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[0-9]+$ ]]
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$RUNNER_TEMP/cache-v6-key"
+          printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/cache-v6-known-hosts"
+          ssh-keygen -y -P '' -f "$RUNNER_TEMP/cache-v6-key" >/dev/null
+          ssh-keygen -F geupddong-mini-pc -f "$RUNNER_TEMP/cache-v6-known-hosts" >/dev/null
+          export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+          timeout 9m ssh -F /dev/null -T -i "$RUNNER_TEMP/cache-v6-key" \
+            -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/cache-v6-known-hosts" \
+            -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 \
+            -o ForwardAgent=no -o ClearAllForwardings=yes -o LogLevel=ERROR \
+            -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=2 \
+            -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
+            "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+            "/usr/bin/python3 - '$GITHUB_RUN_ID'" < "$RUNNER_TEMP/cache-v6-operator.py"
+      - name: Remove ephemeral credentials and operator
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${RUNNER_TEMP:?}"
+          rm -f -- "$RUNNER_TEMP/cache-v6-key" "$RUNNER_TEMP/cache-v6-known-hosts" \
+            "$RUNNER_TEMP/cache-v6-operator.py" "$RUNNER_TEMP/cloudflared.deb"
