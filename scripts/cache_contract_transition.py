@@ -128,7 +128,7 @@ def inspect_api(expected_commit):
     require(values.get('WEB_CACHE_REVALIDATION_ENABLED') == 'true')
     require(values.get('WEB_CACHE_ORIGIN') == 'https://geupddong.com')
     require(bool(values.get('WEB_CACHE_REVALIDATION_SECRET')))
-    require(values.get(CONTRACT_KEY, '1') in ('1', '2'))
+    require(values.get(CONTRACT_KEY, '1') in ('1', '2', '3'))
     return obj, values
 
 

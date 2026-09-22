@@ -1,11 +1,12 @@
 import pathlib
+import json
 import sys
 import unittest
 from copy import deepcopy
 from unittest.mock import patch
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from cache_contract_transition import contract_candidate, parse_dotenv, peer_snapshot, wait_for_healthy
+from cache_contract_transition import contract_candidate, inspect_api, parse_dotenv, peer_snapshot, wait_for_healthy
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -34,6 +35,14 @@ class CacheContractTransitionTest(unittest.TestCase):
         with self.assertRaises(ValueError): contract_candidate(base('1') + b'WEB_CACHE_CONTRACT_VERSION=2\n', '2')
         with self.assertRaises(ValueError): contract_candidate(base().replace(b'https://geupddong.com', b'https://preview.geupddong.com'), '2')
         with self.assertRaises(ValueError): contract_candidate(base().replace(b'WEB_CACHE_REVALIDATION_SECRET=synthetic\n', b''), '2')
+
+    def test_v3_runtime_is_accepted_after_guarded_transition(self):
+        commit = 'a' * 40
+        obj = {'State': {'Running': True}, 'Config': {'User': '1000:1000', 'Image': 'toilet-api:' + commit,
+               'Env': ['WEB_CACHE_REVALIDATION_ENABLED=true', 'WEB_CACHE_ORIGIN=https://geupddong.com',
+                       'WEB_CACHE_REVALIDATION_SECRET=synthetic', 'WEB_CACHE_CONTRACT_VERSION=3']}}
+        with patch('cache_contract_transition.run', return_value=json.dumps([obj])):
+            self.assertEqual(inspect_api(commit)[1]['WEB_CACHE_CONTRACT_VERSION'], '3')
 
     def test_peer_snapshot_ignores_health_poll_history_but_detects_real_changes(self):
         source = {

@@ -21,11 +21,11 @@ on:
         type: boolean
         default: false
       schema_verified:
-        description: Production V2 outbox schema and triggers were independently verified
+        description: Production outbox schema and required V6 region-scope triggers were verified
         type: boolean
         default: false
       web_ready_confirmed:
-        description: Production Web receives V2 and shared cache smoke passed
+        description: Production Web accepts the target contract and shared cache smoke passed
         type: boolean
         default: false
 permissions:
