@@ -15,6 +15,17 @@ on:
       confirmation:
         description: Type STOP_REGIONAL_TRANSLATION only for the stop action
         required: false
+      probe_batch_size:
+        description: Number of pending cache events to probe without outbox acknowledgement
+        required: false
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '20'
+      probe_worker_version:
+        description: Optional active Worker version UUID to target during cache probe
+        required: false
 
 permissions:
   contents: read
@@ -52,6 +63,8 @@ jobs:
         env:
           ACTION: ${{ inputs.action }}
           CONFIRMATION: ${{ inputs.confirmation }}
+          PROBE_BATCH_SIZE: ${{ inputs.probe_batch_size || '1' }}
+          PROBE_WORKER_VERSION: ${{ inputs.probe_worker_version }}
           TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
           TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
           EXPORT_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
@@ -86,6 +99,8 @@ jobs:
           fi
           if test "$ACTION" = 'probe-cache'; then
             test "$CONFIRMATION" = 'PROBE_TRANSLATION_CACHE'
+            [[ "$PROBE_BATCH_SIZE" =~ ^(1|20)$ ]]
+            [[ -z "$PROBE_WORKER_VERSION" || "$PROBE_WORKER_VERSION" =~ ^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$ ]]
             timeout 60s ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-plan-key" \
               -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
               -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/traditional-plan-hosts" \
@@ -93,14 +108,14 @@ jobs:
               -o ForwardAgent=no -o ClearAllForwardings=yes \
               -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
               -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
-              "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" 'python3 -' \
+              "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" "PROBE_BATCH_SIZE=$PROBE_BATCH_SIZE PROBE_WORKER_VERSION=$PROBE_WORKER_VERSION python3 -" \
               < scripts/probe_traditional_cache_delivery.py \
               > traditional-cache-probe-report.json
             python3 - <<'PY'
           import json
           from pathlib import Path
           report = json.loads(Path('traditional-cache-probe-report.json').read_text(encoding='utf-8'))
-          if report.get('schema') != 1 or report.get('toiletId') != 53585 or report.get('rawSourceExported') is not False:
+          if report.get('schema') != 1 or report.get('batchSize') != int(__import__('os').environ['PROBE_BATCH_SIZE']) or report.get('rawSourceExported') is not False:
               raise SystemExit('Invalid cache probe report')
           PY
             cat traditional-cache-probe-report.json >> "$GITHUB_STEP_SUMMARY"
