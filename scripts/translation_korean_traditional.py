@@ -9,6 +9,7 @@ durable cost ledger before it is sent, including retries and uncertain failures.
 import argparse
 import collections
 import html
+from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
@@ -96,6 +97,16 @@ class Ledger:
     def spent(self):
         return self.db.execute("SELECT COALESCE(SUM(cost_micro_usd),0) FROM requests").fetchone()[0]
 
+    def usage(self):
+        rows = self.db.execute("SELECT locale,SUM(input_chars),"
+                               "SUM(CASE WHEN output_chars IS NOT NULL THEN input_chars ELSE 0 END),"
+                               "SUM(COALESCE(output_chars,0)),SUM(output_chars IS NULL),SUM(cost_micro_usd) "
+                               "FROM requests GROUP BY locale").fetchall()
+        return {locale: {"attemptedInputCharacters": attempted, "completedInputCharacters": completed,
+                         "outputCharacters": output, "uncertainRequests": uncertain,
+                         "estimatedCostUsd": round(cost / 1_000_000, 4)}
+                for locale, attempted, completed, output, uncertain, cost in rows}
+
     def reserve(self, locale, input_chars, cap_micro):
         # NMT is $20/M input chars. LLM is $10/M input and output chars.
         # Four input lengths of output are reserved until the actual result arrives.
@@ -132,11 +143,24 @@ def batches(texts):
         yield batch
 
 
+def safe_google_error(error):
+    """Return only documented status/reason tokens, never a response message."""
+    try:
+        body = json.load(error)
+        details = body.get("error", {})
+        tokens = [details.get("status"), *(entry.get("reason") for entry in details.get("errors", [])),
+                  *(entry.get("reason") for entry in details.get("details", []))]
+        return ",".join(token for token in tokens if isinstance(token, str)
+                        and re.fullmatch(r"[A-Za-z_]{1,60}", token)) or "unspecified"
+    except (ValueError, TypeError, AttributeError):
+        return "unspecified"
+
+
 def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.request.urlopen,
-              sleeper=time.sleep):
+              sleeper=time.sleep, text_format="text"):
     target, _ = TARGETS[locale]
     model = "nmt" if locale == "zh-tw" else f"projects/{project}/locations/us-central1/models/general/translation-llm"
-    payload = {"q": source, "source": "ko", "target": target, "format": "text", "model": model}
+    payload = {"q": source, "source": "ko", "target": target, "format": text_format, "model": model}
     request = urllib.request.Request(ENDPOINT, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                                      headers={"Content-Type": "application/json; charset=utf-8",
                                               "X-Goog-Api-Key": key}, method="POST")
@@ -145,20 +169,78 @@ def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.req
         try:
             with opener(request, timeout=90) as response:
                 data = json.load(response)
-            translated = [html.unescape(item["translatedText"]).strip()
+            translated = [(html.unescape(item["translatedText"]) if text_format == "text"
+                           else item["translatedText"]).strip()
                           for item in data["data"]["translations"]]
             if len(translated) != len(source) or any(not value for value in translated):
                 raise RuntimeError("Google returned missing/empty translations")
             ledger.settle(reservation, locale, source, translated)
             return
         except urllib.error.HTTPError as error:
+            reason = safe_google_error(error)
             error.close()
             if error.code not in (429, 500, 502, 503, 504) or attempt == 2:
-                raise RuntimeError(f"Google translation failed with HTTP {error.code}") from None
+                raise RuntimeError(f"Google {locale} translation failed with HTTP {error.code} ({reason})") from None
         except (urllib.error.URLError, TimeoutError):
             if attempt == 2:
                 raise RuntimeError("Google translation network failure") from None
         sleeper(2 ** (attempt + 1))
+
+
+def cjk_number(token):
+    digits = dict(zip("零〇一二三四五六七八九", (0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)))
+    if all(char in digits for char in token):
+        return str(int("".join(str(digits[char]) for char in token)))
+    units = {"十": 10, "百": 100, "千": 1000}
+    total, current = 0, 0
+    for char in token:
+        if char in digits:
+            current = digits[char]
+        elif char in units:
+            total += (current or 1) * units[char]
+            current = 0
+    return str(total + current)
+
+
+def context_markup(source, field):
+    label = "대한민국 공중화장실의 이름" if field == "name" else "대한민국 공중화장실의 주소"
+    return '<div>' + label + ': <span id="translation-result">' + html.escape(source) + '</span></div>'
+
+
+class TranslationSpan(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.depth = 0
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if self.depth:
+            self.depth += 1
+        elif dict(attrs).get("id") == "translation-result":
+            self.depth = 1
+
+    def handle_endtag(self, tag):
+        if self.depth:
+            self.depth -= 1
+
+    def handle_data(self, data):
+        if self.depth:
+            self.parts.append(data)
+
+
+def candidate(ledger, row, field):
+    source = row[field].strip()
+    plain = ledger.get(row["locale"], source)
+    if not validate({"kind": row["kind"], field: source}, {field: plain}):
+        return plain
+    translated_markup = ledger.get(row["locale"], context_markup(source, field))
+    if translated_markup:
+        parser = TranslationSpan()
+        parser.feed(translated_markup)
+        contextual = " ".join("".join(parser.parts).split())
+        if not validate({"kind": row["kind"], field: source}, {field: contextual}):
+            return contextual
+    return plain
 
 
 def validate(row, values):
@@ -176,7 +258,9 @@ def validate(row, values):
             issues.append(field + ":unsafe")
         source_numbers = collections.Counter(re.findall(r"[0-9]+", unicodedata.normalize("NFKC", row[field])))
         target_numbers = collections.Counter(re.findall(r"[0-9]+", unicodedata.normalize("NFKC", value)))
-        if source_numbers != target_numbers:
+        written_numbers = collections.Counter(cjk_number(number)
+            for number in re.findall(r"[零〇一二三四五六七八九十百千]+", value)) if field == "name" else collections.Counter()
+        if (source_numbers - target_numbers - written_numbers) or (target_numbers - source_numbers):
             issues.append(field + ":numbers")
     return issues
 
@@ -252,17 +336,30 @@ def run(args):
         for locale in TARGETS:
             for batch in batches(sorted(value for target, value in pending if target == locale)):
                 translate(ledger, key, args.project, locale, batch, args.max_usd * 1_000_000)
+        recovery = {locale: set() for locale in TARGETS}
+        for row in rows:
+            for field in fields(row):
+                source = row[field].strip()
+                if "hangul" in " ".join(validate({"kind": row["kind"], field: source},
+                                                    {field: ledger.get(row["locale"], source)})):
+                    markup = context_markup(source, field)
+                    if ledger.get(row["locale"], markup) is None:
+                        recovery[row["locale"]].add(markup)
+        for locale, texts in recovery.items():
+            for batch in batches(sorted(texts)):
+                translate(ledger, key, args.project, locale, batch, args.max_usd * 1_000_000,
+                          text_format="html")
         ready, issues = [], collections.Counter()
         for row in rows:
-            values = {field: ledger.get(row["locale"], row[field].strip()) for field in fields(row)}
+            values = {field: candidate(ledger, row, field) for field in fields(row)}
             errors = validate(row, values)
             if errors:
                 issues.update(errors)
             else:
                 ready.append((row, values))
         report.update(readyRows=len(ready), issueRows=len(rows) - len(ready), issueTypes=dict(issues),
-                      estimatedCostUsd=round(ledger.spent() / 1_000_000, 4),
-                      translatedUniqueTexts=len(unique))
+                      estimatedCostUsd=round(ledger.spent() / 1_000_000, 4), usageByLocale=ledger.usage(),
+                      translatedUniqueTexts=len(unique), recoveryTexts=sum(map(len, recovery.values())))
         if args.stage == "run":
             applied = 0
             for offset in range(0, len(ready), 100):
