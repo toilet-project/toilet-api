@@ -41,6 +41,7 @@ class TraditionalTranslationTest(unittest.TestCase):
             self.assertIn("translation-llm", calls[1]["model"])
             self.assertEqual(ledger.spent(), len("공중화장실") * 50 + (len("공중화장실") + len("香港公廁")) * 10)
             self.assertEqual(ledger.get("zh-hk", "공중화장실"), "香港公廁")
+            self.assertEqual(ledger.usage()["zh-hk"]["uncertainRequests"], 1)
             ledger.db.close()
 
     def test_cap_blocks_request_before_network_call(self):
@@ -66,6 +67,7 @@ class TraditionalTranslationTest(unittest.TestCase):
         self.assertIn("ko.source_hash=", sql)
         self.assertIn(MODULE.sql_text("GOOGLE_LLM_KO"), sql)
         self.assertEqual(MODULE.validate(row, {"name": "公廁 13", "road": "首爾 12"}), ["name:numbers"])
+        self.assertEqual(MODULE.validate(row, {"name": "第十二公廁", "road": "首爾 12"}), [])
 
 
 if __name__ == "__main__":

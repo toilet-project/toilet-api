@@ -96,6 +96,16 @@ class Ledger:
     def spent(self):
         return self.db.execute("SELECT COALESCE(SUM(cost_micro_usd),0) FROM requests").fetchone()[0]
 
+    def usage(self):
+        rows = self.db.execute("SELECT locale,SUM(input_chars),"
+                               "SUM(CASE WHEN output_chars IS NOT NULL THEN input_chars ELSE 0 END),"
+                               "SUM(COALESCE(output_chars,0)),SUM(output_chars IS NULL),SUM(cost_micro_usd) "
+                               "FROM requests GROUP BY locale").fetchall()
+        return {locale: {"attemptedInputCharacters": attempted, "completedInputCharacters": completed,
+                         "outputCharacters": output, "uncertainRequests": uncertain,
+                         "estimatedCostUsd": round(cost / 1_000_000, 4)}
+                for locale, attempted, completed, output, uncertain, cost in rows}
+
     def reserve(self, locale, input_chars, cap_micro):
         # NMT is $20/M input chars. LLM is $10/M input and output chars.
         # Four input lengths of output are reserved until the actual result arrives.
@@ -175,6 +185,21 @@ def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.req
         sleeper(2 ** (attempt + 1))
 
 
+def cjk_number(token):
+    digits = dict(zip("零〇一二三四五六七八九", (0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)))
+    if all(char in digits for char in token):
+        return str(int("".join(str(digits[char]) for char in token)))
+    units = {"十": 10, "百": 100, "千": 1000}
+    total, current = 0, 0
+    for char in token:
+        if char in digits:
+            current = digits[char]
+        elif char in units:
+            total += (current or 1) * units[char]
+            current = 0
+    return str(total + current)
+
+
 def validate(row, values):
     issues = []
     for field in fields(row):
@@ -190,7 +215,9 @@ def validate(row, values):
             issues.append(field + ":unsafe")
         source_numbers = collections.Counter(re.findall(r"[0-9]+", unicodedata.normalize("NFKC", row[field])))
         target_numbers = collections.Counter(re.findall(r"[0-9]+", unicodedata.normalize("NFKC", value)))
-        if source_numbers != target_numbers:
+        written_numbers = collections.Counter(cjk_number(number)
+            for number in re.findall(r"[零〇一二三四五六七八九十百千]+", value)) if field == "name" else collections.Counter()
+        if (source_numbers - target_numbers - written_numbers) or (target_numbers - source_numbers):
             issues.append(field + ":numbers")
     return issues
 
@@ -275,7 +302,7 @@ def run(args):
             else:
                 ready.append((row, values))
         report.update(readyRows=len(ready), issueRows=len(rows) - len(ready), issueTypes=dict(issues),
-                      estimatedCostUsd=round(ledger.spent() / 1_000_000, 4),
+                      estimatedCostUsd=round(ledger.spent() / 1_000_000, 4), usageByLocale=ledger.usage(),
                       translatedUniqueTexts=len(unique))
         if args.stage == "run":
             applied = 0
