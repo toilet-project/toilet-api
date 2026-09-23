@@ -4,12 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: Read aggregate progress or stop the verified stuck translation process
+        description: Read aggregate progress, probe one stale cache event, or stop the verified stuck translation process
         required: false
         default: plan
         type: choice
         options:
           - plan
+          - probe-cache
           - stop
       confirmation:
         description: Type STOP_REGIONAL_TRANSLATION only for the stop action
@@ -31,7 +32,9 @@ jobs:
       - name: Validate read-only planner
         run: |
           python3 -B -m unittest scripts/test_traditional_chinese_plan.py
+          python3 -B -m unittest scripts/test_probe_traditional_cache_delivery.py
           python3 -m py_compile scripts/plan_traditional_chinese_translation.py
+          python3 -m py_compile scripts/probe_traditional_cache_delivery.py
           python3 -m py_compile scripts/stop_traditional_translation.py
       - name: Prepare pinned Tunnel SSH transport
         shell: bash
@@ -81,6 +84,28 @@ jobs:
               < scripts/stop_traditional_translation.py
             exit 0
           fi
+          if test "$ACTION" = 'probe-cache'; then
+            test "$CONFIRMATION" = 'PROBE_TRANSLATION_CACHE'
+            timeout 60s ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-plan-key" \
+              -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
+              -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/traditional-plan-hosts" \
+              -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 \
+              -o ForwardAgent=no -o ClearAllForwardings=yes \
+              -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+              -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
+              "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" 'python3 -' \
+              < scripts/probe_traditional_cache_delivery.py \
+              > traditional-cache-probe-report.json
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('traditional-cache-probe-report.json').read_text(encoding='utf-8'))
+          if report.get('schema') != 1 or report.get('toiletId') != 53585 or report.get('rawSourceExported') is not False:
+              raise SystemExit('Invalid cache probe report')
+          PY
+            cat traditional-cache-probe-report.json >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           test "$ACTION" = 'plan'
           timeout 15m ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-plan-key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
@@ -113,6 +138,12 @@ jobs:
         with:
           name: traditional-chinese-translation-plan-${{ github.run_id }}
           path: traditional-chinese-translation-plan.json
+      - name: Upload cache probe aggregate only
+        if: inputs.action == 'probe-cache'
+        uses: actions/upload-artifact@v4
+        with:
+          name: traditional-cache-probe-${{ github.run_id }}
+          path: traditional-cache-probe-report.json
           retention-days: 30
           if-no-files-found: error
       - name: Remove ephemeral Tunnel credentials
