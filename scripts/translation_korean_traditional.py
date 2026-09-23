@@ -162,8 +162,32 @@ def parse_packed(text, count):
 
 
 def translate_packed_hk(ledger, key, project, texts, cap_micro, sleeper=time.sleep):
-    """Send ten indexed source strings as one LLM item; fall back on parse failures."""
-    packed_groups = fallback_groups = 0
+    """Send ten indexed source strings as one LLM item; isolate bad requests."""
+    packed_groups = fallback_groups = skipped_texts = 0
+    consecutive_backend_failures = 0
+
+    def backend_error(error):
+        return isinstance(error, RuntimeError) and str(error).startswith(
+            "Google zh-hk translation failed with HTTP 500 (INTERNAL,backendError)")
+
+    def translate_split(group):
+        nonlocal skipped_texts, consecutive_backend_failures
+        try:
+            translate(ledger, key, project, "zh-hk", group, cap_micro)
+            consecutive_backend_failures = 0
+        except RuntimeError as error:
+            if not backend_error(error):
+                raise
+            if len(group) > 1:
+                middle = len(group) // 2
+                translate_split(group[:middle])
+                translate_split(group[middle:])
+                return
+            skipped_texts += 1
+            consecutive_backend_failures += 1
+            if consecutive_backend_failures >= 3:
+                raise RuntimeError("Google zh-hk backend repeatedly failed on single texts") from None
+
     direct = [value for value in texts if "\n" in value or "|" in value]
     direct_set = set(direct)
     regular = [value for value in texts if value not in direct_set]
@@ -171,20 +195,25 @@ def translate_packed_hk(ledger, key, project, texts, cap_micro, sleeper=time.sle
         group = regular[start:start + 10]
         packed = "\n".join(f"{index}|{value}" for index, value in enumerate(group))
         if ledger.get("zh-hk", packed) is None:
-            translate(ledger, key, project, "zh-hk", [packed], cap_micro)
-        parsed = parse_packed(ledger.get("zh-hk", packed), len(group))
+            try:
+                translate(ledger, key, project, "zh-hk", [packed], cap_micro)
+            except RuntimeError as error:
+                if not backend_error(error):
+                    raise
+        packed_output = ledger.get("zh-hk", packed)
+        parsed = parse_packed(packed_output, len(group)) if packed_output else None
         if parsed is None:
             fallback_groups += 1
-            translate(ledger, key, project, "zh-hk", group, cap_micro)
+            translate_split(group)
         else:
             ledger.save_texts("zh-hk", group, parsed)
         packed_groups += 1
         sleeper(0.5)
     for batch in batches(direct):
-        translate(ledger, key, project, "zh-hk", batch, cap_micro)
+        translate_split(batch)
         sleeper(31)
     return {"packedGroups": packed_groups, "fallbackGroups": fallback_groups,
-            "directTexts": len(direct)}
+            "directTexts": len(direct), "skippedTexts": skipped_texts}
 
 
 def safe_google_error(error):

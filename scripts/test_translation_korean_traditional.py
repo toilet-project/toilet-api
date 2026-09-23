@@ -121,6 +121,25 @@ class TraditionalTranslationTest(unittest.TestCase):
             self.assertEqual(ledger.get("zh-hk", "시설 19"), "公廁 19")
             ledger.db.close()
 
+    def test_packed_backend_failure_isolates_one_bad_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = MODULE.Ledger(Path(directory) / "ledger.sqlite")
+            sources = [f"시설 {number}" for number in range(10)]
+
+            def fake_translate(cache, key, project, locale, batch, cap, **kwargs):
+                if "시설 3" in "\n".join(batch):
+                    raise RuntimeError("Google zh-hk translation failed with HTTP 500 (INTERNAL,backendError)")
+                cache.save_texts(locale, batch, ["公廁" for _ in batch])
+
+            with patch.object(MODULE, "translate", side_effect=fake_translate):
+                result = MODULE.translate_packed_hk(ledger, "key", "project", sources,
+                                                     1_000_000, sleeper=lambda seconds: None)
+            self.assertEqual(result["fallbackGroups"], 1)
+            self.assertEqual(result["skippedTexts"], 1)
+            self.assertIsNone(ledger.get("zh-hk", "시설 3"))
+            self.assertEqual(ledger.get("zh-hk", "시설 9"), "公廁")
+            ledger.db.close()
+
     def test_insert_guards_source_and_existing_target(self):
         row = {"kind": "facility", "id": 42, "locale": "zh-hk", "sourceHash": "a" * 64,
                "name": "공중화장실 12", "road": "서울 12", "jibun": None}
