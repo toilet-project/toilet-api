@@ -28,6 +28,21 @@ CROSS JOIN (SELECT 'zh-tw' locale UNION ALL SELECT 'zh-hk') lang
 LEFT JOIN toilet_display_group_translation dst ON dst.group_id=g.group_id AND dst.locale=lang.locale
 WHERE NULLIF(TRIM(g.display_name),'') IS NOT NULL AND dst.group_id IS NULL;
 COMMIT;"""
+CACHE_DELIVERY_SQL = """START TRANSACTION READ ONLY;
+SELECT JSON_OBJECT('pending',SUM(delivered_at IS NULL),
+ 'oldestPendingSeconds',COALESCE(GREATEST(0,TIMESTAMPDIFF(SECOND,
+ MIN(CASE WHEN delivered_at IS NULL THEN first_queued_at END),UTC_TIMESTAMP(6))),0),
+ 'pendingWithErrors',SUM(delivered_at IS NULL AND attempts > 0),
+ 'delivered',SUM(delivered_at IS NOT NULL))
+FROM web_cache_invalidation;
+COMMIT;"""
+TRANSLATION_TRIGGER_SQL = """START TRANSACTION READ ONLY;
+SELECT JSON_OBJECT('installedTranslationTriggers',COUNT(*))
+FROM information_schema.TRIGGERS
+WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN
+ ('cache_toilet_translation_insert','cache_toilet_translation_update',
+  'cache_toilet_translation_delete');
+COMMIT;"""
 
 
 def summarize(rows, include_sources=False):
@@ -118,6 +133,9 @@ def main():
     report, sources = summarize([*query(FACILITY_SQL, credentials), *query(GROUP_SQL, credentials)],
                                 include_sources=True)
     report["translationProgress"] = ledger_progress(source_texts=sources)
+    delivery = next(query(CACHE_DELIVERY_SQL, credentials))
+    delivery.update(next(query(TRANSLATION_TRIGGER_SQL, credentials)))
+    report["cacheDelivery"] = delivery
     print(json.dumps(report, ensure_ascii=False, separators=(",", ":")))
 
 
