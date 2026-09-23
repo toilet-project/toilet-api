@@ -1,0 +1,93 @@
+name: Traditional Chinese translation character plan
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: traditional-chinese-translation-plan
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate read-only planner
+        run: |
+          python3 -B -m unittest scripts/test_traditional_chinese_plan.py
+          python3 -m py_compile scripts/plan_traditional_chinese_translation.py
+      - name: Prepare pinned Tunnel SSH transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 10 --max-time 60 \
+            https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64.deb \
+            -o "$RUNNER_TEMP/cloudflared.deb"
+          printf '%s  %s\n' 660b348d473bba81997445b534e7eaefaf4c4e16331866922326c338a7013dd9 "$RUNNER_TEMP/cloudflared.deb" | sha256sum -c -
+          dpkg-deb --extract "$RUNNER_TEMP/cloudflared.deb" "$RUNNER_TEMP/cloudflared-package"
+      - name: Count missing texts inside production host
+        shell: bash
+        env:
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
+          EXPORT_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
+          TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
+          TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
+          TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${TUNNEL_SERVICE_TOKEN_ID:?missing Access ID}"
+          : "${TUNNEL_SERVICE_TOKEN_SECRET:?missing Access secret}"
+          : "${EXPORT_SSH_KEY:?missing SSH key}"
+          : "${TUNNEL_KNOWN_HOSTS:?missing pinned host keys}"
+          test "$TUNNEL_SSH_HOST" = 'ssh-deploy.geupddong.com'
+          [[ "$TUNNEL_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          printf '%s\n' "$EXPORT_SSH_KEY" > "$RUNNER_TEMP/traditional-plan-key"
+          printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/traditional-plan-hosts"
+          ssh-keygen -y -P '' -f "$RUNNER_TEMP/traditional-plan-key" >/dev/null
+          export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+          timeout 15m ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-plan-key" \
+            -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/traditional-plan-hosts" \
+            -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 \
+            -o ForwardAgent=no -o ClearAllForwardings=yes \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
+            "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" 'python3 -' \
+            < scripts/plan_traditional_chinese_translation.py \
+            > traditional-chinese-translation-plan.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('traditional-chinese-translation-plan.json')
+          report = json.loads(path.read_text(encoding='utf-8'))
+          if report.get('schema') != 1 or report.get('sourceLanguage') != 'ko' or report.get('rawSourceExported') is not False:
+              raise SystemExit('Invalid translation plan')
+          targets = report.get('targets', {})
+          if set(targets) != {'zh-tw', 'zh-hk'}:
+              raise SystemExit('Expected both regional Chinese targets')
+          if sum(item['billableInputCharacters'] for item in targets.values()) != report['billableInputCharacters']:
+              raise SystemExit('Character totals do not match')
+          path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+          cat traditional-chinese-translation-plan.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload aggregate only
+        uses: actions/upload-artifact@v4
+        with:
+          name: traditional-chinese-translation-plan-${{ github.run_id }}
+          path: traditional-chinese-translation-plan.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Remove ephemeral Tunnel credentials
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f -- "$RUNNER_TEMP/traditional-plan-key" "$RUNNER_TEMP/traditional-plan-hosts"
