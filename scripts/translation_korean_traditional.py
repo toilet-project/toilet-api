@@ -404,8 +404,10 @@ def atomic_json(path, value):
 
 def run(args):
     os.umask(0o077)
-    if args.max_usd != 100:
-        raise ValueError("this rollout is capped at USD 100 before credits")
+    if args.stage == "run" and args.max_usd != 100:
+        raise ValueError("the production rollout is capped at USD 100 before credits")
+    if args.stage != "run" and not 1 <= args.max_usd <= 100:
+        raise ValueError("pilot cost cap must be between USD 1 and USD 100")
     db = Database()
     rows = db.sources()
     if args.sample_rows:
