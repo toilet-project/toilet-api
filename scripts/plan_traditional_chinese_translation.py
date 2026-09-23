@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""Count missing Taiwan/Hong Kong translations without exporting source text."""
+import collections
+import json
+import os
+import subprocess
+
+
+LOCALES = ("zh-tw", "zh-hk")
+SOURCE_HASH = "SHA2(CONCAT(COALESCE(TRIM(t.name),''),CHAR(31),COALESCE(TRIM(t.road_address),''),CHAR(31),COALESCE(TRIM(t.jibun_address),'')),256)"
+FACILITY_SQL = """START TRANSACTION READ ONLY;
+SELECT JSON_OBJECT('kind','facility','locale',lang.locale,'name',TRIM(ko.name),
+ 'road',NULLIF(TRIM(ko.road_address),''),'jibun',NULLIF(TRIM(ko.jibun_address),''))
+FROM toilet t
+JOIN toilet_translation ko ON ko.toilet_id=t.toilet_id AND ko.locale='ko'
+CROSS JOIN (SELECT 'zh-tw' locale UNION ALL SELECT 'zh-hk') lang
+LEFT JOIN toilet_translation dst ON dst.toilet_id=t.toilet_id AND dst.locale=lang.locale
+WHERE t.visibility_status='VISIBLE' AND NULLIF(TRIM(ko.name),'') IS NOT NULL
+ AND ko.source_hash=""" + SOURCE_HASH + """ AND dst.toilet_id IS NULL;
+COMMIT;"""
+GROUP_SQL = """START TRANSACTION READ ONLY;
+SELECT JSON_OBJECT('kind','group','locale',lang.locale,'name',TRIM(g.display_name))
+FROM toilet_display_group g
+CROSS JOIN (SELECT 'zh-tw' locale UNION ALL SELECT 'zh-hk') lang
+LEFT JOIN toilet_display_group_translation dst ON dst.group_id=g.group_id AND dst.locale=lang.locale
+WHERE NULLIF(TRIM(g.display_name),'') IS NOT NULL AND dst.group_id IS NULL;
+COMMIT;"""
+
+
+def summarize(rows):
+    counts = collections.Counter()
+    unique = {locale: set() for locale in LOCALES}
+    raw_characters = collections.Counter()
+    for row in rows:
+        locale = row["locale"]
+        kind = row["kind"]
+        if locale not in unique or kind not in ("facility", "group"):
+            raise ValueError("unexpected source category")
+        counts[f"{locale}:{kind}"] += 1
+        fields = ("name", "road", "jibun") if kind == "facility" else ("name",)
+        for field in fields:
+            value = row.get(field)
+            if isinstance(value, str) and value.strip():
+                text = value.strip()
+                unique[locale].add(text)
+                raw_characters[locale] += len(text)
+        if kind == "facility" and not row.get("road") and not row.get("jibun"):
+            counts[f"{locale}:missingAddress"] += 1
+    per_locale = {locale: {
+        "facilityRows": counts[f"{locale}:facility"],
+        "groupRows": counts[f"{locale}:group"],
+        "missingAddressRows": counts[f"{locale}:missingAddress"],
+        "uniqueTexts": len(unique[locale]),
+        "sourceCharactersBeforeDedup": raw_characters[locale],
+        "billableInputCharacters": sum(map(len, unique[locale])),
+    } for locale in LOCALES}
+    return {"schema": 1, "sourceLanguage": "ko", "targets": per_locale,
+            "billableInputCharacters": sum(item["billableInputCharacters"] for item in per_locale.values()),
+            "rawSourceExported": False}
+
+
+def query(sql, credentials):
+    env = dict(os.environ, MYSQL_PWD=credentials["SPRING_DB_PASSWORD"])
+    command = ["docker", "exec", "-i", "-e", "MYSQL_PWD", "toilet-mysql", "mysql",
+               "--protocol=tcp", "-h127.0.0.1", "--default-character-set=utf8mb4",
+               "--batch", "--raw", "--skip-column-names", "-u", credentials["SPRING_DB_USERNAME"], "toilet_db"]
+    result = subprocess.run(command, input="SET NAMES utf8mb4;\n" + sql, env=env,
+                            text=True, capture_output=True, check=False)
+    if result.returncode:
+        raise RuntimeError("read-only MySQL query failed")
+    return (json.loads(line) for line in result.stdout.splitlines() if line.strip())
+
+
+def main():
+    inspected = subprocess.run(["docker", "inspect", "toilet-api"], capture_output=True, text=True, check=False)
+    if inspected.returncode:
+        raise RuntimeError("API container inspection failed")
+    values = json.loads(inspected.stdout)[0]["Config"]["Env"]
+    credentials = dict(value.split("=", 1) for value in values if "=" in value)
+    if not credentials.get("SPRING_DB_USERNAME") or not credentials.get("SPRING_DB_PASSWORD"):
+        raise RuntimeError("database credentials unavailable")
+    report = summarize([*query(FACILITY_SQL, credentials), *query(GROUP_SQL, credentials)])
+    print(json.dumps(report, ensure_ascii=False, separators=(",", ":")))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        print(str(error) if isinstance(error, (ValueError, RuntimeError)) else "translation planning failed",
+              file=__import__("sys").stderr)
+        raise SystemExit(1)
