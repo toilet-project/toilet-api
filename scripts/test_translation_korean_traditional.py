@@ -92,6 +92,12 @@ class TraditionalTranslationTest(unittest.TestCase):
             self.assertEqual(MODULE.candidate(ledger, row, "name"), "漢江公廁")
             ledger.db.close()
 
+    def test_contextual_recovery_also_retries_changed_address_numbers(self):
+        row = {"kind": "facility", "locale": "zh-hk", "road": "서울 12"}
+        self.assertTrue(MODULE.needs_context_recovery(row, "road", "首爾 十二"))
+        self.assertTrue(MODULE.needs_context_recovery(row, "road", "서울 12"))
+        self.assertFalse(MODULE.needs_context_recovery(row, "road", "首爾 12"))
+
     def test_packed_translation_requires_all_ordered_markers(self):
         self.assertEqual(MODULE.parse_packed("0|公廁\n1|首爾市 12\n", 2), ["公廁", "首爾市 12"])
         self.assertIsNone(MODULE.parse_packed("0|公廁\n2|首爾市 12\n", 2))
