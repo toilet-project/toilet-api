@@ -3,6 +3,7 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 import urllib.error
 from unittest.mock import patch
@@ -51,6 +52,31 @@ class TraditionalTranslationTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "cap reached"):
                 MODULE.translate(ledger, "test-key", "test-project", "zh-tw", ["공중화장실"], 1,
                                  opener=lambda *_args, **_kwargs: self.fail("network called"))
+            ledger.db.close()
+
+    def test_cost_cap_is_atomic_across_parallel_connections(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ledger.sqlite"
+            ledger = MODULE.Ledger(path)
+            concurrent = threading.Barrier(3, timeout=5)
+
+            def reserve_one(_index):
+                connection = MODULE.Ledger(path)
+                try:
+                    concurrent.wait()
+                    try:
+                        connection.reserve("zh-hk", 1, 100)
+                        return True
+                    except RuntimeError as error:
+                        self.assertIn("cap reached", str(error))
+                        return False
+                finally:
+                    connection.db.close()
+
+            with MODULE.ThreadPoolExecutor(max_workers=3) as pool:
+                results = list(pool.map(reserve_one, range(3)))
+            self.assertEqual(sum(results), 2)
+            self.assertEqual(ledger.spent(), 100)
             ledger.db.close()
 
     def test_google_error_reports_only_safe_reason(self):
@@ -144,6 +170,25 @@ class TraditionalTranslationTest(unittest.TestCase):
             self.assertEqual(result["skippedTexts"], 1)
             self.assertIsNone(ledger.get("zh-hk", "시설 3"))
             self.assertEqual(ledger.get("zh-hk", "시설 9"), "公廁")
+            ledger.db.close()
+
+    def test_parallel_packs_share_the_cache_with_separate_connections(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = MODULE.Ledger(Path(directory) / "ledger.sqlite")
+            sources = [f"시설 {number}" for number in range(30)]
+            concurrent = threading.Barrier(3, timeout=5)
+
+            def fake_translate(cache, key, project, locale, batch, cap, **kwargs):
+                concurrent.wait()
+                packed = "\n".join(f"{index}|公廁 {index}" for index in range(10))
+                cache.save_texts(locale, batch, [packed])
+
+            with patch.object(MODULE, "translate", side_effect=fake_translate):
+                result = MODULE.translate_packed_hk(ledger, "key", "project", sources,
+                                                     1_000_000, sleeper=lambda seconds: None)
+            self.assertEqual(result["packedGroups"], 3)
+            self.assertEqual(result["fallbackGroups"], 0)
+            self.assertTrue(all(ledger.get("zh-hk", source) for source in sources))
             ledger.db.close()
 
     def test_insert_guards_source_and_existing_target(self):

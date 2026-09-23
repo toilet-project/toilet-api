@@ -8,6 +8,7 @@ durable cost ledger before it is sent, including retries and uncertain failures.
 """
 import argparse
 import collections
+from concurrent.futures import ThreadPoolExecutor
 import html
 from html.parser import HTMLParser
 import json
@@ -85,6 +86,7 @@ def plan(rows):
 
 class Ledger:
     def __init__(self, path):
+        self.path = path
         self.db = sqlite3.connect(path, timeout=60)
         self.db.execute("CREATE TABLE IF NOT EXISTS translations (locale TEXT, source TEXT, translated TEXT NOT NULL, PRIMARY KEY(locale,source))")
         self.db.execute("CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY, locale TEXT NOT NULL, input_chars INTEGER NOT NULL, output_chars INTEGER, cost_micro_usd INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
@@ -161,7 +163,7 @@ def parse_packed(text, count):
     return values if len(values) == count else None
 
 
-def translate_packed_hk(ledger, key, project, texts, cap_micro, sleeper=time.sleep):
+def translate_packed_hk_one(ledger, key, project, texts, cap_micro, sleeper=time.sleep):
     """Send ten indexed source strings as one LLM item; isolate bad requests."""
     packed_groups = fallback_groups = skipped_texts = 0
     consecutive_backend_failures = 0
@@ -214,6 +216,24 @@ def translate_packed_hk(ledger, key, project, texts, cap_micro, sleeper=time.sle
         sleeper(31)
     return {"packedGroups": packed_groups, "fallbackGroups": fallback_groups,
             "directTexts": len(direct), "skippedTexts": skipped_texts}
+
+
+def translate_packed_hk(ledger, key, project, texts, cap_micro, sleeper=time.sleep):
+    """Use separate SQLite connections so up to three packed requests can run at once."""
+    if len(texts) < 30:
+        return translate_packed_hk_one(ledger, key, project, texts, cap_micro, sleeper)
+
+    def worker(partition):
+        worker_ledger = Ledger(ledger.path)
+        try:
+            return translate_packed_hk_one(worker_ledger, key, project, partition, cap_micro, sleeper)
+        finally:
+            worker_ledger.db.close()
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        reports = list(pool.map(worker, (texts[index::3] for index in range(3))))
+    return {field: sum(report[field] for report in reports)
+            for field in ("packedGroups", "fallbackGroups", "directTexts", "skippedTexts")}
 
 
 def safe_google_error(error):
