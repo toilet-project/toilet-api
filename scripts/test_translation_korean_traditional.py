@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import urllib.error
 
 SPEC = importlib.util.spec_from_file_location("traditional", Path(__file__).with_name("translation_korean_traditional.py"))
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -49,6 +50,13 @@ class TraditionalTranslationTest(unittest.TestCase):
                 MODULE.translate(ledger, "test-key", "test-project", "zh-tw", ["공중화장실"], 1,
                                  opener=lambda *_args, **_kwargs: self.fail("network called"))
             ledger.db.close()
+
+    def test_google_error_reports_only_safe_reason(self):
+        body = io.BytesIO(json.dumps({"error": {"status": "PERMISSION_DENIED",
+            "message": "secret endpoint and key", "errors": [{"reason": "accessNotConfigured"}]}}).encode())
+        error = urllib.error.HTTPError("https://example.invalid", 403, "denied", {}, body)
+        self.assertEqual(MODULE.safe_google_error(error), "PERMISSION_DENIED,accessNotConfigured")
+        error.close()
 
     def test_insert_guards_source_and_existing_target(self):
         row = {"kind": "facility", "id": 42, "locale": "zh-hk", "sourceHash": "a" * 64,

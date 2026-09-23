@@ -132,6 +132,19 @@ def batches(texts):
         yield batch
 
 
+def safe_google_error(error):
+    """Return only documented status/reason tokens, never a response message."""
+    try:
+        body = json.load(error)
+        details = body.get("error", {})
+        tokens = [details.get("status"), *(entry.get("reason") for entry in details.get("errors", [])),
+                  *(entry.get("reason") for entry in details.get("details", []))]
+        return ",".join(token for token in tokens if isinstance(token, str)
+                        and re.fullmatch(r"[A-Za-z_]{1,60}", token)) or "unspecified"
+    except (ValueError, TypeError, AttributeError):
+        return "unspecified"
+
+
 def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.request.urlopen,
               sleeper=time.sleep):
     target, _ = TARGETS[locale]
@@ -152,9 +165,10 @@ def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.req
             ledger.settle(reservation, locale, source, translated)
             return
         except urllib.error.HTTPError as error:
+            reason = safe_google_error(error)
             error.close()
             if error.code not in (429, 500, 502, 503, 504) or attempt == 2:
-                raise RuntimeError(f"Google translation failed with HTTP {error.code}") from None
+                raise RuntimeError(f"Google {locale} translation failed with HTTP {error.code} ({reason})") from None
         except (urllib.error.URLError, TimeoutError):
             if attempt == 2:
                 raise RuntimeError("Google translation network failure") from None
