@@ -320,6 +320,12 @@ def candidate(ledger, row, field):
     return plain
 
 
+def needs_context_recovery(row, field, translated):
+    source = row[field].strip()
+    problems = validate({"kind": row["kind"], field: source}, {field: translated})
+    return any(problem.endswith((":hangul", ":numbers")) for problem in problems)
+
+
 def validate(row, values):
     issues = []
     for field in fields(row):
@@ -455,8 +461,7 @@ def run(args):
         for row in rows:
             for field in fields(row):
                 source = row[field].strip()
-                if "hangul" in " ".join(validate({"kind": row["kind"], field: source},
-                                                    {field: ledger.get(row["locale"], source)})):
+                if needs_context_recovery(row, field, ledger.get(row["locale"], source)):
                     markup = context_markup(source, field)
                     if ledger.get(row["locale"], markup) is None:
                         recovery[row["locale"]].add(markup)
