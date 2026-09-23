@@ -29,11 +29,11 @@ LEFT JOIN toilet_display_group_translation dst ON dst.group_id=g.group_id AND ds
 WHERE NULLIF(TRIM(g.display_name),'') IS NOT NULL AND dst.group_id IS NULL;
 COMMIT;"""
 CACHE_DELIVERY_SQL = """START TRANSACTION READ ONLY;
-SELECT JSON_OBJECT('pending',SUM(delivered_at IS NULL),
+SELECT JSON_OBJECT('pending',COALESCE(SUM(delivered_at IS NULL),0),
  'oldestPendingSeconds',COALESCE(GREATEST(0,TIMESTAMPDIFF(SECOND,
  MIN(CASE WHEN delivered_at IS NULL THEN first_queued_at END),UTC_TIMESTAMP(6))),0),
- 'pendingWithErrors',SUM(delivered_at IS NULL AND attempts > 0),
- 'delivered',SUM(delivered_at IS NOT NULL))
+ 'pendingWithErrors',COALESCE(SUM(delivered_at IS NULL AND attempts > 0),0),
+ 'delivered',COALESCE(SUM(delivered_at IS NOT NULL),0))
 FROM web_cache_invalidation;
 COMMIT;"""
 TRANSLATION_TRIGGER_SQL = """START TRANSACTION READ ONLY;
