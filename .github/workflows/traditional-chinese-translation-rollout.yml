@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: Pilot 200 rows or translate and insert all eligible rows
+        description: Pilot 400 rows, test packed segments, or translate and insert all eligible rows
         required: true
         type: choice
         options:
           - pilot
+          - pack-pilot
           - run
       confirmation:
         description: Type REGIONAL_ZH_100_USD to acknowledge the USD 100 hard cap
@@ -35,7 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$CONFIRMATION" = 'REGIONAL_ZH_100_USD'
-          [[ "$STAGE" == 'pilot' || "$STAGE" == 'run' ]]
+          [[ "$STAGE" == 'pilot' || "$STAGE" == 'pack-pilot' || "$STAGE" == 'run' ]]
           python3 -B -m unittest scripts/test_translation_korean_traditional.py
           python3 -m py_compile scripts/translation_korean_traditional.py
       - name: Prepare pinned Tunnel SSH transport
@@ -73,7 +74,8 @@ jobs:
           ssh-keygen -y -P '' -f "$RUNNER_TEMP/traditional-rollout-key" >/dev/null
           export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
           sample=()
-          if test "$STAGE" = 'pilot'; then sample=(--sample-rows 200); fi
+          if test "$STAGE" = 'pilot'; then sample=(--sample-rows 400); fi
+          if test "$STAGE" = 'pack-pilot'; then sample=(--sample-rows 400); fi
           timeout 345m ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-rollout-key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/traditional-rollout-hosts" \
@@ -90,7 +92,7 @@ jobs:
           from pathlib import Path
           path = Path('traditional-chinese-translation-report.json')
           report = json.loads(path.read_text(encoding='utf-8'))
-          if report.get('costCapUsd') != 100 or report.get('stage') not in ('pilot', 'run'):
+          if report.get('costCapUsd') != 100 or report.get('stage') not in ('pilot', 'pack-pilot', 'run'):
               raise SystemExit('Invalid translation report')
           if report.get('estimatedCostUsd', 101) > 100:
               raise SystemExit('Google cost cap exceeded')

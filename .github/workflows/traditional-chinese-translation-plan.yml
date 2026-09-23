@@ -2,6 +2,18 @@ name: Traditional Chinese translation character plan
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: Read aggregate progress or stop the verified stuck translation process
+        required: false
+        default: plan
+        type: choice
+        options:
+          - plan
+          - stop
+      confirmation:
+        description: Type STOP_REGIONAL_TRANSLATION only for the stop action
+        required: false
 
 permissions:
   contents: read
@@ -20,6 +32,7 @@ jobs:
         run: |
           python3 -B -m unittest scripts/test_traditional_chinese_plan.py
           python3 -m py_compile scripts/plan_traditional_chinese_translation.py
+          python3 -m py_compile scripts/stop_traditional_translation.py
       - name: Prepare pinned Tunnel SSH transport
         shell: bash
         run: |
@@ -34,6 +47,8 @@ jobs:
       - name: Count missing texts inside production host
         shell: bash
         env:
+          ACTION: ${{ inputs.action }}
+          CONFIRMATION: ${{ inputs.confirmation }}
           TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
           TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
           EXPORT_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
@@ -53,6 +68,20 @@ jobs:
           printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/traditional-plan-hosts"
           ssh-keygen -y -P '' -f "$RUNNER_TEMP/traditional-plan-key" >/dev/null
           export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+          if test "$ACTION" = 'stop'; then
+            test "$CONFIRMATION" = 'STOP_REGIONAL_TRANSLATION'
+            timeout 60s ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-plan-key" \
+              -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
+              -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/traditional-plan-hosts" \
+              -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 \
+              -o ForwardAgent=no -o ClearAllForwardings=yes \
+              -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+              -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
+              "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" 'python3 -' \
+              < scripts/stop_traditional_translation.py
+            exit 0
+          fi
+          test "$ACTION" = 'plan'
           timeout 15m ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-plan-key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/traditional-plan-hosts" \
@@ -79,6 +108,7 @@ jobs:
           PY
           cat traditional-chinese-translation-plan.json >> "$GITHUB_STEP_SUMMARY"
       - name: Upload aggregate only
+        if: inputs.action == 'plan'
         uses: actions/upload-artifact@v4
         with:
           name: traditional-chinese-translation-plan-${{ github.run_id }}
