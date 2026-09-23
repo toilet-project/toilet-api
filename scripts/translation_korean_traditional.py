@@ -421,13 +421,16 @@ def insert_sql(row, values):
     locale = row["locale"]
     if locale not in TARGETS or row["id"] <= 0 or validate(row, values):
         raise ValueError("invalid translation row")
-    source = sql_text(TARGETS[locale][1])
+    repaired_fields = set(values.get("_repairFields", ()))
+    name_source = sql_text("GOOGLE_LLM_KO" if "name" in repaired_fields else TARGETS[locale][1])
+    address_source = sql_text("GOOGLE_LLM_KO" if repaired_fields.intersection(("road", "jibun"))
+                              else TARGETS[locale][1])
     loc = sql_text(locale)
     name = sql_text(values["name"])
     if row["kind"] == "group":
         return ("INSERT INTO toilet_display_group_translation (group_id,locale,source_name,display_name,"
                 "translation_source,manual_override,translated_at) SELECT g.group_id," + loc + ",g.display_name,"
-                + name + "," + source + ",FALSE,NOW() FROM toilet_display_group g LEFT JOIN "
+                + name + "," + name_source + ",FALSE,NOW() FROM toilet_display_group g LEFT JOIN "
                 "toilet_display_group_translation dst ON dst.group_id=g.group_id AND dst.locale=" + loc
                 + " WHERE g.group_id=" + str(row["id"]) + " AND dst.group_id IS NULL AND BINARY g.display_name=BINARY "
                 + sql_text(row["sourceName"]) + ";")
@@ -438,8 +441,8 @@ def insert_sql(row, values):
             "translation_status,translation_source,address_translation_status,address_translation_source,"
             "manual_override,translated_at,reviewed_at,created_at,updated_at) SELECT t.toilet_id,"
             + ",".join((loc, name, sql_text(values.get("road")), sql_text(values.get("jibun")), "ko.source_hash",
-                        "'MACHINE_TRANSLATED'", source, sql_text(address_status),
-                        source if address_status == "TRANSLATED" else "'UNAVAILABLE'", "FALSE", "NOW()",
+                        "'MACHINE_TRANSLATED'", name_source, sql_text(address_status),
+                        address_source if address_status == "TRANSLATED" else "'UNAVAILABLE'", "FALSE", "NOW()",
                         "NULL", "NOW()", "NOW()")) + " " + FACILITY_WHERE + " AND t.toilet_id="
             + str(row["id"]) + " AND lang.locale=" + loc + " AND ko.source_hash="
             + sql_text(row["sourceHash"]) + ";")
@@ -527,6 +530,65 @@ def quality_repair_pilot(rows, ledger, key, project, cap_micro):
             "estimatedCostUsd": round(ledger.spent() / 1_000_000, 4), "rawSourceExported": False}
 
 
+def apply_ready(db, ready):
+    applied = 0
+    for offset in range(0, len(ready), 100):
+        statements = ["START TRANSACTION; SET @applied=0;"]
+        for row, values in ready[offset:offset + 100]:
+            statements.extend((insert_sql(row, values), "SET @applied=@applied+ROW_COUNT();"))
+        statements.append("COMMIT; SELECT JSON_OBJECT('applied',@applied);")
+        applied += db.query("\n".join(statements))[0]["applied"]
+    return applied
+
+
+def quality_repair_taiwan(rows, ledger, db, key, project, cap_micro):
+    """Retry held Taiwan fields with the tested prompt, then apply validated rows."""
+    baseline = ledger.spent()
+    ceiling = min(cap_micro, baseline + 750_000)
+    problems = set()
+    for row in rows:
+        if row["locale"] != "zh-tw":
+            continue
+        values = {field: candidate(ledger, row, field) for field in fields(row)}
+        for error in validate(row, values):
+            field = error.split(":", 1)[0]
+            problems.add((field, row[field].strip()))
+    attempted = request_errors = 0
+    for field, source in sorted(problems):
+        prompt = repair_prompt(source, field, "zh-tw")
+        if ledger.get("zh-tw", prompt) is not None:
+            continue
+        try:
+            translate(ledger, key, project, "zh-tw", [prompt], ceiling,
+                      text_format="html", use_llm=True)
+            attempted += 1
+        except RuntimeError as error:
+            request_errors += 1
+            if "cost cap reached" in str(error):
+                break
+            if "HTTP 500" not in str(error):
+                raise
+    ready, issues = [], collections.Counter()
+    for row in rows:
+        values = {field: candidate(ledger, row, field) for field in fields(row)}
+        errors = validate(row, values)
+        if errors:
+            issues.update(errors)
+        else:
+            if row["locale"] == "zh-tw":
+                values["_repairFields"] = tuple(field for field in fields(row)
+                    if repaired_text(ledger.get("zh-tw", repair_prompt(row[field].strip(), field, "zh-tw")))
+                    == values[field])
+            ready.append((row, values))
+    applied = apply_ready(db, ready)
+    return {"repairCandidates": len(problems), "repairRequests": attempted,
+            "requestErrors": request_errors, "readyRows": len(ready),
+            "issueRows": len(rows) - len(ready), "issueTypes": dict(issues),
+            "appliedRows": applied, "remaining": plan(db.sources()),
+            "incrementalEstimatedCostUsd": round((ledger.spent() - baseline) / 1_000_000, 4),
+            "estimatedCostUsd": round(ledger.spent() / 1_000_000, 4), "rawSourceExported": False}
+
+
 def run(args):
     os.umask(0o077)
     if args.stage == "run" and args.max_usd != 100:
@@ -566,6 +628,11 @@ def run(args):
         if args.stage == "repair-pilot":
             report.update(quality_repair_pilot(rows, ledger, key, args.project,
                                                args.max_usd * 1_000_000))
+            print(json.dumps(report, ensure_ascii=False))
+            return
+        if args.stage == "repair-tw":
+            report.update(quality_repair_taiwan(rows, ledger, db, key, args.project,
+                                                args.max_usd * 1_000_000))
             print(json.dumps(report, ensure_ascii=False))
             return
         if args.stage == "pack-pilot":
@@ -649,21 +716,14 @@ def run(args):
                       translatedUniqueTexts=len(unique), recoveryTexts=sum(map(len, recovery.values())),
                       hongKongPacking=pack_usage)
         if args.stage == "run":
-            applied = 0
-            for offset in range(0, len(ready), 100):
-                statements = ["START TRANSACTION; SET @applied=0;"]
-                for row, values in ready[offset:offset + 100]:
-                    statements.extend((insert_sql(row, values), "SET @applied=@applied+ROW_COUNT();"))
-                statements.append("COMMIT; SELECT JSON_OBJECT('applied',@applied);")
-                applied += db.query("\n".join(statements))[0]["applied"]
-            report.update(appliedRows=applied, remaining=plan(db.sources()))
+            report.update(appliedRows=apply_ready(db, ready), remaining=plan(db.sources()))
         atomic_json(work / "report.json", report)
         print(json.dumps(report, ensure_ascii=False))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("stage", choices=("plan", "audit", "repair-pilot", "pilot", "pack-pilot", "run"))
+    parser.add_argument("stage", choices=("plan", "audit", "repair-pilot", "repair-tw", "pilot", "pack-pilot", "run"))
     parser.add_argument("--project", required=True)
     parser.add_argument("--work-dir", default="/tmp/toilet-traditional-translation-20260923")
     parser.add_argument("--max-usd", type=int, required=True)

@@ -45,6 +45,40 @@ class TraditionalTranslationTest(unittest.TestCase):
             self.assertFalse(result["rawSourceExported"])
             ledger.db.close()
 
+    def test_taiwan_repair_applies_only_validated_rows_under_run_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = MODULE.Ledger(Path(directory) / "ledger.sqlite")
+            row = {"kind": "group", "id": 7, "locale": "zh-tw", "name": "공중화장실",
+                   "sourceName": "공중화장실"}
+
+            class DatabaseStub:
+                statements = []
+
+                def query(self, sql):
+                    self.statements.append(sql)
+                    return [{"applied": 1}]
+
+                def sources(self):
+                    return []
+
+            db = DatabaseStub()
+            calls = []
+
+            def fake_translate(target_ledger, _key, _project, locale, source, cap_micro, **options):
+                calls.append((locale, cap_micro, options))
+                target_ledger.save_texts(locale, source, ["<b>公共廁所</b>"])
+
+            with patch.object(MODULE, "translate", side_effect=fake_translate):
+                result = MODULE.quality_repair_taiwan([row], ledger, db, "key", "project", 100_000_000)
+            ledger.db.close()
+            self.assertEqual(result["repairCandidates"], 1)
+            self.assertEqual(result["readyRows"], 1)
+            self.assertEqual(result["appliedRows"], 1)
+            self.assertEqual(result["remaining"]["rows"], 0)
+            self.assertIn("START TRANSACTION", db.statements[0])
+            self.assertIn(MODULE.sql_text("GOOGLE_LLM_KO"), db.statements[0])
+            self.assertEqual(calls, [("zh-tw", 750_000, {"text_format": "html", "use_llm": True})])
+
     def test_quality_audit_is_read_only_and_exports_aggregate_issues(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "ledger.sqlite"
@@ -308,6 +342,14 @@ class TraditionalTranslationTest(unittest.TestCase):
         self.assertIn(MODULE.sql_text("GOOGLE_LLM_KO"), sql)
         self.assertEqual(MODULE.validate(row, {"name": "公廁 13", "road": "首爾 12"}), ["name:numbers"])
         self.assertEqual(MODULE.validate(row, {"name": "第十二公廁", "road": "首爾 12"}), [])
+
+    def test_taiwan_repair_marks_name_and_address_provenance_separately(self):
+        row = {"kind": "facility", "id": 42, "locale": "zh-tw", "sourceHash": "a" * 64,
+               "name": "공중화장실 12", "road": "서울 12", "jibun": None}
+        values = {"name": "公共廁所 12", "road": "首爾 12", "_repairFields": ("road",)}
+        sql = MODULE.insert_sql(row, values)
+        self.assertIn(MODULE.sql_text("GOOGLE_NMT_KO"), sql)
+        self.assertIn(MODULE.sql_text("GOOGLE_LLM_KO"), sql)
 
 
 if __name__ == "__main__":
