@@ -20,6 +20,21 @@ ENDPOINT = "https://geupddong.com/_internal/cache/revalidate"
 PATH = "/_internal/cache/revalidate"
 
 
+def unsigned_status(user_agent, opener):
+    request = urllib.request.Request(ENDPOINT, data=b"{}", method="POST",
+                                     headers={"Content-Type": "application/json",
+                                              "User-Agent": user_agent})
+    try:
+        with opener(request, timeout=15) as response:
+            return response.status
+    except urllib.error.HTTPError as error:
+        status = error.code
+        error.close()
+        return status
+    except (urllib.error.URLError, TimeoutError):
+        return None
+
+
 def probe(opener=urllib.request.urlopen):
     inspected = subprocess.run(["docker", "inspect", "toilet-api"], capture_output=True, text=True)
     if inspected.returncode:
@@ -61,7 +76,11 @@ def probe(opener=urllib.request.urlopen):
                                      headers={"Content-Type": "application/json",
                                               "x-cache-timestamp": timestamp,
                                               "x-cache-signature": signature})
+    unsigned = {label: unsigned_status(agent, opener) for label, agent in (
+        ("python", "Python-urllib/3.11"), ("java", "Java-http-client/17"),
+        ("browser", "Mozilla/5.0"))}
     start = time.monotonic()
+    error_headers = None
     try:
         with opener(request, timeout=15) as response:
             status = response.status
@@ -71,11 +90,16 @@ def probe(opener=urllib.request.urlopen):
         outcome = "acknowledged" if acknowledged else "invalid_ack"
     except urllib.error.HTTPError as error:
         status, outcome = error.code, "http_error"
+        error_headers = {"server": error.headers.get("server"),
+                         "cfMitigated": error.headers.get("cf-mitigated"),
+                         "contentType": error.headers.get("content-type"),
+                         "cfRayPresent": bool(error.headers.get("cf-ray"))}
         error.close()
     except (urllib.error.URLError, TimeoutError):
         status, outcome = None, "transport_error"
     return {"schema": 1, "toiletId": TOILET_ID, "outcome": outcome, "httpStatus": status,
             "elapsedMillis": round((time.monotonic() - start) * 1000),
+            "unsignedStatusByAgent": unsigned, "errorHeaders": error_headers,
             "outboxAcknowledged": False, "rawSourceExported": False}
 
 

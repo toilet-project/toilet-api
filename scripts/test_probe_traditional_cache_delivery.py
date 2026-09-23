@@ -33,6 +33,10 @@ class CacheProbeTest(TestCase):
 
         def opener(request, timeout):
             self.assertEqual(timeout, 15)
+            if request.data == b"{}":
+                response = Response(b"")
+                response.status = 401
+                return response
             body = json.loads(request.data)
             self.assertEqual(body, {"contractVersion": 2, "events": [{
                 "toiletId": 53585, "revision": 4, "action": "UPSERT", "catalogChanged": True}]})
@@ -42,6 +46,7 @@ class CacheProbeTest(TestCase):
         with patch.object(probe.subprocess, "run", side_effect=run):
             result = probe.probe(opener)
         self.assertEqual(result["outcome"], "acknowledged")
+        self.assertEqual(result["unsignedStatusByAgent"], {"python": 401, "java": 401, "browser": 401})
         self.assertFalse(result["outboxAcknowledged"])
         self.assertFalse(result["rawSourceExported"])
         self.assertEqual(len(commands), 2)
