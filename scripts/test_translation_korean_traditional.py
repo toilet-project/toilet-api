@@ -59,6 +59,27 @@ class TraditionalTranslationTest(unittest.TestCase):
         self.assertEqual(MODULE.safe_google_error(error), "PERMISSION_DENIED,accessNotConfigured")
         error.close()
 
+    def test_per_minute_limit_waits_and_retries_without_repeating_successes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = MODULE.Ledger(Path(directory) / "ledger.sqlite")
+            attempts, waits = [], []
+
+            def opener(request, timeout):
+                attempts.append(request)
+                if len(attempts) == 1:
+                    body = io.BytesIO(json.dumps({"error": {"errors": [
+                        {"reason": "userRateLimitExceeded"}]}}).encode())
+                    raise urllib.error.HTTPError("https://example.invalid", 403, "limited", {}, body)
+                return io.BytesIO(json.dumps({"data": {"translations": [
+                    {"translatedText": "香港公廁"}]}}).encode())
+
+            MODULE.translate(ledger, "test-key", "test-project", "zh-hk", ["공중화장실"],
+                             1_000_000, opener=opener, sleeper=waits.append)
+            self.assertEqual(len(attempts), 2)
+            self.assertEqual(waits, [65])
+            self.assertEqual(ledger.usage()["zh-hk"]["uncertainRequests"], 1)
+            ledger.db.close()
+
     def test_contextual_recovery_keeps_only_the_translated_span(self):
         row = {"kind": "facility", "locale": "zh-hk", "name": "한강 공중화장실"}
         with tempfile.TemporaryDirectory() as directory:

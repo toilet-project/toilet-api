@@ -164,7 +164,7 @@ def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.req
     request = urllib.request.Request(ENDPOINT, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                                      headers={"Content-Type": "application/json; charset=utf-8",
                                               "X-Goog-Api-Key": key}, method="POST")
-    for attempt in range(3):
+    for attempt in range(5):
         reservation = ledger.reserve(locale, sum(map(len, source)), cap_micro)
         try:
             with opener(request, timeout=90) as response:
@@ -179,12 +179,16 @@ def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.req
         except urllib.error.HTTPError as error:
             reason = safe_google_error(error)
             error.close()
-            if error.code not in (429, 500, 502, 503, 504) or attempt == 2:
+            per_minute_limit = error.code == 403 and "userRateLimitExceeded" in reason
+            transient = per_minute_limit or error.code in (429, 500, 502, 503, 504)
+            if not transient or attempt == 4:
                 raise RuntimeError(f"Google {locale} translation failed with HTTP {error.code} ({reason})") from None
+            delay = 65 if per_minute_limit else min(30, 2 ** (attempt + 1))
         except (urllib.error.URLError, TimeoutError):
-            if attempt == 2:
+            if attempt == 4:
                 raise RuntimeError("Google translation network failure") from None
-        sleeper(2 ** (attempt + 1))
+            delay = min(30, 2 ** (attempt + 1))
+        sleeper(delay)
 
 
 def cjk_number(token):
@@ -336,6 +340,8 @@ def run(args):
         for locale in TARGETS:
             for batch in batches(sorted(value for target, value in pending if target == locale)):
                 translate(ledger, key, args.project, locale, batch, args.max_usd * 1_000_000)
+                if locale == "zh-hk":
+                    time.sleep(0.5)
         recovery = {locale: set() for locale in TARGETS}
         for row in rows:
             for field in fields(row):
