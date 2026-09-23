@@ -37,6 +37,7 @@ class CacheProbeTest(TestCase):
                 response = Response(b"")
                 response.status = 401
                 return response
+            self.assertEqual(request.get_header("User-agent"), "Java-http-client/21.0.12")
             body = json.loads(request.data)
             self.assertEqual(body, {"contractVersion": 2, "events": [{
                 "toiletId": 53585, "revision": 4, "action": "UPSERT", "catalogChanged": True}]})

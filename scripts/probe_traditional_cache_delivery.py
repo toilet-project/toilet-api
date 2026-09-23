@@ -74,10 +74,11 @@ def probe(opener=urllib.request.urlopen):
                          hashlib.sha256).hexdigest()
     request = urllib.request.Request(ENDPOINT, data=body.encode(), method="POST",
                                      headers={"Content-Type": "application/json",
+                                              "User-Agent": "Java-http-client/21.0.12",
                                               "x-cache-timestamp": timestamp,
                                               "x-cache-signature": signature})
     unsigned = {label: unsigned_status(agent, opener) for label, agent in (
-        ("python", "Python-urllib/3.11"), ("java", "Java-http-client/17"),
+        ("python", "Python-urllib/3.11"), ("java", "Java-http-client/21.0.12"),
         ("browser", "Mozilla/5.0"))}
     start = time.monotonic()
     error_headers = None
