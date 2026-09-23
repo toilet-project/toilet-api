@@ -9,6 +9,7 @@ durable cost ledger before it is sent, including retries and uncertain failures.
 import argparse
 import collections
 import html
+from html.parser import HTMLParser
 import json
 import os
 from pathlib import Path
@@ -156,10 +157,10 @@ def safe_google_error(error):
 
 
 def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.request.urlopen,
-              sleeper=time.sleep):
+              sleeper=time.sleep, text_format="text"):
     target, _ = TARGETS[locale]
     model = "nmt" if locale == "zh-tw" else f"projects/{project}/locations/us-central1/models/general/translation-llm"
-    payload = {"q": source, "source": "ko", "target": target, "format": "text", "model": model}
+    payload = {"q": source, "source": "ko", "target": target, "format": text_format, "model": model}
     request = urllib.request.Request(ENDPOINT, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                                      headers={"Content-Type": "application/json; charset=utf-8",
                                               "X-Goog-Api-Key": key}, method="POST")
@@ -168,7 +169,8 @@ def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.req
         try:
             with opener(request, timeout=90) as response:
                 data = json.load(response)
-            translated = [html.unescape(item["translatedText"]).strip()
+            translated = [(html.unescape(item["translatedText"]) if text_format == "text"
+                           else item["translatedText"]).strip()
                           for item in data["data"]["translations"]]
             if len(translated) != len(source) or any(not value for value in translated):
                 raise RuntimeError("Google returned missing/empty translations")
@@ -198,6 +200,47 @@ def cjk_number(token):
             total += (current or 1) * units[char]
             current = 0
     return str(total + current)
+
+
+def context_markup(source, field):
+    label = "대한민국 공중화장실의 이름" if field == "name" else "대한민국 공중화장실의 주소"
+    return '<div>' + label + ': <span id="translation-result">' + html.escape(source) + '</span></div>'
+
+
+class TranslationSpan(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.depth = 0
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if self.depth:
+            self.depth += 1
+        elif dict(attrs).get("id") == "translation-result":
+            self.depth = 1
+
+    def handle_endtag(self, tag):
+        if self.depth:
+            self.depth -= 1
+
+    def handle_data(self, data):
+        if self.depth:
+            self.parts.append(data)
+
+
+def candidate(ledger, row, field):
+    source = row[field].strip()
+    plain = ledger.get(row["locale"], source)
+    if not validate({"kind": row["kind"], field: source}, {field: plain}):
+        return plain
+    translated_markup = ledger.get(row["locale"], context_markup(source, field))
+    if translated_markup:
+        parser = TranslationSpan()
+        parser.feed(translated_markup)
+        contextual = " ".join("".join(parser.parts).split())
+        if not validate({"kind": row["kind"], field: source}, {field: contextual}):
+            return contextual
+    return plain
 
 
 def validate(row, values):
@@ -293,9 +336,22 @@ def run(args):
         for locale in TARGETS:
             for batch in batches(sorted(value for target, value in pending if target == locale)):
                 translate(ledger, key, args.project, locale, batch, args.max_usd * 1_000_000)
+        recovery = {locale: set() for locale in TARGETS}
+        for row in rows:
+            for field in fields(row):
+                source = row[field].strip()
+                if "hangul" in " ".join(validate({"kind": row["kind"], field: source},
+                                                    {field: ledger.get(row["locale"], source)})):
+                    markup = context_markup(source, field)
+                    if ledger.get(row["locale"], markup) is None:
+                        recovery[row["locale"]].add(markup)
+        for locale, texts in recovery.items():
+            for batch in batches(sorted(texts)):
+                translate(ledger, key, args.project, locale, batch, args.max_usd * 1_000_000,
+                          text_format="html")
         ready, issues = [], collections.Counter()
         for row in rows:
-            values = {field: ledger.get(row["locale"], row[field].strip()) for field in fields(row)}
+            values = {field: candidate(ledger, row, field) for field in fields(row)}
             errors = validate(row, values)
             if errors:
                 issues.update(errors)
@@ -303,7 +359,7 @@ def run(args):
                 ready.append((row, values))
         report.update(readyRows=len(ready), issueRows=len(rows) - len(ready), issueTypes=dict(issues),
                       estimatedCostUsd=round(ledger.spent() / 1_000_000, 4), usageByLocale=ledger.usage(),
-                      translatedUniqueTexts=len(unique))
+                      translatedUniqueTexts=len(unique), recoveryTexts=sum(map(len, recovery.values())))
         if args.stage == "run":
             applied = 0
             for offset in range(0, len(ready), 100):

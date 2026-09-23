@@ -59,6 +59,17 @@ class TraditionalTranslationTest(unittest.TestCase):
         self.assertEqual(MODULE.safe_google_error(error), "PERMISSION_DENIED,accessNotConfigured")
         error.close()
 
+    def test_contextual_recovery_keeps_only_the_translated_span(self):
+        row = {"kind": "facility", "locale": "zh-hk", "name": "한강 공중화장실"}
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = MODULE.Ledger(Path(directory) / "ledger.sqlite")
+            ledger.db.execute("INSERT INTO translations VALUES(?,?,?)", ("zh-hk", row["name"], "한강公廁"))
+            ledger.db.execute("INSERT INTO translations VALUES(?,?,?)", ("zh-hk", MODULE.context_markup(row["name"], "name"),
+                              '<div>南韓公廁名稱: <span id="translation-result">漢江公廁</span></div>'))
+            ledger.db.commit()
+            self.assertEqual(MODULE.candidate(ledger, row, "name"), "漢江公廁")
+            ledger.db.close()
+
     def test_insert_guards_source_and_existing_target(self):
         row = {"kind": "facility", "id": 42, "locale": "zh-hk", "sourceHash": "a" * 64,
                "name": "공중화장실 12", "road": "서울 12", "jibun": None}
