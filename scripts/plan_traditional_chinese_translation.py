@@ -33,8 +33,15 @@ SELECT JSON_OBJECT('pending',COALESCE(SUM(delivered_at IS NULL),0),
  'oldestPendingSeconds',COALESCE(GREATEST(0,TIMESTAMPDIFF(SECOND,
  MIN(CASE WHEN delivered_at IS NULL THEN first_queued_at END),UTC_TIMESTAMP(6))),0),
  'pendingWithErrors',COALESCE(SUM(delivered_at IS NULL AND attempts > 0),0),
+ 'dueNow',COALESCE(SUM(delivered_at IS NULL AND next_attempt_at<=UTC_TIMESTAMP(6)),0),
+ 'maximumAttempts',COALESCE(MAX(CASE WHEN delivered_at IS NULL THEN attempts END),0),
  'delivered',COALESCE(SUM(delivered_at IS NOT NULL),0))
 FROM web_cache_invalidation;
+COMMIT;"""
+CACHE_ERRORS_SQL = """START TRANSACTION READ ONLY;
+SELECT JSON_OBJECT('code',COALESCE(last_error_code,'NONE'),'rows',COUNT(*))
+FROM web_cache_invalidation WHERE delivered_at IS NULL
+GROUP BY COALESCE(last_error_code,'NONE');
 COMMIT;"""
 TRANSLATION_TRIGGER_SQL = """START TRANSACTION READ ONLY;
 SELECT JSON_OBJECT('installedTranslationTriggers',COUNT(*))
@@ -135,6 +142,7 @@ def main():
     report["translationProgress"] = ledger_progress(source_texts=sources)
     delivery = next(query(CACHE_DELIVERY_SQL, credentials))
     delivery.update(next(query(TRANSLATION_TRIGGER_SQL, credentials)))
+    delivery["pendingByLastError"] = list(query(CACHE_ERRORS_SQL, credentials))
     report["cacheDelivery"] = delivery
     print(json.dumps(report, ensure_ascii=False, separators=(",", ":")))
 
