@@ -143,6 +143,17 @@ def batches(texts):
         yield batch
 
 
+def parse_packed(text, count):
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    values = []
+    for index, line in enumerate(lines):
+        match = re.fullmatch(r"\s*([0-9])\s*[|:：]\s*(.+?)\s*", line)
+        if not match or int(match.group(1)) != index or not match.group(2):
+            return None
+        values.append(match.group(2))
+    return values if len(values) == count else None
+
+
 def safe_google_error(error):
     """Return only documented status/reason tokens, never a response message."""
     try:
@@ -327,6 +338,38 @@ def run(args):
         key = db.env.get("GOOGLE_TRANSLATION_API_KEY", "")
         if not key or not re.fullmatch(r"[a-z0-9-]+", args.project):
             raise RuntimeError("Google Translation configuration unavailable")
+        if args.stage == "pack-pilot":
+            candidates = []
+            seen = set()
+            for row in rows:
+                if row["locale"] != "zh-hk":
+                    continue
+                for field in fields(row):
+                    source = row[field].strip()
+                    if source not in seen and "\n" not in source and "|" not in source:
+                        candidates.append((field, source))
+                        seen.add(source)
+            selected = candidates[::max(1, len(candidates) // 30)][:30]
+            if len(selected) != 30:
+                raise RuntimeError("not enough packing pilot texts")
+            outcomes = []
+            for offset in range(0, 30, 10):
+                group = selected[offset:offset + 10]
+                packed = "\n".join(f"{index}|{source}" for index, (_, source) in enumerate(group))
+                if ledger.get("zh-hk", packed) is None:
+                    translate(ledger, key, args.project, "zh-hk", [packed], args.max_usd * 1_000_000)
+                output = ledger.get("zh-hk", packed)
+                parsed = parse_packed(output, len(group))
+                outcomes.append({"parsed": parsed is not None,
+                                 "validTexts": sum(not validate({"kind": "facility", field: source},
+                                                               {field: value})
+                                                   for (field, source), value in zip(group, parsed or [])),
+                                 "lineCount": len(output.splitlines())})
+            report.update(packPilot={"groups": outcomes},
+                          estimatedCostUsd=round(ledger.spent() / 1_000_000, 4),
+                          usageByLocale=ledger.usage())
+            print(json.dumps(report, ensure_ascii=False))
+            return
         unique = {(row["locale"], row[field].strip()) for row in rows for field in fields(row)}
         pending = {(locale, value) for locale, value in unique if ledger.get(locale, value) is None}
         if ledger.spent() + sum(len(value) * (20 if locale == "zh-tw" else 50)
@@ -381,7 +424,7 @@ def run(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("stage", choices=("plan", "pilot", "run"))
+    parser.add_argument("stage", choices=("plan", "pilot", "pack-pilot", "run"))
     parser.add_argument("--project", required=True)
     parser.add_argument("--work-dir", default="/tmp/toilet-traditional-translation-20260923")
     parser.add_argument("--max-usd", type=int, required=True)

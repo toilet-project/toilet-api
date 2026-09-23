@@ -91,6 +91,11 @@ class TraditionalTranslationTest(unittest.TestCase):
             self.assertEqual(MODULE.candidate(ledger, row, "name"), "漢江公廁")
             ledger.db.close()
 
+    def test_packed_translation_requires_all_ordered_markers(self):
+        self.assertEqual(MODULE.parse_packed("0|公廁\n1|首爾市 12\n", 2), ["公廁", "首爾市 12"])
+        self.assertIsNone(MODULE.parse_packed("0|公廁\n2|首爾市 12\n", 2))
+        self.assertIsNone(MODULE.parse_packed("0|公廁\n", 2))
+
     def test_insert_guards_source_and_existing_target(self):
         row = {"kind": "facility", "id": 42, "locale": "zh-hk", "sourceHash": "a" * 64,
                "name": "공중화장실 12", "road": "서울 12", "jibun": None}
