@@ -172,6 +172,38 @@ class TraditionalTranslationTest(unittest.TestCase):
             self.assertEqual(ledger.get("zh-hk", "시설 9"), "公廁")
             ledger.db.close()
 
+    def test_backend_probe_continues_past_three_bad_source_texts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = MODULE.Ledger(Path(directory) / "ledger.sqlite")
+            sources = [f"시설 {number}" for number in range(10)]
+            waits = []
+
+            def fake_translate(cache, key, project, locale, batch, cap, **kwargs):
+                if any(f"시설 {number}" in "\n".join(batch) for number in range(3)):
+                    raise RuntimeError("Google zh-hk translation failed with HTTP 500 (INTERNAL,backendError)")
+                cache.save_texts(locale, batch, ["公廁" for _ in batch])
+
+            with patch.object(MODULE, "translate", side_effect=fake_translate):
+                result = MODULE.translate_packed_hk(ledger, "key", "project", sources,
+                                                     1_000_000, sleeper=waits.append)
+            self.assertEqual(result["skippedTexts"], 3)
+            self.assertEqual(result["backendProbes"], 1)
+            self.assertIn(65, waits)
+            self.assertIsNone(ledger.get("zh-hk", "시설 2"))
+            self.assertEqual(ledger.get("zh-hk", "시설 9"), "公廁")
+            ledger.db.close()
+
+    def test_backend_probe_stops_when_the_service_is_still_failing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = MODULE.Ledger(Path(directory) / "ledger.sqlite")
+            failure = RuntimeError("Google zh-hk translation failed with HTTP 500 (INTERNAL,backendError)")
+            with patch.object(MODULE, "translate", side_effect=failure):
+                with self.assertRaisesRegex(RuntimeError, "backendError"):
+                    MODULE.translate_packed_hk(ledger, "key", "project",
+                                               [f"시설 {number}" for number in range(10)],
+                                               1_000_000, sleeper=lambda seconds: None)
+            ledger.db.close()
+
     def test_parallel_packs_share_the_cache_with_separate_connections(self):
         with tempfile.TemporaryDirectory() as directory:
             ledger = MODULE.Ledger(Path(directory) / "ledger.sqlite")

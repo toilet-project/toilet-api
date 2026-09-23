@@ -165,7 +165,7 @@ def parse_packed(text, count):
 
 def translate_packed_hk_one(ledger, key, project, texts, cap_micro, sleeper=time.sleep):
     """Send ten indexed source strings as one LLM item; isolate bad requests."""
-    packed_groups = fallback_groups = skipped_texts = 0
+    packed_groups = fallback_groups = skipped_texts = backend_probes = 0
     consecutive_backend_failures = 0
 
     def backend_error(error):
@@ -173,7 +173,7 @@ def translate_packed_hk_one(ledger, key, project, texts, cap_micro, sleeper=time
             "Google zh-hk translation failed with HTTP 500 (INTERNAL,backendError)")
 
     def translate_split(group):
-        nonlocal skipped_texts, consecutive_backend_failures
+        nonlocal skipped_texts, consecutive_backend_failures, backend_probes
         try:
             translate(ledger, key, project, "zh-hk", group, cap_micro)
             consecutive_backend_failures = 0
@@ -188,7 +188,12 @@ def translate_packed_hk_one(ledger, key, project, texts, cap_micro, sleeper=time
             skipped_texts += 1
             consecutive_backend_failures += 1
             if consecutive_backend_failures >= 3:
-                raise RuntimeError("Google zh-hk backend repeatedly failed on single texts") from None
+                # Distinguish a cluster of untranslatable source texts from a
+                # service outage before spending requests on the next group.
+                sleeper(65)
+                backend_probes += 1
+                translate(ledger, key, project, "zh-hk", ["번역 서비스 점검용 짧은 문장"], cap_micro)
+                consecutive_backend_failures = 0
 
     direct = [value for value in texts if "\n" in value or "|" in value]
     direct_set = set(direct)
@@ -215,7 +220,8 @@ def translate_packed_hk_one(ledger, key, project, texts, cap_micro, sleeper=time
         translate_split(batch)
         sleeper(31)
     return {"packedGroups": packed_groups, "fallbackGroups": fallback_groups,
-            "directTexts": len(direct), "skippedTexts": skipped_texts}
+            "directTexts": len(direct), "skippedTexts": skipped_texts,
+            "backendProbes": backend_probes}
 
 
 def translate_packed_hk(ledger, key, project, texts, cap_micro, sleeper=time.sleep):
@@ -233,7 +239,7 @@ def translate_packed_hk(ledger, key, project, texts, cap_micro, sleeper=time.sle
     with ThreadPoolExecutor(max_workers=3) as pool:
         reports = list(pool.map(worker, (texts[index::3] for index in range(3))))
     return {field: sum(report[field] for report in reports)
-            for field in ("packedGroups", "fallbackGroups", "directTexts", "skippedTexts")}
+            for field in ("packedGroups", "fallbackGroups", "directTexts", "skippedTexts", "backendProbes")}
 
 
 def safe_google_error(error):
