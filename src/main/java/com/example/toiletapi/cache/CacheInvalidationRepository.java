@@ -22,12 +22,15 @@ public class CacheInvalidationRepository {
         }
     }
     private final JdbcTemplate jdbc;
+    // A 20-event signed probe completed in 4.13 s on the production Worker;
+    // the sender times out after 8 s, while the previous 100-event batches stalled.
+    private static final int DELIVERY_BATCH_SIZE = 20;
     public CacheInvalidationRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public List<Pending> due() {
         return jdbc.query("SELECT toilet_id,event_id,revision,action,catalog_changed,attempts FROM web_cache_invalidation "
                 +"WHERE delivered_at IS NULL AND next_attempt_at<=UTC_TIMESTAMP(6) "
-                +"ORDER BY next_attempt_at,toilet_id LIMIT 100",
+                +"ORDER BY next_attempt_at,toilet_id LIMIT " + DELIVERY_BATCH_SIZE,
                 (rs,n) -> new Pending(rs.getLong(1),rs.getString(2),rs.getLong(3),
                         CacheInvalidationEvent.Action.valueOf(rs.getString(4)),rs.getBoolean(5),rs.getInt(6)));
     }
@@ -38,7 +41,7 @@ public class CacheInvalidationRepository {
                 +"t.latitude AS current_latitude,t.longitude AS current_longitude "
                 +"FROM web_cache_invalidation q LEFT JOIN toilet t ON t.toilet_id=q.toilet_id "
                 +"WHERE q.delivered_at IS NULL AND q.next_attempt_at<=UTC_TIMESTAMP(6) "
-                +"ORDER BY q.next_attempt_at,q.toilet_id LIMIT 100", (rs,n) -> pending(rs));
+                +"ORDER BY q.next_attempt_at,q.toilet_id LIMIT " + DELIVERY_BATCH_SIZE, (rs,n) -> pending(rs));
     }
     private static Double decimal(ResultSet rs, String column) throws SQLException {
         BigDecimal value=rs.getBigDecimal(column);

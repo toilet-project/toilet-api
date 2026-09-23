@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import subprocess
 import time
 import urllib.error
@@ -35,7 +36,11 @@ def unsigned_status(user_agent, opener):
         return None
 
 
-def probe(opener=urllib.request.urlopen):
+def probe(opener=urllib.request.urlopen, batch_size=1, version_id=""):
+    if batch_size not in (1, 20):
+        raise ValueError("Unsupported cache probe size")
+    if version_id and not re.fullmatch(r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", version_id):
+        raise ValueError("Invalid Worker version")
     inspected = subprocess.run(["docker", "inspect", "toilet-api"], capture_output=True, text=True)
     if inspected.returncode:
         raise RuntimeError("API container inspection failed")
@@ -50,6 +55,8 @@ def probe(opener=urllib.request.urlopen):
             not environment.get("SPRING_DB_PASSWORD"):
         raise RuntimeError("cache delivery or database credentials unavailable")
     mysql_env = dict(os.environ, MYSQL_PWD=environment["SPRING_DB_PASSWORD"])
+    predicate = "WHERE toilet_id=53585 AND delivered_at IS NULL" if batch_size == 1 else \
+        "WHERE delivered_at IS NULL AND action='UPSERT'"
     query = subprocess.run(["docker", "exec", "-i", "-e", "MYSQL_PWD", "toilet-mysql", "mysql",
                             "--protocol=tcp", "-h127.0.0.1", "--default-character-set=utf8mb4",
                             "--batch", "--raw", "--skip-column-names", "-u",
@@ -57,37 +64,44 @@ def probe(opener=urllib.request.urlopen):
                            input=("START TRANSACTION READ ONLY; "
                                   "SELECT JSON_OBJECT('toiletId',toilet_id,'revision',revision,"
                                   "'action',action,'catalogChanged',catalog_changed) "
-                                  "FROM web_cache_invalidation WHERE toilet_id=53585 "
-                                  "AND delivered_at IS NULL; COMMIT;"),
+                                  "FROM web_cache_invalidation " + predicate +
+                                  f" ORDER BY next_attempt_at,toilet_id LIMIT {batch_size}; COMMIT;"),
                            env=mysql_env, text=True, capture_output=True)
     if query.returncode:
         raise RuntimeError("pending cache event lookup failed")
     events = [json.loads(line) for line in query.stdout.splitlines() if line.strip()]
-    if len(events) != 1 or events[0]["action"] != "UPSERT" or \
-            events[0]["toiletId"] != TOILET_ID or events[0]["revision"] < 1:
+    if len(events) != batch_size or any(event["action"] != "UPSERT" or
+                                       event["revision"] < 1 for event in events) or \
+            len({event["toiletId"] for event in events}) != batch_size or \
+            (batch_size == 1 and events[0]["toiletId"] != TOILET_ID):
         raise RuntimeError("expected pending public cache event unavailable")
-    events[0]["catalogChanged"] = bool(events[0]["catalogChanged"])
-    body = json.dumps({"contractVersion": 2, "events": [events[0]]}, separators=(",", ":"))
+    for event in events:
+        event["catalogChanged"] = bool(event["catalogChanged"])
+    body = json.dumps({"contractVersion": 2, "events": events}, separators=(",", ":"))
     timestamp = str(int(time.time()))
     signature = hmac.new(secret.encode(),
                          f"v1\nPOST\n{PATH}\n{timestamp}\n{body}".encode(),
                          hashlib.sha256).hexdigest()
-    request = urllib.request.Request(ENDPOINT, data=body.encode(), method="POST",
-                                     headers={"Content-Type": "application/json",
-                                              "User-Agent": "Java-http-client/21.0.12",
-                                              "x-cache-timestamp": timestamp,
-                                              "x-cache-signature": signature})
+    headers = {"Content-Type": "application/json", "User-Agent": "Java-http-client/21.0.12",
+               "x-cache-timestamp": timestamp, "x-cache-signature": signature}
+    if version_id:
+        headers["Cloudflare-Workers-Version-Overrides"] = f'geupddong-web-production="{version_id}"'
+    request = urllib.request.Request(ENDPOINT, data=body.encode(), method="POST", headers=headers)
     unsigned = {label: unsigned_status(agent, opener) for label, agent in (
         ("python", "Python-urllib/3.11"), ("java", "Java-http-client/21.0.12"),
-        ("browser", "Mozilla/5.0"))}
+        ("browser", "Mozilla/5.0"))} if batch_size == 1 else {}
     start = time.monotonic()
     error_headers = None
     try:
-        with opener(request, timeout=15) as response:
+        with opener(request, timeout=8) as response:
             status = response.status
             payload = json.load(response) if status == 200 else None
-        acknowledged = (status == 200 and payload == {"ok": True, "acceptedEvents": [
-            {"toiletId": TOILET_ID, "revision": events[0]["revision"]}]})
+        expected = {(event["toiletId"], event["revision"]) for event in events}
+        received = payload.get("acceptedEvents") if isinstance(payload, dict) else None
+        acknowledged = (status == 200 and isinstance(payload, dict) and payload.get("ok") is True
+                        and isinstance(received, list) and len(received) == len(events)
+                        and all(isinstance(event, dict) for event in received) and
+                        {(event.get("toiletId"), event.get("revision")) for event in received} == expected)
         outcome = "acknowledged" if acknowledged else "invalid_ack"
     except urllib.error.HTTPError as error:
         status, outcome = error.code, "http_error"
@@ -98,7 +112,9 @@ def probe(opener=urllib.request.urlopen):
         error.close()
     except (urllib.error.URLError, TimeoutError):
         status, outcome = None, "transport_error"
-    return {"schema": 1, "toiletId": TOILET_ID, "outcome": outcome, "httpStatus": status,
+    return {"schema": 1, "toiletId": TOILET_ID if batch_size == 1 else None,
+            "batchSize": batch_size, "workerVersion": version_id or None,
+            "outcome": outcome, "httpStatus": status,
             "elapsedMillis": round((time.monotonic() - start) * 1000),
             "unsignedStatusByAgent": unsigned, "errorHeaders": error_headers,
             "outboxAcknowledged": False, "rawSourceExported": False}
@@ -106,7 +122,8 @@ def probe(opener=urllib.request.urlopen):
 
 if __name__ == "__main__":
     try:
-        print(json.dumps(probe(), separators=(",", ":")))
+        print(json.dumps(probe(batch_size=int(os.environ.get("PROBE_BATCH_SIZE", "1")),
+                               version_id=os.environ.get("PROBE_WORKER_VERSION", "")), separators=(",", ":")))
     except Exception:
         print("cache delivery probe failed", file=__import__("sys").stderr)
         raise SystemExit(1)
