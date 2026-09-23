@@ -9,6 +9,7 @@ durable cost ledger before it is sent, including retries and uncertain failures.
 import argparse
 import collections
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import html
 from html.parser import HTMLParser
 import json
@@ -118,10 +119,10 @@ class Ledger:
                          "estimatedCostUsd": round(cost / 1_000_000, 4)}
                 for locale, attempted, completed, output, uncertain, cost in rows}
 
-    def reserve(self, locale, input_chars, cap_micro):
+    def reserve(self, locale, input_chars, cap_micro, use_llm=False):
         # NMT is $20/M input chars. LLM is $10/M input and output chars.
         # Four input lengths of output are reserved until the actual result arrives.
-        cost = input_chars * (20 if locale == "zh-tw" else 50)
+        cost = input_chars * (50 if locale == "zh-hk" or use_llm else 20)
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
             if self.spent() + cost > cap_micro:
@@ -129,10 +130,11 @@ class Ledger:
             return self.db.execute("INSERT INTO requests(locale,input_chars,cost_micro_usd) VALUES(?,?,?)",
                                    (locale, input_chars, cost)).lastrowid
 
-    def settle(self, request_id, locale, source, translated):
+    def settle(self, request_id, locale, source, translated, use_llm=False):
         output_chars = sum(map(len, translated))
         input_chars = sum(map(len, source))
-        actual_cost = input_chars * (20 if locale == "zh-tw" else 10) + (0 if locale == "zh-tw" else output_chars * 10)
+        llm = locale == "zh-hk" or use_llm
+        actual_cost = input_chars * (10 if llm else 20) + (output_chars * 10 if llm else 0)
         with self.db:
             self.db.executemany("INSERT OR REPLACE INTO translations VALUES(?,?,?)",
                                 ((locale, original, value) for original, value in zip(source, translated)))
@@ -258,15 +260,16 @@ def safe_google_error(error):
 
 
 def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.request.urlopen,
-              sleeper=time.sleep, text_format="text"):
+              sleeper=time.sleep, text_format="text", use_llm=False):
     target, _ = TARGETS[locale]
-    model = "nmt" if locale == "zh-tw" else f"projects/{project}/locations/us-central1/models/general/translation-llm"
+    model = (f"projects/{project}/locations/us-central1/models/general/translation-llm"
+             if locale == "zh-hk" or use_llm else "nmt")
     payload = {"q": source, "source": "ko", "target": target, "format": text_format, "model": model}
     request = urllib.request.Request(ENDPOINT, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                                      headers={"Content-Type": "application/json; charset=utf-8",
                                               "X-Goog-Api-Key": key}, method="POST")
     for attempt in range(5):
-        reservation = ledger.reserve(locale, sum(map(len, source)), cap_micro)
+        reservation = ledger.reserve(locale, sum(map(len, source)), cap_micro, use_llm=use_llm)
         try:
             with opener(request, timeout=90) as response:
                 data = json.load(response)
@@ -275,7 +278,7 @@ def translate(ledger, key, project, locale, source, cap_micro, opener=urllib.req
                           for item in data["data"]["translations"]]
             if len(translated) != len(source) or any(not value for value in translated):
                 raise RuntimeError("Google returned missing/empty translations")
-            ledger.settle(reservation, locale, source, translated)
+            ledger.settle(reservation, locale, source, translated, use_llm=use_llm)
             return
         except urllib.error.HTTPError as error:
             reason = safe_google_error(error)
@@ -333,6 +336,41 @@ class TranslationSpan(HTMLParser):
             self.parts.append(data)
 
 
+def repair_prompt(source, field, locale):
+    region = "香港" if locale == "zh-hk" else "臺灣"
+    label = "名稱" if field == "name" else "地址"
+    return f"將韓文{label}完整譯成{region}繁體中文，保留數字：<b>{html.escape(source)}</b>"
+
+
+class RepairTag(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.depth = 0
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if self.depth:
+            self.depth += 1
+        elif tag in ("b", "strong"):
+            self.depth = 1
+
+    def handle_endtag(self, tag):
+        if self.depth:
+            self.depth -= 1
+
+    def handle_data(self, data):
+        if self.depth:
+            self.parts.append(data)
+
+
+def repaired_text(markup):
+    if not markup:
+        return None
+    parser = RepairTag()
+    parser.feed(markup)
+    return " ".join("".join(parser.parts).split()) or None
+
+
 def candidate(ledger, row, field):
     source = row[field].strip()
     plain = ledger.get(row["locale"], source)
@@ -345,6 +383,9 @@ def candidate(ledger, row, field):
         contextual = " ".join("".join(parser.parts).split())
         if not validate({"kind": row["kind"], field: source}, {field: contextual}):
             return contextual
+    repaired = repaired_text(ledger.get(row["locale"], repair_prompt(source, field, row["locale"])))
+    if repaired and not validate({"kind": row["kind"], field: source}, {field: repaired}):
+        return repaired
     return plain
 
 
@@ -446,6 +487,46 @@ def quality_audit(rows, ledger):
             "missingUniqueSourceTexts": len(missing), "rawSourceExported": False}
 
 
+def quality_repair_pilot(rows, ledger, key, project, cap_micro):
+    """Try a bounded new prompt on held fields; never write DB rows."""
+    ceiling = min(cap_micro, ledger.spent() + 200_000)
+    baseline = ledger.spent()
+    results = {}
+    for locale in TARGETS:
+        problems = {}
+        for row in rows:
+            if row["locale"] != locale:
+                continue
+            values = {field: candidate(ledger, row, field) for field in fields(row)}
+            for error in validate(row, values):
+                field = error.split(":", 1)[0]
+                problems[(field, row[field].strip())] = row["kind"]
+        selected = sorted(problems, key=lambda item: hashlib.sha256(
+            (locale + "\0" + item[0] + "\0" + item[1]).encode()).digest())[:20]
+        valid_after = request_errors = attempted = 0
+        for field, source in selected:
+            prompt = repair_prompt(source, field, locale)
+            if ledger.get(locale, prompt) is None:
+                try:
+                    translate(ledger, key, project, locale, [prompt], ceiling,
+                              text_format="html", use_llm=True)
+                    attempted += 1
+                except RuntimeError as error:
+                    request_errors += 1
+                    if "cost cap reached" in str(error):
+                        break
+                    if "HTTP 500" not in str(error):
+                        raise
+                    continue
+            value = repaired_text(ledger.get(locale, prompt))
+            if value and not validate({"kind": problems[(field, source)], field: source}, {field: value}):
+                valid_after += 1
+        results[locale] = {"selectedFields": len(selected), "attemptedRequests": attempted,
+                           "validAfter": valid_after, "requestErrors": request_errors}
+    return {"byLocale": results, "incrementalEstimatedCostUsd": round((ledger.spent() - baseline) / 1_000_000, 4),
+            "estimatedCostUsd": round(ledger.spent() / 1_000_000, 4), "rawSourceExported": False}
+
+
 def run(args):
     os.umask(0o077)
     if args.stage == "run" and args.max_usd != 100:
@@ -482,6 +563,11 @@ def run(args):
         key = db.env.get("GOOGLE_TRANSLATION_API_KEY", "")
         if not key or not re.fullmatch(r"[a-z0-9-]+", args.project):
             raise RuntimeError("Google Translation configuration unavailable")
+        if args.stage == "repair-pilot":
+            report.update(quality_repair_pilot(rows, ledger, key, args.project,
+                                               args.max_usd * 1_000_000))
+            print(json.dumps(report, ensure_ascii=False))
+            return
         if args.stage == "pack-pilot":
             candidates = []
             seen = set()
@@ -577,7 +663,7 @@ def run(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("stage", choices=("plan", "audit", "pilot", "pack-pilot", "run"))
+    parser.add_argument("stage", choices=("plan", "audit", "repair-pilot", "pilot", "pack-pilot", "run"))
     parser.add_argument("--project", required=True)
     parser.add_argument("--work-dir", default="/tmp/toilet-traditional-translation-20260923")
     parser.add_argument("--max-usd", type=int, required=True)
