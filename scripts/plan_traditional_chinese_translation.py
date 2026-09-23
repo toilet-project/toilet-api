@@ -30,7 +30,7 @@ WHERE NULLIF(TRIM(g.display_name),'') IS NOT NULL AND dst.group_id IS NULL;
 COMMIT;"""
 
 
-def summarize(rows):
+def summarize(rows, include_sources=False):
     counts = collections.Counter()
     unique = {locale: set() for locale in LOCALES}
     raw_characters = collections.Counter()
@@ -57,9 +57,10 @@ def summarize(rows):
         "sourceCharactersBeforeDedup": raw_characters[locale],
         "billableInputCharacters": sum(map(len, unique[locale])),
     } for locale in LOCALES}
-    return {"schema": 1, "sourceLanguage": "ko", "targets": per_locale,
-            "billableInputCharacters": sum(item["billableInputCharacters"] for item in per_locale.values()),
-            "rawSourceExported": False}
+    report = {"schema": 1, "sourceLanguage": "ko", "targets": per_locale,
+              "billableInputCharacters": sum(item["billableInputCharacters"] for item in per_locale.values()),
+              "rawSourceExported": False}
+    return (report, unique) if include_sources else report
 
 
 def query(sql, credentials):
@@ -74,7 +75,7 @@ def query(sql, credentials):
     return (json.loads(line) for line in result.stdout.splitlines() if line.strip())
 
 
-def ledger_progress(path=LEDGER_PATH):
+def ledger_progress(path=LEDGER_PATH, source_texts=None):
     if not path.is_file():
         return None
     connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=5)
@@ -83,8 +84,21 @@ def ledger_progress(path=LEDGER_PATH):
             "SUM(CASE WHEN output_chars IS NOT NULL THEN input_chars ELSE 0 END),"
             "SUM(COALESCE(output_chars,0)),SUM(output_chars IS NULL),SUM(cost_micro_usd) "
             "FROM requests GROUP BY locale").fetchall()
-        texts = dict(connection.execute("SELECT locale,COUNT(*) FROM translations GROUP BY locale"))
-        return {locale: {"translatedUniqueTexts": texts.get(locale, 0), "requestCount": count,
+        cached_entries = dict(connection.execute("SELECT locale,COUNT(*) FROM translations GROUP BY locale"))
+        translated_sources = {}
+        if source_texts is not None:
+            for locale, sources in source_texts.items():
+                values = list(sources)
+                completed = 0
+                for offset in range(0, len(values), 400):
+                    group = values[offset:offset + 400]
+                    placeholders = ",".join("?" for _ in group)
+                    completed += connection.execute(
+                        "SELECT COUNT(*) FROM translations WHERE locale=? AND source IN (" + placeholders + ")",
+                        [locale, *group]).fetchone()[0]
+                translated_sources[locale] = completed
+        return {locale: {"translatedUniqueTexts": translated_sources.get(locale, cached_entries.get(locale, 0)),
+                         "cachedEntries": cached_entries.get(locale, 0), "requestCount": count,
                          "attemptedInputCharacters": attempted, "completedInputCharacters": completed,
                          "outputCharacters": output, "uncertainRequests": uncertain,
                          "estimatedCostUsd": round(cost / 1_000_000, 4)}
@@ -101,8 +115,9 @@ def main():
     credentials = dict(value.split("=", 1) for value in values if "=" in value)
     if not credentials.get("SPRING_DB_USERNAME") or not credentials.get("SPRING_DB_PASSWORD"):
         raise RuntimeError("database credentials unavailable")
-    report = summarize([*query(FACILITY_SQL, credentials), *query(GROUP_SQL, credentials)])
-    report["translationProgress"] = ledger_progress()
+    report, sources = summarize([*query(FACILITY_SQL, credentials), *query(GROUP_SQL, credentials)],
+                                include_sources=True)
+    report["translationProgress"] = ledger_progress(source_texts=sources)
     print(json.dumps(report, ensure_ascii=False, separators=(",", ":")))
 
 
