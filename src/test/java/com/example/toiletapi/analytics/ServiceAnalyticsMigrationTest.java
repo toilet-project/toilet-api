@@ -86,6 +86,38 @@ class ServiceAnalyticsMigrationTest {
                 .isEqualTo("page_view");
     }
 
+    @Test
+    void acquisitionCountsOnlyEntrySessionsNotEveryAction() throws Exception {
+        DataSource dataSource = new DriverManagerDataSource(
+                "jdbc:h2:mem:service-analytics-entry-count;MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
+        execute(dataSource, "db/migration/V21__replace_ga_snapshot_with_service_analytics.sql");
+        JdbcTemplate db = new JdbcTemplate(dataSource);
+        AnalyticsRepository repository = new AnalyticsRepository(db);
+        LocalDate date = LocalDate.of(2026, 9, 23);
+        Instant now = Instant.parse("2026-09-23T03:00:00Z");
+        byte[] visitor = new byte[32];
+        byte[] enteredSession = new byte[32];
+        byte[] straySession = new byte[32];
+        Arrays.fill(enteredSession, (byte) 1);
+        Arrays.fill(straySession, (byte) 2);
+
+        repository.insert(event(now, date, "session_start", enteredSession, visitor));
+        repository.insert(event(now, date, "page_view", enteredSession, visitor));
+        repository.insert(event(now, date, "page_view", straySession, visitor));
+        repository.aggregate(date, now, false);
+
+        assertThat(db.queryForObject("SELECT sessions FROM service_analytics_daily_summary", Long.class)).isOne();
+        assertThat(db.queryForObject("SELECT sessions FROM service_analytics_daily_dimension WHERE dimension_type='SOURCE'", Long.class)).isOne();
+        assertThat(db.queryForObject("SELECT sessions FROM service_analytics_daily_dimension WHERE dimension_type='CHANNEL'", Long.class)).isOne();
+    }
+
+    private static AnalyticsRepository.EventRow event(Instant now, LocalDate date, String name,
+                                                       byte[] session, byte[] visitor) {
+        return new AnalyticsRepository.EventRow(now, date, name, "/", "Direct", "none",
+                "mobile", "iOS", "Safari", "KR", "Seoul", visitor, session,
+                0, "", "", null, false, false);
+    }
+
     private static void execute(DataSource dataSource, String path) throws Exception {
         String migration = new ClassPathResource(path).getContentAsString(StandardCharsets.UTF_8)
                 .replace(" INT UNSIGNED ", " INT ")

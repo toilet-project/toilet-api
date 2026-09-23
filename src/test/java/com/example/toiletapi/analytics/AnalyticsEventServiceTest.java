@@ -151,6 +151,25 @@ class AnalyticsEventServiceTest {
         assertEquals("/other", rows.getAllValues().get(1).pageKey());
     }
 
+    @Test
+    void groupsPublicRegionAndAccountRoutesWithoutSavingSlugsOrQueryValues() {
+        AnalyticsRepository repository = mock(AnalyticsRepository.class);
+        AnalyticsEventService service = new AnalyticsEventService(repository,
+                Clock.fixed(Instant.parse("2026-09-16T01:02:03Z"), ZoneOffset.UTC), true, SECRET);
+        HttpServletRequest http = request("https://geupddong.com", "203.0.113.1",
+                "Mozilla/5.0 (iPhone) Safari/537.36", "", "KR");
+
+        service.collect(event("/en/regions/seoul/gangnam-gu"), http);
+        service.collect(event("/ja/regions/seoul/gangnam-gu/toilet/123-public?private=x"), http);
+        service.collect(event("/zh-cn/account"), http);
+
+        ArgumentCaptor<AnalyticsRepository.EventRow> rows = ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
+        verify(repository, times(3)).insert(rows.capture());
+        assertEquals("/regions", rows.getAllValues().get(0).pageKey());
+        assertEquals("/regions/:sido/:district/toilet/:id", rows.getAllValues().get(1).pageKey());
+        assertEquals("/account", rows.getAllValues().get(2).pageKey());
+    }
+
     private static AnalyticsEventRequest eventWithReferrer(String host) {
         return event("/", host);
     }

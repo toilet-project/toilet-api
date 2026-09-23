@@ -80,7 +80,8 @@ public class AnalyticsRepository {
                 )
                 SELECT ?, COUNT(DISTINCT visitor_hash),
                        COUNT(DISTINCT CASE WHEN new_visitor THEN visitor_hash END),
-                       COUNT(DISTINCT session_hash), COALESCE(SUM(event_name='page_view'),0),
+                       COUNT(DISTINCT CASE WHEN event_name='session_start' THEN session_hash END),
+                       COALESCE(SUM(event_name='page_view'),0),
                        COUNT(DISTINCT CASE WHEN event_name='engagement' AND engagement_seconds>=10 THEN session_hash END),
                        COALESCE(SUM(key_event),0), COUNT(*), COALESCE(SUM(engagement_seconds),0), ?, ?
                   FROM service_analytics_event
@@ -104,7 +105,12 @@ public class AnalyticsRepository {
             case "RESULT_BUCKET" -> "result_count_bucket";
             default -> throw new IllegalArgumentException("Unknown analytics dimension");
         };
-        String filter = "RESULT_BUCKET".equals(type) ? " AND result_count_bucket<>''" : "";
+        String filter = switch (type) {
+            case "RESULT_BUCKET" -> " AND result_count_bucket<>''";
+            // Acquisition belongs to the entry event, not every action that followed it.
+            case "CHANNEL", "SOURCE" -> " AND event_name='session_start'";
+            default -> "";
+        };
         String sql = """
                 INSERT INTO service_analytics_daily_dimension(
                     analytics_date, dimension_type, dimension_key, dimension_label,
