@@ -1,0 +1,112 @@
+name: Regional Traditional Chinese translation rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Pilot 200 rows or translate and insert all eligible rows
+        required: true
+        type: choice
+        options:
+          - pilot
+          - run
+      confirmation:
+        description: Type REGIONAL_ZH_100_USD to acknowledge the USD 100 hard cap
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: traditional-chinese-translation-rollout
+  cancel-in-progress: false
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate rollout configuration and code
+        shell: bash
+        env:
+          STAGE: ${{ inputs.stage }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          test "$CONFIRMATION" = 'REGIONAL_ZH_100_USD'
+          [[ "$STAGE" == 'pilot' || "$STAGE" == 'run' ]]
+          python3 -B -m unittest scripts/test_translation_korean_traditional.py
+          python3 -m py_compile scripts/translation_korean_traditional.py
+      - name: Prepare pinned Tunnel SSH transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 10 --max-time 60 \
+            https://github.com/cloudflare/cloudflared/releases/download/2026.8.3/cloudflared-linux-amd64.deb \
+            -o "$RUNNER_TEMP/cloudflared.deb"
+          printf '%s  %s\n' 660b348d473bba81997445b534e7eaefaf4c4e16331866922326c338a7013dd9 "$RUNNER_TEMP/cloudflared.deb" | sha256sum -c -
+          dpkg-deb --extract "$RUNNER_TEMP/cloudflared.deb" "$RUNNER_TEMP/cloudflared-package"
+      - name: Translate on production host under fixed cost cap
+        shell: bash
+        env:
+          STAGE: ${{ inputs.stage }}
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.TUNNEL_DEPLOY_ACCESS_CLIENT_SECRET }}
+          EXPORT_SSH_KEY: ${{ secrets.MINI_PC_KEY }}
+          TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
+          TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
+          TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${TUNNEL_SERVICE_TOKEN_ID:?missing Access ID}"
+          : "${TUNNEL_SERVICE_TOKEN_SECRET:?missing Access secret}"
+          : "${EXPORT_SSH_KEY:?missing SSH key}"
+          : "${TUNNEL_KNOWN_HOSTS:?missing pinned host keys}"
+          test "$TUNNEL_SSH_HOST" = 'ssh-deploy.geupddong.com'
+          [[ "$TUNNEL_SSH_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          printf '%s\n' "$EXPORT_SSH_KEY" > "$RUNNER_TEMP/traditional-rollout-key"
+          printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/traditional-rollout-hosts"
+          ssh-keygen -y -P '' -f "$RUNNER_TEMP/traditional-rollout-key" >/dev/null
+          export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+          sample=()
+          if test "$STAGE" = 'pilot'; then sample=(--sample-rows 200); fi
+          timeout 345m ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-rollout-key" \
+            -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/traditional-rollout-hosts" \
+            -o HostKeyAlias=geupddong-mini-pc -o HostKeyAlgorithms=ssh-ed25519 \
+            -o ForwardAgent=no -o ClearAllForwardings=yes \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
+            "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
+            "python3 - '$STAGE' --project project-a89d2fb9-4c1a-4a14-98c --max-usd 100 ${sample[*]}" \
+            < scripts/translation_korean_traditional.py \
+            > traditional-chinese-translation-report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('traditional-chinese-translation-report.json')
+          report = json.loads(path.read_text(encoding='utf-8'))
+          if report.get('costCapUsd') != 100 or report.get('stage') not in ('pilot', 'run'):
+              raise SystemExit('Invalid translation report')
+          if report.get('estimatedCostUsd', 101) > 100:
+              raise SystemExit('Google cost cap exceeded')
+          path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+          cat traditional-chinese-translation-report.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload aggregate report only
+        uses: actions/upload-artifact@v4
+        with:
+          name: traditional-chinese-translation-report-${{ github.run_id }}
+          path: traditional-chinese-translation-report.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Remove ephemeral Tunnel credentials
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f -- "$RUNNER_TEMP/traditional-rollout-key" "$RUNNER_TEMP/traditional-rollout-hosts"
