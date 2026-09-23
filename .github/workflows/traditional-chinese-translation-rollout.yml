@@ -9,6 +9,8 @@ on:
         type: choice
         options:
           - audit
+          - repair-pilot
+          - repair-tw
           - pilot
           - pack-pilot
           - run
@@ -37,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$CONFIRMATION" = 'REGIONAL_ZH_100_USD'
-          [[ "$STAGE" == 'audit' || "$STAGE" == 'pilot' || "$STAGE" == 'pack-pilot' || "$STAGE" == 'run' ]]
+          [[ "$STAGE" == 'audit' || "$STAGE" == 'repair-pilot' || "$STAGE" == 'repair-tw' || "$STAGE" == 'pilot' || "$STAGE" == 'pack-pilot' || "$STAGE" == 'run' ]]
           python3 -B -m unittest scripts/test_translation_korean_traditional.py
           python3 -m py_compile scripts/translation_korean_traditional.py
       - name: Prepare pinned Tunnel SSH transport
@@ -100,7 +102,7 @@ jobs:
           path = Path('traditional-chinese-translation-report.json')
           report = json.loads(path.read_text(encoding='utf-8'))
           expected_cap = 2 if report.get('stage') == 'pilot' else 100
-          if report.get('costCapUsd') != expected_cap or report.get('stage') not in ('audit', 'pilot', 'pack-pilot', 'run'):
+          if report.get('costCapUsd') != expected_cap or report.get('stage') not in ('audit', 'repair-pilot', 'repair-tw', 'pilot', 'pack-pilot', 'run'):
               raise SystemExit('Invalid translation report')
           if report.get('estimatedCostUsd', expected_cap + 1) > expected_cap:
               raise SystemExit('Google cost cap exceeded')
