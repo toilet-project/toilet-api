@@ -413,9 +413,11 @@ def atomic_json(path, value):
 def quality_audit(rows, ledger):
     """Report aggregate validation failures for missing DB rows, without source text."""
     by_locale = {locale: {"rows": 0, "readyRows": 0, "issueRows": 0,
-                          "issueTypes": collections.Counter(), "byKind": collections.Counter()}
+                          "issueTypes": collections.Counter(), "byKind": collections.Counter(),
+                          "issuePatterns": collections.Counter()}
                  for locale in TARGETS}
     missing = set()
+    problematic_fields = {locale: set() for locale in TARGETS}
     for row in rows:
         locale = row["locale"]
         entry = by_locale[locale]
@@ -426,6 +428,9 @@ def quality_audit(rows, ledger):
         if errors:
             entry["issueRows"] += 1
             entry["issueTypes"].update(errors)
+            entry["issuePatterns"][", ".join(sorted(errors))] += 1
+            for field in {error.split(":", 1)[0] for error in errors}:
+                problematic_fields[locale].add((field, row[field].strip()))
         else:
             entry["readyRows"] += 1
         for field in fields(row):
@@ -433,7 +438,10 @@ def quality_audit(rows, ledger):
             if ledger.get(locale, source) is None:
                 missing.add((locale, source))
     return {"byLocale": {locale: {**entry, "issueTypes": dict(entry["issueTypes"]),
-                                  "byKind": dict(entry["byKind"])}
+                                  "byKind": dict(entry["byKind"]),
+                                  "issuePatterns": dict(entry["issuePatterns"].most_common(20)),
+                                  "problematicUniqueFields": len(problematic_fields[locale]),
+                                  "problematicInputCharacters": sum(len(source) for _, source in problematic_fields[locale])}
                          for locale, entry in by_locale.items()},
             "missingUniqueSourceTexts": len(missing), "rawSourceExported": False}
 

@@ -32,6 +32,9 @@ class TraditionalTranslationTest(unittest.TestCase):
             self.assertEqual(result["byLocale"]["zh-hk"]["issueRows"], 2)
             self.assertEqual(result["byLocale"]["zh-hk"]["issueTypes"],
                              {"road:hangul": 1, "name:empty": 1})
+            self.assertEqual(result["byLocale"]["zh-hk"]["problematicUniqueFields"], 2)
+            self.assertEqual(result["byLocale"]["zh-hk"]["problematicInputCharacters"],
+                             len("서울 1") + len("미번역 그룹"))
             self.assertEqual(result["missingUniqueSourceTexts"], 1)
             self.assertNotIn("미번역 그룹", json.dumps(result, ensure_ascii=False))
             with self.assertRaises(MODULE.sqlite3.OperationalError):
