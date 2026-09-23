@@ -85,12 +85,14 @@ def plan(rows):
 
 
 class Ledger:
-    def __init__(self, path):
+    def __init__(self, path, read_only=False):
         self.path = path
-        self.db = sqlite3.connect(path, timeout=60)
-        self.db.execute("CREATE TABLE IF NOT EXISTS translations (locale TEXT, source TEXT, translated TEXT NOT NULL, PRIMARY KEY(locale,source))")
-        self.db.execute("CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY, locale TEXT NOT NULL, input_chars INTEGER NOT NULL, output_chars INTEGER, cost_micro_usd INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
-        self.db.commit()
+        self.db = (sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=60)
+                   if read_only else sqlite3.connect(path, timeout=60))
+        if not read_only:
+            self.db.execute("CREATE TABLE IF NOT EXISTS translations (locale TEXT, source TEXT, translated TEXT NOT NULL, PRIMARY KEY(locale,source))")
+            self.db.execute("CREATE TABLE IF NOT EXISTS requests (id INTEGER PRIMARY KEY, locale TEXT NOT NULL, input_chars INTEGER NOT NULL, output_chars INTEGER, cost_micro_usd INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+            self.db.commit()
 
     def get(self, locale, source):
         row = self.db.execute("SELECT translated FROM translations WHERE locale=? AND source=?", (locale, source)).fetchone()
@@ -408,6 +410,34 @@ def atomic_json(path, value):
     temp.replace(path)
 
 
+def quality_audit(rows, ledger):
+    """Report aggregate validation failures for missing DB rows, without source text."""
+    by_locale = {locale: {"rows": 0, "readyRows": 0, "issueRows": 0,
+                          "issueTypes": collections.Counter(), "byKind": collections.Counter()}
+                 for locale in TARGETS}
+    missing = set()
+    for row in rows:
+        locale = row["locale"]
+        entry = by_locale[locale]
+        entry["rows"] += 1
+        entry["byKind"][row["kind"]] += 1
+        values = {field: candidate(ledger, row, field) for field in fields(row)}
+        errors = validate(row, values)
+        if errors:
+            entry["issueRows"] += 1
+            entry["issueTypes"].update(errors)
+        else:
+            entry["readyRows"] += 1
+        for field in fields(row):
+            source = row[field].strip()
+            if ledger.get(locale, source) is None:
+                missing.add((locale, source))
+    return {"byLocale": {locale: {**entry, "issueTypes": dict(entry["issueTypes"]),
+                                  "byKind": dict(entry["byKind"])}
+                         for locale, entry in by_locale.items()},
+            "missingUniqueSourceTexts": len(missing), "rawSourceExported": False}
+
+
 def run(args):
     os.umask(0o077)
     if args.stage == "run" and args.max_usd != 100:
@@ -425,6 +455,16 @@ def run(args):
         print(json.dumps(report, ensure_ascii=False))
         return
     work = Path(args.work_dir).resolve()
+    if args.stage == "audit":
+        ledger = Ledger(work / "ledger.sqlite", read_only=True)
+        try:
+            report.update(quality_audit(rows, ledger),
+                          estimatedCostUsd=round(ledger.spent() / 1_000_000, 4),
+                          usageByLocale=ledger.usage())
+        finally:
+            ledger.db.close()
+        print(json.dumps(report, ensure_ascii=False))
+        return
     work.mkdir(parents=True, exist_ok=True)
     os.chmod(work, 0o700)
     import fcntl
@@ -529,7 +569,7 @@ def run(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("stage", choices=("plan", "pilot", "pack-pilot", "run"))
+    parser.add_argument("stage", choices=("plan", "audit", "pilot", "pack-pilot", "run"))
     parser.add_argument("--project", required=True)
     parser.add_argument("--work-dir", default="/tmp/toilet-traditional-translation-20260923")
     parser.add_argument("--max-usd", type=int, required=True)
