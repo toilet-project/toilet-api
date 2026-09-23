@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import urllib.error
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location("traditional", Path(__file__).with_name("translation_korean_traditional.py"))
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -95,6 +96,30 @@ class TraditionalTranslationTest(unittest.TestCase):
         self.assertEqual(MODULE.parse_packed("0|公廁\n1|首爾市 12\n", 2), ["公廁", "首爾市 12"])
         self.assertIsNone(MODULE.parse_packed("0|公廁\n2|首爾市 12\n", 2))
         self.assertIsNone(MODULE.parse_packed("0|公廁\n", 2))
+
+    def test_packed_hong_kong_translation_falls_back_only_for_bad_groups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = MODULE.Ledger(Path(directory) / "ledger.sqlite")
+            sources = [f"시설 {number}" for number in range(20)]
+            sent = []
+
+            def fake_translate(cache, key, project, locale, batch, cap, **kwargs):
+                sent.append(list(batch))
+                if len(batch) == 1 and "\n" in batch[0]:
+                    packed = "\n".join(f"{number}|公廁 {number}" for number in range(10))
+                    cache.save_texts(locale, batch, [packed] if len(sent) == 1 else ["malformed"])
+                else:
+                    cache.save_texts(locale, batch, [f"公廁 {number}" for number in range(10, 20)])
+
+            with patch.object(MODULE, "translate", side_effect=fake_translate):
+                result = MODULE.translate_packed_hk(ledger, "key", "project", sources,
+                                                     1_000_000, sleeper=lambda seconds: None)
+            self.assertEqual(result["packedGroups"], 2)
+            self.assertEqual(result["fallbackGroups"], 1)
+            self.assertEqual(len(sent), 3)
+            self.assertEqual(ledger.get("zh-hk", "시설 0"), "公廁 0")
+            self.assertEqual(ledger.get("zh-hk", "시설 19"), "公廁 19")
+            ledger.db.close()
 
     def test_insert_guards_source_and_existing_target(self):
         row = {"kind": "facility", "id": 42, "locale": "zh-hk", "sourceHash": "a" * 64,

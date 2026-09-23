@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       stage:
-        description: Pilot 200 rows or translate and insert all eligible rows
+        description: Pilot 400 rows, test packed segments, or translate and insert all eligible rows
         required: true
         type: choice
         options:
@@ -74,7 +74,7 @@ jobs:
           ssh-keygen -y -P '' -f "$RUNNER_TEMP/traditional-rollout-key" >/dev/null
           export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
           sample=()
-          if test "$STAGE" = 'pilot'; then sample=(--sample-rows 200); fi
+          if test "$STAGE" = 'pilot'; then sample=(--sample-rows 400); fi
           if test "$STAGE" = 'pack-pilot'; then sample=(--sample-rows 400); fi
           timeout 345m ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-rollout-key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \

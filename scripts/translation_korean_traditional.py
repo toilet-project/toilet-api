@@ -94,6 +94,13 @@ class Ledger:
         row = self.db.execute("SELECT translated FROM translations WHERE locale=? AND source=?", (locale, source)).fetchone()
         return row[0] if row else None
 
+    def save_texts(self, locale, sources, translations):
+        if len(sources) != len(translations) or any(not value for value in translations):
+            raise ValueError("invalid packed translation")
+        with self.db:
+            self.db.executemany("INSERT OR IGNORE INTO translations VALUES(?,?,?)",
+                                ((locale, source, value) for source, value in zip(sources, translations)))
+
     def spent(self):
         return self.db.execute("SELECT COALESCE(SUM(cost_micro_usd),0) FROM requests").fetchone()[0]
 
@@ -152,6 +159,32 @@ def parse_packed(text, count):
             return None
         values.append(match.group(2))
     return values if len(values) == count else None
+
+
+def translate_packed_hk(ledger, key, project, texts, cap_micro, sleeper=time.sleep):
+    """Send ten indexed source strings as one LLM item; fall back on parse failures."""
+    packed_groups = fallback_groups = 0
+    direct = [value for value in texts if "\n" in value or "|" in value]
+    direct_set = set(direct)
+    regular = [value for value in texts if value not in direct_set]
+    for start in range(0, len(regular), 10):
+        group = regular[start:start + 10]
+        packed = "\n".join(f"{index}|{value}" for index, value in enumerate(group))
+        if ledger.get("zh-hk", packed) is None:
+            translate(ledger, key, project, "zh-hk", [packed], cap_micro)
+        parsed = parse_packed(ledger.get("zh-hk", packed), len(group))
+        if parsed is None:
+            fallback_groups += 1
+            translate(ledger, key, project, "zh-hk", group, cap_micro)
+        else:
+            ledger.save_texts("zh-hk", group, parsed)
+        packed_groups += 1
+        sleeper(0.5)
+    for batch in batches(direct):
+        translate(ledger, key, project, "zh-hk", batch, cap_micro)
+        sleeper(31)
+    return {"packedGroups": packed_groups, "fallbackGroups": fallback_groups,
+            "directTexts": len(direct)}
 
 
 def safe_google_error(error):
@@ -380,11 +413,15 @@ def run(args):
                                                for locale, value in pending)
             if lower_bound > args.max_usd * 1_000_000:
                 raise RuntimeError("untranslated input already exceeds cost cap")
+        pack_usage = None
         for locale in TARGETS:
-            for batch in batches(sorted(value for target, value in pending if target == locale)):
-                translate(ledger, key, args.project, locale, batch, args.max_usd * 1_000_000)
-                if locale == "zh-hk":
-                    time.sleep(0.5)
+            locale_texts = sorted(value for target, value in pending if target == locale)
+            if locale == "zh-hk":
+                pack_usage = translate_packed_hk(ledger, key, args.project, locale_texts,
+                                                 args.max_usd * 1_000_000)
+            else:
+                for batch in batches(locale_texts):
+                    translate(ledger, key, args.project, locale, batch, args.max_usd * 1_000_000)
         recovery = {locale: set() for locale in TARGETS}
         for row in rows:
             for field in fields(row):
@@ -395,9 +432,14 @@ def run(args):
                     if ledger.get(row["locale"], markup) is None:
                         recovery[row["locale"]].add(markup)
         for locale, texts in recovery.items():
-            for batch in batches(sorted(texts)):
+            step = 5 if locale == "zh-hk" else 100
+            ordered = sorted(texts)
+            for offset in range(0, len(ordered), step):
+                batch = ordered[offset:offset + step]
                 translate(ledger, key, args.project, locale, batch, args.max_usd * 1_000_000,
                           text_format="html")
+                if locale == "zh-hk":
+                    time.sleep(2)
         ready, issues = [], collections.Counter()
         for row in rows:
             values = {field: candidate(ledger, row, field) for field in fields(row)}
@@ -408,7 +450,8 @@ def run(args):
                 ready.append((row, values))
         report.update(readyRows=len(ready), issueRows=len(rows) - len(ready), issueTypes=dict(issues),
                       estimatedCostUsd=round(ledger.spent() / 1_000_000, 4), usageByLocale=ledger.usage(),
-                      translatedUniqueTexts=len(unique), recoveryTexts=sum(map(len, recovery.values())))
+                      translatedUniqueTexts=len(unique), recoveryTexts=sum(map(len, recovery.values())),
+                      hongKongPacking=pack_usage)
         if args.stage == "run":
             applied = 0
             for offset in range(0, len(ready), 100):
