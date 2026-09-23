@@ -162,11 +162,15 @@ public class AnalyticsEventService {
     }
 
     private static String pageKey(String raw) {
-        String path = clean(raw).split("[?#]", 2)[0];
+        String path = clean(raw).split("[?#]", 2)[0]
+                .replaceFirst("^/(?:en|ja|zh-cn|zh-tw|zh-hk)(?=/|$)", "");
         if (path.length() > 1) path = path.replaceFirst("/+$", "");
         if (path.isBlank()) return "/";
+        if (path.matches("/regions/[^/]+/[^/]+/toilet/[^/]+")) return "/regions/:sido/:district/toilet/:id";
+        if (path.equals("/regions") || path.matches("/regions/[^/]+(?:/[^/]+)?")) return "/regions";
         if (path.matches("/toilet/\\d+") || "/toilet/:id".equals(path)) return "/toilet/:id";
         if (path.matches("/policies/(terms|privacy|location|all)")) return path;
+        if (path.equals("/account")) return path;
         if ("/".equals(path)) return path;
         return "/other";
     }
