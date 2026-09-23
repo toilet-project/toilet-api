@@ -24,6 +24,9 @@ class TraditionalChinesePlanTest(unittest.TestCase):
         self.assertEqual(result["targets"]["zh-hk"]["missingAddressRows"], 1)
         self.assertEqual(result["billableInputCharacters"], len("화장실") * 2 + len("서울 1"))
         self.assertFalse(result["rawSourceExported"])
+        report, sources = plan.summarize(rows, include_sources=True)
+        self.assertEqual(report, result)
+        self.assertEqual(sources["zh-tw"], {"화장실", "서울 1"})
 
     def test_progress_exports_counts_without_text(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -34,10 +37,13 @@ class TraditionalChinesePlanTest(unittest.TestCase):
             connection.execute("INSERT INTO requests VALUES ('zh-hk',10,8,180)")
             connection.execute("INSERT INTO requests VALUES ('zh-hk',10,NULL,500)")
             connection.execute("INSERT INTO translations VALUES ('zh-hk','비공개 원문','翻譯')")
+            connection.execute("INSERT INTO translations VALUES ('zh-hk','0|비공개 원문','0|翻譯')")
+            connection.execute("INSERT INTO translations VALUES ('zh-hk','<span>비공개 원문</span>','<span>翻譯</span>')")
             connection.commit()
             connection.close()
-            progress = plan.ledger_progress(path)
+            progress = plan.ledger_progress(path, {"zh-hk": {"비공개 원문", "다른 원문"}})
             self.assertEqual(progress["zh-hk"]["translatedUniqueTexts"], 1)
+            self.assertEqual(progress["zh-hk"]["cachedEntries"], 3)
             self.assertEqual(progress["zh-hk"]["uncertainRequests"], 1)
             self.assertNotIn("비공개 원문", str(progress))
 
