@@ -3,10 +3,13 @@
 import collections
 import json
 import os
+from pathlib import Path
+import sqlite3
 import subprocess
 
 
 LOCALES = ("zh-tw", "zh-hk")
+LEDGER_PATH = Path("/tmp/toilet-traditional-translation-20260923/ledger.sqlite")
 SOURCE_HASH = "SHA2(CONCAT(COALESCE(TRIM(t.name),''),CHAR(31),COALESCE(TRIM(t.road_address),''),CHAR(31),COALESCE(TRIM(t.jibun_address),'')),256)"
 FACILITY_SQL = """START TRANSACTION READ ONLY;
 SELECT JSON_OBJECT('kind','facility','locale',lang.locale,'name',TRIM(ko.name),
@@ -71,6 +74,25 @@ def query(sql, credentials):
     return (json.loads(line) for line in result.stdout.splitlines() if line.strip())
 
 
+def ledger_progress(path=LEDGER_PATH):
+    if not path.is_file():
+        return None
+    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=5)
+    try:
+        requests = connection.execute("SELECT locale,COUNT(*),SUM(input_chars),"
+            "SUM(CASE WHEN output_chars IS NOT NULL THEN input_chars ELSE 0 END),"
+            "SUM(COALESCE(output_chars,0)),SUM(output_chars IS NULL),SUM(cost_micro_usd) "
+            "FROM requests GROUP BY locale").fetchall()
+        texts = dict(connection.execute("SELECT locale,COUNT(*) FROM translations GROUP BY locale"))
+        return {locale: {"translatedUniqueTexts": texts.get(locale, 0), "requestCount": count,
+                         "attemptedInputCharacters": attempted, "completedInputCharacters": completed,
+                         "outputCharacters": output, "uncertainRequests": uncertain,
+                         "estimatedCostUsd": round(cost / 1_000_000, 4)}
+                for locale, count, attempted, completed, output, uncertain, cost in requests}
+    finally:
+        connection.close()
+
+
 def main():
     inspected = subprocess.run(["docker", "inspect", "toilet-api"], capture_output=True, text=True, check=False)
     if inspected.returncode:
@@ -80,6 +102,7 @@ def main():
     if not credentials.get("SPRING_DB_USERNAME") or not credentials.get("SPRING_DB_PASSWORD"):
         raise RuntimeError("database credentials unavailable")
     report = summarize([*query(FACILITY_SQL, credentials), *query(GROUP_SQL, credentials)])
+    report["translationProgress"] = ledger_progress()
     print(json.dumps(report, ensure_ascii=False, separators=(",", ":")))
 
 
