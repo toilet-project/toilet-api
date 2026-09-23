@@ -14,6 +14,33 @@ SPEC.loader.exec_module(MODULE)
 
 
 class TraditionalTranslationTest(unittest.TestCase):
+    def test_quality_audit_is_read_only_and_exports_aggregate_issues(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ledger.sqlite"
+            writer = MODULE.Ledger(path)
+            writer.save_texts("zh-tw", ["공중화장실", "서울 1"], ["公共廁所", "首爾 1"])
+            writer.save_texts("zh-hk", ["공중화장실", "서울 1"], ["香港公廁", "서울 1"])
+            writer.db.close()
+            reader = MODULE.Ledger(path, read_only=True)
+            rows = [
+                {"kind": "facility", "locale": "zh-tw", "name": "공중화장실", "road": "서울 1", "jibun": None},
+                {"kind": "facility", "locale": "zh-hk", "name": "공중화장실", "road": "서울 1", "jibun": None},
+                {"kind": "group", "locale": "zh-hk", "name": "미번역 그룹"},
+            ]
+            result = MODULE.quality_audit(rows, reader)
+            self.assertEqual(result["byLocale"]["zh-tw"]["readyRows"], 1)
+            self.assertEqual(result["byLocale"]["zh-hk"]["issueRows"], 2)
+            self.assertEqual(result["byLocale"]["zh-hk"]["issueTypes"],
+                             {"road:hangul": 1, "name:empty": 1})
+            self.assertEqual(result["byLocale"]["zh-hk"]["problematicUniqueFields"], 2)
+            self.assertEqual(result["byLocale"]["zh-hk"]["problematicInputCharacters"],
+                             len("서울 1") + len("미번역 그룹"))
+            self.assertEqual(result["missingUniqueSourceTexts"], 1)
+            self.assertNotIn("미번역 그룹", json.dumps(result, ensure_ascii=False))
+            with self.assertRaises(MODULE.sqlite3.OperationalError):
+                reader.save_texts("zh-hk", ["새 문구"], ["新文字"])
+            reader.db.close()
+
     def test_plan_deduplicates_within_each_locale(self):
         rows = [
             {"kind": "facility", "locale": "zh-tw", "name": "공중화장실", "road": "서울 1", "jibun": None},
