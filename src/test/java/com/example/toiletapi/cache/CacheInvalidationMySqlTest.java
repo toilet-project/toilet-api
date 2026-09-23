@@ -64,6 +64,17 @@ class CacheInvalidationMySqlTest {
         tx.execute(status->{jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)");return null;});
         assertEquals(1,repository.due().size());
     }
+    @Test void signedDeliveryBatchIsBoundedAndLeavesTheNextRowsDue() {
+        for(long id=1;id<=21;id++)
+            jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (?,'sample',37)",id);
+        assertEquals(21,repository.pendingCount());
+        assertEquals(20,repository.due().size());
+        var first=repository.dueScoped();
+        assertEquals(20,first.size());
+        first.forEach(repository::acknowledgeScoped);
+        assertEquals(1,repository.pendingCount());
+        assertEquals(1,repository.dueScoped().size());
+    }
     @Test void repeatedMutationsCoalesceButOldAckCannotEraseANewerEvent() {
         jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)"); var old=repository.due().getFirst();
         jdbc.update("UPDATE toilet SET name='new name' WHERE toilet_id=1"); var latest=repository.due().getFirst();
