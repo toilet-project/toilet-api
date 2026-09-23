@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: traditional-chinese-translation-rollout
+  group: traditional-chinese-translation-${{ inputs.stage == 'pilot' && 'parallel-pilot' || 'rollout' }}
   cancel-in-progress: false
 
 jobs:
@@ -74,7 +74,13 @@ jobs:
           ssh-keygen -y -P '' -f "$RUNNER_TEMP/traditional-rollout-key" >/dev/null
           export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
           sample=()
-          if test "$STAGE" = 'pilot'; then sample=(--sample-rows 400); fi
+          cap=100
+          work=()
+          if test "$STAGE" = 'pilot'; then
+            sample=(--sample-rows 400)
+            cap=2
+            work=(--work-dir /tmp/toilet-traditional-parallel-pilot-20260923)
+          fi
           if test "$STAGE" = 'pack-pilot'; then sample=(--sample-rows 400); fi
           timeout 345m ssh -F /dev/null -T -i "$RUNNER_TEMP/traditional-rollout-key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
@@ -84,7 +90,7 @@ jobs:
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
             "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" \
-            "python3 - '$STAGE' --project project-a89d2fb9-4c1a-4a14-98c --max-usd 100 ${sample[*]}" \
+            "python3 - '$STAGE' --project project-a89d2fb9-4c1a-4a14-98c --max-usd $cap ${work[*]} ${sample[*]}" \
             < scripts/translation_korean_traditional.py \
             > traditional-chinese-translation-report.json
           python3 - <<'PY'
@@ -92,9 +98,10 @@ jobs:
           from pathlib import Path
           path = Path('traditional-chinese-translation-report.json')
           report = json.loads(path.read_text(encoding='utf-8'))
-          if report.get('costCapUsd') != 100 or report.get('stage') not in ('pilot', 'pack-pilot', 'run'):
+          expected_cap = 2 if report.get('stage') == 'pilot' else 100
+          if report.get('costCapUsd') != expected_cap or report.get('stage') not in ('pilot', 'pack-pilot', 'run'):
               raise SystemExit('Invalid translation report')
-          if report.get('estimatedCostUsd', 101) > 100:
+          if report.get('estimatedCostUsd', expected_cap + 1) > expected_cap:
               raise SystemExit('Google cost cap exceeded')
           path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
           PY
