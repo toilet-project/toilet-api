@@ -41,7 +41,7 @@ COMMIT;"""
 CACHE_ERRORS_SQL = """START TRANSACTION READ ONLY;
 SELECT JSON_OBJECT('code',COALESCE(last_error_code,'NONE'),'rows',COUNT(*))
 FROM web_cache_invalidation WHERE delivered_at IS NULL
-GROUP BY COALESCE(last_error_code,'NONE');
+GROUP BY last_error_code;
 COMMIT;"""
 TRANSLATION_TRIGGER_SQL = """START TRANSACTION READ ONLY;
 SELECT JSON_OBJECT('installedTranslationTriggers',COUNT(*))
@@ -93,7 +93,9 @@ def query(sql, credentials):
     result = subprocess.run(command, input="SET NAMES utf8mb4;\n" + sql, env=env,
                             text=True, capture_output=True, check=False)
     if result.returncode:
-        raise RuntimeError("read-only MySQL query failed")
+        import re
+        match = re.search(r"ERROR ([0-9]{3,5})", result.stderr)
+        raise RuntimeError("read-only MySQL query failed: " + (match.group(1) if match else "unknown"))
     return (json.loads(line) for line in result.stdout.splitlines() if line.strip())
 
 
