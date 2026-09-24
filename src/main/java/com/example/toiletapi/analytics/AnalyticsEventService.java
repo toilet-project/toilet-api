@@ -45,14 +45,16 @@ public class AnalyticsEventService {
     private final AnalyticsEventWriter writer;
     private final Clock clock;
     private final boolean enabled;
+    private final boolean retainBotEvents;
     private final byte[] secret;
     private final Map<String, AtomicInteger> minuteCounts = new ConcurrentHashMap<>();
 
     @Autowired
     public AnalyticsEventService(AnalyticsEventWriter writer,
                                  @Value("${service-analytics.enabled:false}") boolean enabled,
-                                 @Value("${service-analytics.visitor-secret:}") String secret) {
-        this(writer, Clock.systemUTC(), enabled, secret);
+                                 @Value("${service-analytics.visitor-secret:}") String secret,
+                                 @Value("${service-analytics.retain-bot-events:false}") boolean retainBotEvents) {
+        this(writer, Clock.systemUTC(), enabled, secret, retainBotEvents);
     }
 
     AnalyticsEventService(AnalyticsRepository repository, Clock clock, boolean enabled, String secret) {
@@ -60,9 +62,14 @@ public class AnalyticsEventService {
     }
 
     AnalyticsEventService(AnalyticsEventWriter writer, Clock clock, boolean enabled, String secret) {
+        this(writer, clock, enabled, secret, false);
+    }
+
+    AnalyticsEventService(AnalyticsEventWriter writer, Clock clock, boolean enabled, String secret, boolean retainBotEvents) {
         this.writer = writer;
         this.clock = clock;
         this.enabled = enabled && secret != null && secret.length() >= 32;
+        this.retainBotEvents = retainBotEvents;
         this.secret = deriveKey(secret);
     }
 
@@ -75,11 +82,14 @@ public class AnalyticsEventService {
         if (!EVENTS.contains(event)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "허용되지 않은 분석 이벤트입니다.");
         if (!PRODUCTION_ORIGINS.contains(origin)) return;
         String userAgent = clean(http.getHeader("User-Agent"));
-        if (isBot(userAgent)) return;
+        if (userAgent.isBlank()) return;
+        boolean bot = isBot(userAgent);
+        // Opt in only after the admin exclusion path is deployed. No original UA/IP is stored.
+        if (bot && !retainBotEvents) return;
 
         Instant now = clock.instant();
         byte[] visitorHash = visitorHash(clientNetwork(http), userAgent, now);
-        byte[] sessionHash = sessionHash(request.sessionId(), visitorHash, now);
+        byte[] sessionHash = sessionHash(request.sessionId(), visitorHash, now, bot);
         enforceRate(visitorHash, now);
         Client client = classify(userAgent);
         Referral referral = referral(request.referrerHost(), request.utmSource(), request.utmMedium());
@@ -92,7 +102,7 @@ public class AnalyticsEventService {
                 now, now.atZone(SEOUL).toLocalDate(), event, pageKey(request.path()), referral.channel(), referral.source(),
                 client.device(), client.os(), client.browser(), country(http.getHeader("CF-IPCountry")),
                 city(http.getHeader("CF-IPCity")), visitorHash, sessionHash, engagement, resultBucket, detail,
-                request.success(), Boolean.TRUE.equals(request.newVisitor()), KEY_EVENTS.contains(event)));
+                request.success(), Boolean.TRUE.equals(request.newVisitor()), KEY_EVENTS.contains(event), bot ? "BOT" : "UNFLAGGED"));
         } catch (RuntimeException ignored) {
             // 분석 큐가 가득 차도 사용자 기능과 응답은 계속 동작한다.
         }
@@ -112,12 +122,13 @@ public class AnalyticsEventService {
         return hmac(period + "\n" + network + "\n" + userAgent);
     }
 
-    private byte[] sessionHash(String sessionId, byte[] visitorHash, Instant now) {
+    private byte[] sessionHash(String sessionId, byte[] visitorHash, Instant now, boolean bot) {
         String value = clean(sessionId);
         if (!value.matches("[a-zA-Z0-9._-]{8,64}")) {
             value = HexFormat.of().formatHex(visitorHash, 0, 8) + ":" + now.getEpochSecond() / 1800;
         }
-        return hmac("session\n" + value);
+        // A claimed bot session must not join a normal visitor's page-filter/funnel session.
+        return hmac((bot ? "bot-session\n" : "session\n") + value);
     }
 
     private byte[] hmac(String value) {
@@ -234,7 +245,10 @@ public class AnalyticsEventService {
     private static boolean isBot(String ua) {
         String value = ua.toLowerCase(Locale.ROOT);
         return value.isBlank() || value.contains("bot") || value.contains("crawler") || value.contains("spider")
-                || value.contains("headless") || value.contains("preview");
+                || value.contains("headless") || value.contains("preview")
+                // Naver Yeti looks like Chrome and does not contain "bot".
+                // Exclusion is not identity verification and never blocks the request itself.
+                || value.matches(".*(?:^|[\\s;(])(?:yeti|ads-naver|blueno|claude-user|chatgpt-user|facebookexternalhit)(?:[/\\s;)].*|$)");
     }
 
     private static String country(String raw) {
