@@ -61,6 +61,22 @@ public class ToiletTranslationRepository {
                 """, new MapSqlParameterSource("toiletIds", toiletIds), (rs, row) -> map(rs));
     }
 
+    public record MarkerName(long toiletId, String locale, String name) {}
+
+    public List<MarkerName> findCurrentMarkerNames(Collection<Long> toiletIds) {
+        if (toiletIds == null || toiletIds.isEmpty()) return List.of();
+        return jdbc.query("""
+                SELECT tr.toilet_id,tr.locale,tr.name
+                  FROM toilet_translation tr
+                  JOIN toilet_translation ko ON ko.toilet_id=tr.toilet_id AND ko.locale='ko'
+                 WHERE tr.toilet_id IN (:toiletIds)
+                   AND tr.locale <> 'ko'
+                   AND tr.source_hash = ko.source_hash
+                 ORDER BY tr.toilet_id,tr.locale
+                """, new MapSqlParameterSource("toiletIds", toiletIds),
+                (rs, row) -> new MarkerName(rs.getLong("toilet_id"), rs.getString("locale"), rs.getString("name")));
+    }
+
     public String currentSourceHash(long toiletId, boolean lock) {
         String suffix = lock ? " FOR UPDATE" : "";
         return jdbc.query("""

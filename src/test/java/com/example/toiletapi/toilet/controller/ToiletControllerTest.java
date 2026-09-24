@@ -85,6 +85,22 @@ class ToiletControllerTest {
     }
 
     @Test
+    void shouldExposeCompactMapCellWithoutChangingTheLegacyEndpoint() throws Exception {
+        when(toiletService.getMapCellMarkers(any(), any(), any(), any()))
+                .thenReturn(ToiletMapSearchResponse.markers(8,
+                        List.of(new ToiletMapResponse(101L, "문화원", "공중화장실", 37.52, 127.02, null, null,
+                                Map.of("en", new ToiletTranslationResponse("Cultural Center", null, null))))));
+
+        mockMvc.perform(get("/api/v1/toilets/map-cell")
+                        .param("southLat", "37.50").param("northLat", "37.55")
+                        .param("westLng", "127.00").param("eastLng", "127.05"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.toilets[0].translations.en.name").value("Cultural Center"))
+                .andExpect(jsonPath("$.toilets[0].translations.en.roadAddress").isEmpty());
+        verify(toiletService).getMapCellMarkers(any(), any(), any(), any());
+    }
+
+    @Test
     void shouldPassTwentyFourHourFilterToService() throws Exception {
         when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean()))
                 .thenReturn(ToiletMapSearchResponse.markers(3, List.of()));

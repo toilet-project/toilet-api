@@ -46,6 +46,21 @@ public interface ToiletRepository extends JpaRepository<Toilet, Long> {
             BigDecimal eastLng
     );
 
+    @Query("""
+            select t.id as id, t.name as name, t.toiletType as toiletType,
+                   t.latitude as latitude, t.longitude as longitude
+            from Toilet t
+            where t.visibilityStatus='VISIBLE'
+              and t.latitude between :southLat and :northLat
+              and t.longitude between :westLng and :eastLng
+            """)
+    List<ToiletMarkerProjection> findMarkerRowsByBounds(
+            @Param("southLat") BigDecimal southLat,
+            @Param("northLat") BigDecimal northLat,
+            @Param("westLng") BigDecimal westLng,
+            @Param("eastLng") BigDecimal eastLng
+    );
+
     @Query(value = """
             SELECT t.* FROM toilet t
             JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
