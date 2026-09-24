@@ -44,6 +44,16 @@ public class ToiletController {
         return toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom, includeList, open24h);
     }
 
+    @GetMapping("/map-cell")
+    public ToiletMapSearchResponse getMapCellMarkers(
+            @RequestParam BigDecimal southLat,
+            @RequestParam BigDecimal northLat,
+            @RequestParam BigDecimal westLng,
+            @RequestParam BigDecimal eastLng
+    ) {
+        return toiletService.getMapCellMarkers(southLat, northLat, westLng, eastLng);
+    }
+
     /**
      * 특정 화장실의 상세 정보를 반환합니다.
      *

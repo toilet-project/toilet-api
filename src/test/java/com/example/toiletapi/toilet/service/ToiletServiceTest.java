@@ -16,6 +16,7 @@ import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
 import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
+import com.example.toiletapi.toilet.repository.ToiletMarkerProjection;
 import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import com.example.toiletapi.toilet.repository.ToiletRegionProjection;
 import com.example.toiletapi.toilet.translation.ToiletTranslationModels.Text;
@@ -87,6 +88,37 @@ class ToiletServiceTest {
     @BeforeEach
     void noTranslationsByDefault() {
         lenient().when(translationService.currentTranslations(anyCollection())).thenReturn(Map.of());
+        lenient().when(translationService.currentMarkerNames(anyCollection())).thenReturn(Map.of());
+    }
+
+    @Test
+    void compactMapCellReadsOnlyMarkerRowsAndTranslatedNames() {
+        BigDecimal south = new BigDecimal("37.50"), north = new BigDecimal("37.55");
+        BigDecimal west = new BigDecimal("127.00"), east = new BigDecimal("127.05");
+        ToiletMarkerProjection row = mock(ToiletMarkerProjection.class);
+        when(row.getId()).thenReturn(101L);
+        when(row.getName()).thenReturn("문화원");
+        when(row.getToiletType()).thenReturn("공중화장실");
+        when(row.getLatitude()).thenReturn(new BigDecimal("37.52"));
+        when(row.getLongitude()).thenReturn(new BigDecimal("127.02"));
+        when(toiletRepository.findMarkerRowsByBounds(south, north, west, east)).thenReturn(List.of(row));
+        when(displayGroupRepository.assignmentsFor(List.of(101L))).thenReturn(Map.of());
+        when(translationService.currentMarkerNames(List.of(101L))).thenReturn(Map.of(101L, Map.of("en", "Cultural Center")));
+
+        var response = toiletService.getMapCellMarkers(south, north, west, east);
+
+        assertEquals("Cultural Center", response.toilets().getFirst().translations().get("en").name());
+        assertNull(response.toilets().getFirst().translations().get("en").roadAddress());
+        assertEquals(8, response.meta().mapLevel());
+        verify(toiletRepository).findMarkerRowsByBounds(south, north, west, east);
+    }
+
+    @Test
+    void compactMapCellRejectsBroadPublicQueriesBeforeTouchingTheDatabase() {
+        assertThrows(IllegalArgumentException.class, () -> toiletService.getMapCellMarkers(
+                new BigDecimal("37.50"), new BigDecimal("38.00"),
+                new BigDecimal("127.00"), new BigDecimal("127.05")));
+        verifyNoInteractions(toiletRepository);
     }
 
     @Test

@@ -44,6 +44,17 @@ public class ToiletTranslationService {
         return Map.copyOf(grouped);
     }
 
+    public Map<Long, Map<String, String>> currentMarkerNames(Collection<Long> toiletIds) {
+        Map<Long, Map<String, String>> grouped = new LinkedHashMap<>();
+        for (var text : repository.findCurrentMarkerNames(toiletIds)) {
+            if (text.name() == null || text.name().isBlank()) continue;
+            grouped.computeIfAbsent(text.toiletId(), ignored -> new LinkedHashMap<>())
+                    .put(text.locale(), text.name());
+        }
+        grouped.replaceAll((ignored, names) -> Map.copyOf(names));
+        return Map.copyOf(grouped);
+    }
+
     @Transactional
     public boolean saveMachineTranslation(TranslationInput raw) {
         TranslationInput input = validate(raw, false);

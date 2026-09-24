@@ -105,6 +105,36 @@ public class ToiletService {
         return ToiletMapSearchResponse.markers(mapLevel, markers);
     }
 
+    /** Compact marker read used only on a shared, fixed map cell cache miss. */
+    public ToiletMapSearchResponse getMapCellMarkers(
+            BigDecimal southLat, BigDecimal northLat, BigDecimal westLng, BigDecimal eastLng
+    ) {
+        validateBounds(southLat, northLat, westLng, eastLng, 8);
+        if (southLat.compareTo(new BigDecimal("32")) < 0 || northLat.compareTo(new BigDecimal("40")) > 0
+                || westLng.compareTo(new BigDecimal("124")) < 0 || eastLng.compareTo(new BigDecimal("132")) > 0
+                || northLat.subtract(southLat).compareTo(new BigDecimal("0.05")) > 0
+                || eastLng.subtract(westLng).compareTo(new BigDecimal("0.05")) > 0) {
+            throw new IllegalArgumentException("지도 셀 영역이 허용 범위를 벗어났습니다.");
+        }
+        var rows = toiletRepository.findMarkerRowsByBounds(southLat, northLat, westLng, eastLng);
+        var ids = rows.stream().map(row -> row.getId()).toList();
+        var displayGroups = displayGroupRepository.assignmentsFor(ids);
+        var names = translationService.currentMarkerNames(ids);
+        var markers = rows.stream().map(row -> {
+            var assignment = displayGroups.get(row.getId());
+            var translations = names.getOrDefault(row.getId(), Map.<String, String>of()).entrySet().stream()
+                    .collect(java.util.stream.Collectors.toUnmodifiableMap(
+                            Map.Entry::getKey,
+                            entry -> new ToiletTranslationResponse(entry.getValue(), null, null)));
+            return new ToiletMapResponse(row.getId(), row.getName(), row.getToiletType(),
+                    row.getLatitude().doubleValue(), row.getLongitude().doubleValue(),
+                    assignment == null ? null : assignment.groupId(),
+                    assignment == null ? null : assignment.displayName(),
+                    assignment == null ? Map.of() : assignment.translations(), translations);
+        }).toList();
+        return ToiletMapSearchResponse.markers(8, markers);
+    }
+
     /**
      * 화장실 식별자로 상세 정보를 조회합니다.
      *
