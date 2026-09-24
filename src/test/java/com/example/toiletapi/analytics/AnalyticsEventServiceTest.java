@@ -47,6 +47,7 @@ class AnalyticsEventServiceTest {
         assertEquals(0, row.getValue().engagementSeconds());
         assertEquals("map", row.getValue().eventDetail());
         assertEquals(true, row.getValue().newVisitor());
+        assertEquals("UNFLAGGED", row.getValue().trafficClass());
     }
 
     @Test
@@ -172,6 +173,38 @@ class AnalyticsEventServiceTest {
 
     private static AnalyticsEventRequest eventWithReferrer(String host) {
         return event("/", host);
+    }
+
+    @Test
+    void excludesNamedCrawlersWithoutDroppingHumanSearchReferrals() {
+        AnalyticsRepository repository = mock(AnalyticsRepository.class);
+        AnalyticsEventService service = new AnalyticsEventService(repository, Clock.systemUTC(), true, SECRET);
+        for (String ua : new String[]{"Googlebot/2.1", "bingbot/2.0",
+                "Mozilla/5.0 (compatible; Yeti/1.1; +https://naver.me/spd) Chrome/123 Safari/537.36",
+                "Ads-Naver/1.0", "Blueno/1.0", "Claude-User/1.0", "ChatGPT-User/1.0", "facebookexternalhit/1.1"}) {
+            service.collect(eventWithReferrer("search.naver.com"),
+                    request("https://geupddong.com", "203.0.113.1", ua, "", "KR"));
+        }
+        verify(repository, never()).insert(any());
+        service.collect(eventWithReferrer("search.naver.com"),
+                request("https://geupddong.com", "203.0.113.1", "Mozilla/5.0 (iPhone) Safari/537.36", "", "KR"));
+        verify(repository).insert(any());
+    }
+
+    @Test
+    void optInRetainsBotFlagWithoutMixingHumanSessionsOrRetainingRawIdentity() {
+        AnalyticsRepository repository=mock(AnalyticsRepository.class);
+        AnalyticsEventService service=new AnalyticsEventService(new AnalyticsEventWriter(repository),
+                Clock.fixed(Instant.parse("2026-09-24T01:00:00Z"),ZoneOffset.UTC),true,SECRET,true);
+        service.collect(eventWithReferrer(null),request("https://geupddong.com","203.0.113.1","Yeti/1.1","","KR"));
+        service.collect(eventWithReferrer(null),request("https://geupddong.com","203.0.113.1","Mozilla/5.0 Safari/537.36","","KR"));
+        service.collect(eventWithReferrer(null),request("https://geupddong.com","203.0.113.1","","","KR"));
+        service.collect(eventWithReferrer(null),request("https://preview.geupddong.com","203.0.113.1","Yeti/1.1","","KR"));
+        ArgumentCaptor<AnalyticsRepository.EventRow> rows=ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
+        verify(repository,times(2)).insert(rows.capture());
+        assertEquals("BOT",rows.getAllValues().get(0).trafficClass());
+        assertEquals("UNFLAGGED",rows.getAllValues().get(1).trafficClass());
+        org.junit.jupiter.api.Assertions.assertFalse(java.util.Arrays.equals(rows.getAllValues().get(0).sessionHash(),rows.getAllValues().get(1).sessionHash()));
     }
 
     private static AnalyticsEventRequest event(String path) {

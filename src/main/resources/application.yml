@@ -26,6 +26,8 @@ display-group-translation:
 
 service-analytics:
   enabled: ${SERVICE_ANALYTICS_ENABLED:false}
+  # Enable only after the admin bot-exclusion path is deployed; raw retention stays 35 days.
+  retain-bot-events: ${SERVICE_ANALYTICS_RETAIN_BOT_EVENTS:false}
   visitor-secret: ${ANALYTICS_VISITOR_HMAC_SECRET:${JWT_SECRET:}}
   daily-cron: "${SERVICE_ANALYTICS_DAILY_CRON:0 30 2 * * *}"
   today-refresh-ms: ${SERVICE_ANALYTICS_TODAY_REFRESH_MS:300000}

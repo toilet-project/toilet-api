@@ -22,6 +22,7 @@ ANALYTICS_CONFIG = {
     'SERVICE_ANALYTICS_DAILY_CRON': '0 30 2 * * *',
 }
 ANALYTICS_KEYS = tuple(ANALYTICS_CONFIG)
+BOT_CONFIG = {'SERVICE_ANALYTICS_RETAIN_BOT_EVENTS': 'true'}
 ACCOUNT_ACTIVE = {
     'ACCOUNT_LIFECYCLE_MAINTENANCE': 'false',
     'ACCOUNT_RETENTION_ENABLED': 'true',
@@ -188,6 +189,23 @@ class Host:
                     raise ValueError('SERVICE_ANALYTICS_RELEASE_HEALTH_REJECTED') from None
                 time.sleep(2)
 
+    def require_bot_dependencies(self, objects, admin_commit):
+        require(environment(objects['api']).get('SERVICE_ANALYTICS_ENABLED') == 'true')
+        admin = json.loads(self.run(['docker', 'inspect', 'toilet-admin']))[0]
+        require(admin['State']['Running'] and admin['Config']['Image'].endswith(':' + admin_commit),
+                'SERVICE_ANALYTICS_RELEASE_ADMIN_VERSION_REJECTED')
+        env = environment(objects['api'])
+        # Read metadata only. Values never leave this process or appear in error output.
+        columns = self.run(['docker', 'exec', '-i', '-e', 'MYSQL_PWD=' + env['SPRING_DB_PASSWORD'],
+                            'toilet-mysql', 'mysql', '--protocol=socket', '-u', env['SPRING_DB_USERNAME'],
+                            'toilet_db', '--batch', '--skip-column-names'], input="""
+SET SESSION MAX_EXECUTION_TIME=5000;
+SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE()
+ AND table_name='service_analytics_event' AND column_name='traffic_class'
+ AND is_nullable='NO' AND column_default='LEGACY';
+""")
+        require(columns == '1', 'SERVICE_ANALYTICS_RELEASE_BOT_SCHEMA_REJECTED')
+
 
 def analytics_state(obj):
     env = environment(obj)
@@ -235,12 +253,16 @@ def apply_compose(host, snapshots, commits, replacement, target_state):
 
 
 def main():
+    global ANALYTICS_CONFIG, ANALYTICS_KEYS
     parser = argparse.ArgumentParser()
     parser.add_argument('--operation', choices=('check', 'activate', 'deactivate'), required=True)
     parser.add_argument('--api-commit', required=True)
     parser.add_argument('--batch-commit', required=True)
     parser.add_argument('--apply-approved', action='store_true')
     parser.add_argument('--deployment-freeze-confirmed', action='store_true')
+    parser.add_argument('--feature', choices=('analytics', 'bot-retention'), default='analytics')
+    parser.add_argument('--admin-commit')
+    parser.add_argument('--admin-compatible-confirmed', action='store_true')
     args = parser.parse_args()
     require(os.geteuid() == 1000 and sys.platform.startswith('linux'))
     require(all(re.fullmatch(r'[a-f0-9]{40}', value or '')
@@ -248,12 +270,20 @@ def main():
     read_only = args.operation == 'check'
     require(read_only == (not args.apply_approved))
     require(not args.apply_approved or args.deployment_freeze_confirmed)
+    if args.feature == 'bot-retention':
+        require(re.fullmatch(r'[a-f0-9]{40}', args.admin_commit or '') is not None)
+        require(args.operation != 'activate' or args.admin_compatible_confirmed,
+                'SERVICE_ANALYTICS_RELEASE_ADMIN_COMPATIBILITY_REQUIRED')
+        ANALYTICS_CONFIG = dict(BOT_CONFIG)
+        ANALYTICS_KEYS = tuple(ANALYTICS_CONFIG)
     host = Host()
     commits = {'api': args.api_commit, 'batch': args.batch_commit}
     with host.context.maintenance_lease.acquire():
         objects = host.capture()
         state = analytics_state(objects['api'])
         validate_runtime(objects, commits, state)
+        if args.feature == 'bot-retention':
+            host.require_bot_dependencies(objects, args.admin_commit)
         snapshots = {
             'objects': objects,
             'render': host.rendered(),
@@ -280,6 +310,7 @@ def main():
         'accountStatePreserved': True,
         'directDatabaseWrites': False,
         'operation': args.operation,
+        'feature': args.feature,
     }))
 
 

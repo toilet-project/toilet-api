@@ -29,12 +29,12 @@ public class AnalyticsRepository {
                     occurred_at, occurred_date, event_name, page_key, channel_key, source_key,
                     device_type, os_family, browser_family, country_code, city_name, visitor_hash,
                     session_hash, engagement_seconds, result_count_bucket, event_detail,
-                    success_status, new_visitor, key_event
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    success_status, new_visitor, key_event, traffic_class
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, Timestamp.from(value.occurredAt()), Date.valueOf(value.occurredDate()), value.eventName(),
                 value.pageKey(), value.channel(), value.source(), value.device(), value.os(), value.browser(),
                 value.country(), value.city(), value.visitorHash(), value.sessionHash(), value.engagementSeconds(),
-                value.resultBucket(), value.eventDetail(), value.success(), value.newVisitor(), value.keyEvent());
+                value.resultBucket(), value.eventDetail(), value.success(), value.newVisitor(), value.keyEvent(), value.trafficClass());
     }
 
     public long startRun(Instant now, LocalDate start, LocalDate end) {
@@ -85,7 +85,7 @@ public class AnalyticsRepository {
                        COUNT(DISTINCT CASE WHEN event_name='engagement' AND engagement_seconds>=10 THEN session_hash END),
                        COALESCE(SUM(key_event),0), COUNT(*), COALESCE(SUM(engagement_seconds),0), ?, ?
                   FROM service_analytics_event
-                 WHERE occurred_date=?
+                 WHERE occurred_date=? AND traffic_class<>'BOT'
                 """, sqlDate, Timestamp.from(calculatedAt), finalized, sqlDate);
         for (String type : DIMENSIONS) insertDimension(date, type);
     }
@@ -120,7 +120,7 @@ public class AnalyticsRepository {
                        COALESCE(SUM(event_name='page_view'),0), COUNT(DISTINCT session_hash), COUNT(*),
                        COALESCE(SUM(key_event),0), COALESCE(SUM(engagement_seconds),0)
                   FROM service_analytics_event
-                 WHERE occurred_date=?%s
+                 WHERE occurred_date=? AND traffic_class<>'BOT'%s
                  GROUP BY occurred_date, %s
                 """.formatted(expression, expression, filter, expression);
         jdbc.update(sql, type, Date.valueOf(date));
@@ -134,5 +134,5 @@ public class AnalyticsRepository {
                            String channel, String source, String device, String os, String browser,
                            String country, String city, byte[] visitorHash, byte[] sessionHash,
                            int engagementSeconds, String resultBucket, String eventDetail,
-                           Boolean success, boolean newVisitor, boolean keyEvent) { }
+                           Boolean success, boolean newVisitor, boolean keyEvent, String trafficClass) { }
 }

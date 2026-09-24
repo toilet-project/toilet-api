@@ -70,6 +70,7 @@ class ServiceAnalyticsMigrationTest {
         execute(dataSource, "db/migration/V21__replace_ga_snapshot_with_service_analytics.sql");
 
         byte[] visitorHash = new byte[32];
+        execute(dataSource, "db/migration/V33__classify_service_analytics_traffic.sql");
         byte[] sessionHash = new byte[32];
         Arrays.fill(visitorHash, (byte) 1);
         Arrays.fill(sessionHash, (byte) 2);
@@ -78,7 +79,7 @@ class ServiceAnalyticsMigrationTest {
         repository.insert(new AnalyticsRepository.EventRow(
                 Instant.parse("2026-09-17T00:10:00Z"), LocalDate.of(2026, 9, 17), "page_view", "/",
                 "Direct", "direct", "desktop", "Windows", "Chrome", "KR", "Seoul",
-                visitorHash, sessionHash, 0, "", "", null, true, false));
+                visitorHash, sessionHash, 0, "", "", null, true, false, "UNFLAGGED"));
 
         JdbcTemplate db = new JdbcTemplate(dataSource);
         assertThat(db.queryForObject("SELECT COUNT(*) FROM service_analytics_event", Integer.class)).isOne();
@@ -91,6 +92,7 @@ class ServiceAnalyticsMigrationTest {
         DataSource dataSource = new DriverManagerDataSource(
                 "jdbc:h2:mem:service-analytics-entry-count;MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         execute(dataSource, "db/migration/V21__replace_ga_snapshot_with_service_analytics.sql");
+        execute(dataSource, "db/migration/V33__classify_service_analytics_traffic.sql");
         JdbcTemplate db = new JdbcTemplate(dataSource);
         AnalyticsRepository repository = new AnalyticsRepository(db);
         LocalDate date = LocalDate.of(2026, 9, 23);
@@ -115,7 +117,48 @@ class ServiceAnalyticsMigrationTest {
                                                        byte[] session, byte[] visitor) {
         return new AnalyticsRepository.EventRow(now, date, name, "/", "Direct", "none",
                 "mobile", "iOS", "Safari", "KR", "Seoul", visitor, session,
-                0, "", "", null, false, false);
+                0, "", "", null, false, false, "UNFLAGGED");
+    }
+
+    @Test
+    void preservesLegacyRowsAndExcludesBotsFromEveryDailyAggregate() throws Exception {
+        DataSource dataSource = new DriverManagerDataSource(
+                "jdbc:h2:mem:service-analytics-bots;MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
+        execute(dataSource,"db/migration/V21__replace_ga_snapshot_with_service_analytics.sql");
+        execute(dataSource,"db/migration/V33__classify_service_analytics_traffic.sql");
+        JdbcTemplate db=new JdbcTemplate(dataSource);
+        AnalyticsRepository repository=new AnalyticsRepository(db);
+        LocalDate date=LocalDate.of(2026,9,24);
+        Instant now=Instant.parse("2026-09-24T01:00:00Z");
+        for(String traffic:new String[]{"LEGACY","UNFLAGGED","BOT"}) {
+            byte[] hash=new byte[32];Arrays.fill(hash,(byte)traffic.length());
+            for(String name:new String[]{"session_start","page_view"}) repository.insert(new AnalyticsRepository.EventRow(
+                    now,date,name,"/","Direct",traffic,"desktop","Other","Other","KR","Unknown",hash,hash,
+                    0,"","",null,false,false,traffic));
+        }
+        repository.aggregate(date,now,false);
+        assertThat(db.queryForObject("SELECT views FROM service_analytics_daily_summary",Long.class)).isEqualTo(2);
+        assertThat(db.queryForObject("SELECT event_count FROM service_analytics_daily_summary",Long.class)).isEqualTo(4);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM service_analytics_daily_dimension WHERE dimension_type='SOURCE' AND dimension_key='BOT'",Long.class)).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM service_analytics_event WHERE traffic_class='BOT'",Long.class)).isEqualTo(2);
+        repository.deleteExpiredEvents(date.plusDays(1));
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM service_analytics_event",Long.class)).isZero();
+    }
+
+    @Test
+    void existingEventsBecomeLegacyWithoutReclassifyingOrDeletingThem() throws Exception {
+        DataSource dataSource=new DriverManagerDataSource("jdbc:h2:mem:analytics-legacy-migration;MODE=MySQL;DB_CLOSE_DELAY=-1","sa","");
+        execute(dataSource,"db/migration/V21__replace_ga_snapshot_with_service_analytics.sql");
+        JdbcTemplate db=new JdbcTemplate(dataSource);
+        db.update("""
+                INSERT INTO service_analytics_event(occurred_at,occurred_date,event_name,page_key,channel_key,source_key,
+                device_type,os_family,browser_family,country_code,city_name,visitor_hash,session_hash)
+                VALUES('2026-09-24 01:00:00','2026-09-24','page_view','/','Direct','none','desktop','Other','Other','KR','Unknown',?,?)
+                """,new byte[32],new byte[32]);
+        execute(dataSource,"db/migration/V33__classify_service_analytics_traffic.sql");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM service_analytics_event",Long.class)).isOne();
+        assertThat(db.queryForObject("SELECT traffic_class FROM service_analytics_event",String.class)).isEqualTo("LEGACY");
+        assertThat(db.queryForObject("SELECT source_key FROM service_analytics_event",String.class)).isEqualTo("none");
     }
 
     private static void execute(DataSource dataSource, String path) throws Exception {
