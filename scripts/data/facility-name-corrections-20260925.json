@@ -1,0 +1,30 @@
+[
+  {
+    "toiletId": 15060, "locale": "en", "originalName": "어울림",
+    "oldName": "sit", "newName": "Eoullim", "expectedVersion": 1,
+    "sourceHash": "1ab7dd1461815896ca9ea038b1e7f9683016eee1843932b03949a000b4b894f4",
+    "addressHash": "77e1d317ea6d276fe9e5f80ce8305cdb3ce34cfb0e7dfcfe7ead31e0d5c46912",
+    "source": "FULL_GOOGLE_NMT_JUSO", "addressSource": "MOIS_JUSO_ORIGINAL"
+  },
+  {
+    "toiletId": 15060, "locale": "zh-cn", "originalName": "어울림",
+    "oldName": "坐", "newName": "Eoullim", "expectedVersion": 1,
+    "sourceHash": "1ab7dd1461815896ca9ea038b1e7f9683016eee1843932b03949a000b4b894f4",
+    "addressHash": "91848c7da38472034df519c3a7455e5c91e0257801693f9d52eb69a4c8bddd55",
+    "source": "GOOGLE_NMT_EN_PIVOT", "addressSource": "GOOGLE_NMT_EN_PIVOT"
+  },
+  {
+    "toiletId": 24858, "locale": "en", "originalName": "한서교 위",
+    "oldName": "Han Seo-kyo above", "newName": "Above Hanseogyo Bridge", "expectedVersion": 1,
+    "sourceHash": "2aaab600883bd31efdb6221e5a56c4a283c0a7fff047b7ebdcfab797a5fa8622",
+    "addressHash": "383917a490d8478294fa9410b68e132e22c8ecf3d543d19f6ba283cfb98beaa2",
+    "source": "FULL_GOOGLE_NMT_JUSO", "addressSource": "MOIS_JUSO_ORIGINAL"
+  },
+  {
+    "toiletId": 24858, "locale": "zh-cn", "originalName": "한서교 위",
+    "oldName": "上面是韩瑞京", "newName": "Hanseogyo 桥上方", "expectedVersion": 1,
+    "sourceHash": "2aaab600883bd31efdb6221e5a56c4a283c0a7fff047b7ebdcfab797a5fa8622",
+    "addressHash": "49eeb4090c44562f935ee756d889631f5094c906b1ef5acd7073d2fcb32753e3",
+    "source": "GOOGLE_NMT_EN_PIVOT", "addressSource": "GOOGLE_NMT_EN_PIVOT"
+  }
+]
