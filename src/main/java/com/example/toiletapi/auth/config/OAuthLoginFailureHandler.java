@@ -13,6 +13,14 @@ public class OAuthLoginFailureHandler implements AuthenticationFailureHandler {
     @Override public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                                  AuthenticationException exception) throws IOException {
         // 원인/인가 코드/토큰을 URL에 노출하지 않는다.
+        var mobile = MobileOAuthSession.consume(request);
+        if (mobile != null) {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            if (request.getSession(false) != null) request.getSession(false).invalidate();
+            response.setHeader("Cache-Control", "no-store");
+            response.sendRedirect(mobile.errorUrl("login_failed"));
+            return;
+        }
         response.sendRedirect(OAuthReturnTargets.consume(request, home) + "/?login=failed");
     }
 }

@@ -21,22 +21,41 @@ public class OAuthLoginSuccessHandler extends SimpleUrlAuthenticationSuccessHand
     private final String frontendBaseUrl;
     private final com.example.toiletapi.auth.service.RecoveryChallengeStore recoveryChallenges;
     private final com.example.toiletapi.photo.PhotoSync photos;
+    private final com.example.toiletapi.auth.service.MobileLoginCodeStore mobileCodes;
     public OAuthLoginSuccessHandler(OAuthLoginService loginService, AuthTokenService tokenService,
                                     @Value("${auth.frontend-base-url}") String frontendBaseUrl,
                                     com.example.toiletapi.auth.service.RecoveryChallengeStore recoveryChallenges,
-                                    com.example.toiletapi.photo.PhotoSync photos) {
+                                    com.example.toiletapi.photo.PhotoSync photos,
+                                    com.example.toiletapi.auth.service.MobileLoginCodeStore mobileCodes) {
         this.loginService = loginService; this.tokenService = tokenService; this.frontendBaseUrl = frontendBaseUrl;
         this.recoveryChallenges = recoveryChallenges;
         this.photos = photos;
+        this.mobileCodes = mobileCodes;
     }
     @Override public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                                    Authentication authentication) throws IOException {
         OAuth2AuthenticationToken oauth = (OAuth2AuthenticationToken) authentication;
         OAuthLoginService.LoginUser user = loginService.login(oauth.getAuthorizedClientRegistrationId(), oauth.getPrincipal());
         String returnUrl = OAuthReturnTargets.consume(request, frontendBaseUrl);
+        var mobile = MobileOAuthSession.consume(request);
         // The OAuth session must not act as an authenticated service session for withdrawn users.
         org.springframework.security.core.context.SecurityContextHolder.clearContext();
         if (request.getSession(false) != null) request.getSession(false).invalidate();
+        if (mobile != null) {
+            response.setHeader("Cache-Control", "no-store");
+            response.setHeader("Referrer-Policy", "no-referrer");
+            if (mobile.expired() || user.recoveryKey() != null) {
+                response.sendRedirect(mobile.errorUrl(mobile.expired() ? "login_expired" : "recovery_required"));
+                return;
+            }
+            if (user.newAccount()) {
+                photos.stageSignup(user.userId(), oauth.getAuthorizedClientRegistrationId(), oauth.getPrincipal().getAttributes());
+                if (!user.consentRequired()) photos.completeSignup(user.userId());
+            }
+            String code = mobileCodes.issue(user.userId(), mobile.challenge());
+            response.sendRedirect(MobileOAuthSession.CALLBACK + "?state=" + mobile.state() + "&code=" + code);
+            return;
+        }
         if (user.recoveryKey() != null) {
             AuthController.clearCookies(response);
             com.example.toiletapi.auth.controller.AccountRecoveryController.writeRecoveryCookie(response,

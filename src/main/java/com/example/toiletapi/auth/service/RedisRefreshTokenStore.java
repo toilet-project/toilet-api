@@ -60,6 +60,15 @@ public class RedisRefreshTokenStore implements RefreshTokenStore {
     }
 
     @Override
+    public Optional<Long> consume(String rawToken) {
+        String userId = redisTemplate.opsForValue().getAndDelete(key(rawToken));
+        if (userId == null) return Optional.empty();
+        redisTemplate.opsForSet().remove(USER_KEY_PREFIX + userId, sha256(rawToken));
+        try { return Optional.of(Long.parseLong(userId)); }
+        catch (NumberFormatException invalid) { return Optional.empty(); }
+    }
+
+    @Override
     public void deleteAllForUser(Long userId) {
         String userKey = USER_KEY_PREFIX + userId;
         var hashes = redisTemplate.opsForSet().members(userKey);

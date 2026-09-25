@@ -50,6 +50,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/data-status").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/policies").permitAll()
                         .requestMatchers("/api/v1/auth/login/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/mobile/config", "/api/v1/auth/mobile/login/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/mobile/exchange", "/api/v1/auth/mobile/refresh", "/api/v1/auth/mobile/logout").permitAll()
                         .requestMatchers("/api/v1/auth/recovery").permitAll()
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
                         // access token이 만료된 뒤에도 HttpOnly refresh cookie로 재발급할 수 있어야 한다.
