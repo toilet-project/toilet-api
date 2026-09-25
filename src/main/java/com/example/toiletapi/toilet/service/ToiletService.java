@@ -135,6 +135,13 @@ public class ToiletService {
         return ToiletMapSearchResponse.markers(8, markers);
     }
 
+    /** A compact, unlocalized source for the shared edge cluster snapshot. */
+    public List<double[]> getPublicClusterPoints() {
+        return toiletRepository.findPublicClusterPoints().stream()
+                .map(row -> new double[] { row.getLatitude().doubleValue(), row.getLongitude().doubleValue() })
+                .toList();
+    }
+
     /**
      * 화장실 식별자로 상세 정보를 조회합니다.
      *

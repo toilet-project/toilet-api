@@ -62,6 +62,16 @@ public interface ToiletRepository extends JpaRepository<Toilet, Long> {
     );
 
     @Query(value = """
+            SELECT latitude AS latitude, longitude AS longitude
+            FROM toilet
+            WHERE visibility_status='VISIBLE'
+              AND latitude BETWEEN 32 AND 40
+              AND longitude BETWEEN 124 AND 132
+            ORDER BY toilet_id
+            """, nativeQuery = true)
+    List<ToiletClusterPointProjection> findPublicClusterPoints();
+
+    @Query(value = """
             SELECT t.* FROM toilet t
             JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
             WHERE t.visibility_status='VISIBLE'

@@ -167,6 +167,7 @@ jobs:
             WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}
             WEB_CACHE_CONTRACT_VERSION=${{ vars.WEB_CACHE_CONTRACT_VERSION || '1' }}
             WEB_CACHE_REVALIDATION_SECRET=${{ secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET'] }}
+            WEB_CACHE_CLUSTER_PREVIEW_SECRET=${{ secrets.WEB_CACHE_REVALIDATION_SECRET }}
             EOF
 
             # Only base64 crosses the shell boundary; JSON and dollar signs remain literal.
