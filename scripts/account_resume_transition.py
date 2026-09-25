@@ -106,6 +106,11 @@ def require(value, code='ACCOUNT_RESUME_HELD'):
     if not value:
         raise ValueError(code)
 
+
+# A fixed, non-sensitive checkpoint helps distinguish host drift from a missing
+# image without printing the inspected Docker configuration or environment.
+ROLLOUT_STAGE = 'entry'
+
 def flags(phase):
     require(phase in ('paused', 'guarded', 'active'))
     return {
@@ -329,15 +334,22 @@ def validate_image_only_render(original, replacement, service, image):
     require(replacement == expected, 'ACCOUNT_RESUME_NON_IMAGE_CHANGE_REJECTED')
 
 def preserve_rollout(args):
+    global ROLLOUT_STAGE
+    ROLLOUT_STAGE = 'request'
     require(re.fullmatch(r'sha256:[a-f0-9]{64}', args.next_image_digest or '') is not None)
     require(not args.apply_approved or (args.deployment_freeze_confirmed and args.schema_compatible_confirmed))
     host = Host(args.role)
     commits = {'api': args.api_commit, 'batch': args.batch_commit}
+    ROLLOUT_STAGE = 'lease'
     with host.context.maintenance_lease.acquire():
+        ROLLOUT_STAGE = 'capture'
         original_objects = host.capture()
+        ROLLOUT_STAGE = 'runtime'
         validate_step(original_objects, args.role, 'preserve', commits)
         initial_phase = phase_of(environment(original_objects[args.role]))
+        ROLLOUT_STAGE = 'dependencies'
         ledger = host.check_dependencies(original_objects, initial_transition=False)
+        ROLLOUT_STAGE = 'configuration'
         original = read_owned(host.compose)
         base_env = read_owned(host.root / '.env', private=True)
         account_env = read_owned(host.root / '.account-lifecycle.env', private=True)
@@ -352,6 +364,7 @@ def preserve_rollout(args):
         validate_image_only_render(rendered, candidate_render, host.service, new_image)
         # Artifact must already be built and approved. Read-only check never pulls images.
         pinned = new_image.rsplit(':', 1)[0] + '@' + args.next_image_digest
+        ROLLOUT_STAGE = 'image'
         if args.apply_approved:
             host.run(['docker', 'pull', pinned], timeout=180)
             host.run(['docker', 'tag', pinned, new_image])
@@ -359,6 +372,8 @@ def preserve_rollout(args):
         require(pinned in image.get('RepoDigests', []), 'ACCOUNT_RESUME_IMAGE_DIGEST_REJECTED')
         expected_id = image['Id']
         def before():
+            global ROLLOUT_STAGE
+            ROLLOUT_STAGE = 'before'
             require(host.capture() == original_objects)
             require(read_owned(host.root / '.env', private=True) == base_env)
             require(read_owned(host.root / '.account-lifecycle.env', private=True) == account_env)
@@ -366,6 +381,8 @@ def preserve_rollout(args):
             require(host.run(['docker', 'image', 'inspect', '--format', '{{.Id}}', old_image])
                     == original_objects[args.role]['Image'], 'ACCOUNT_RESUME_ROLLBACK_IMAGE_UNVERIFIED')
         def after():
+            global ROLLOUT_STAGE
+            ROLLOUT_STAGE = 'after'
             current = host.capture()
             peer = 'batch' if args.role == 'api' else 'api'
             require(current[peer] == original_objects[peer])
@@ -378,6 +395,7 @@ def preserve_rollout(args):
             require(host.check_dependencies(current, initial_transition=False) == ledger)
         before()
         if args.apply_approved:
+            ROLLOUT_STAGE = 'apply'
             apply_step(host.compose, original, replacement, before, host.restart, after, private=False)
     print(json.dumps({'outcome': 'PRESERVING_ROLLOUT_APPLIED' if args.apply_approved else 'PRESERVING_ROLLOUT_PREFLIGHT_PASS',
                       'role': args.role, 'preservedPhase': initial_phase, 'applied': args.apply_approved,
@@ -455,5 +473,5 @@ if __name__ == '__main__':
         main()
     except Exception as error:
         code = str(error) if str(error).startswith('ACCOUNT_RESUME_') and re.fullmatch(r'[A-Z_]+', str(error)) else 'ACCOUNT_RESUME_HELD'
-        print(code + ' detailsSuppressed=true', file=sys.stderr)
+        print(code + ' stage=' + ROLLOUT_STAGE + ' detailsSuppressed=true', file=sys.stderr)
         raise SystemExit(1)
