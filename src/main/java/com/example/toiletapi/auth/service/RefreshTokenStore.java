@@ -14,6 +14,9 @@ public interface RefreshTokenStore {
 
     Optional<Long> findUserId(String rawToken);
 
+    /** Atomically consumes a token for mobile refresh rotation. */
+    Optional<Long> consume(String rawToken);
+
     void delete(String rawToken);
 
     void deleteAllForUser(Long userId);

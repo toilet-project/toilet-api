@@ -27,6 +27,7 @@ public class OAuthLoginRedirectController {
             return;
         }
         if (request.getSession(false) != null) request.getSession(false).removeAttribute(RETURN_URL_SESSION_ATTRIBUTE);
+        com.example.toiletapi.auth.config.MobileOAuthSession.consume(request);
         switch (returnTo) {
             case "admin" -> request.getSession(true).setAttribute(RETURN_URL_SESSION_ATTRIBUTE, OAuthReturnTargets.ADMIN);
             case "adminPreview" -> request.getSession(true).setAttribute(RETURN_URL_SESSION_ATTRIBUTE, OAuthReturnTargets.ADMIN_PREVIEW);
