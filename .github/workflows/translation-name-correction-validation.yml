@@ -1,0 +1,34 @@
+name: Translation name correction validation
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'scripts/*translation*'
+      - 'scripts/data/facility-name-corrections-20260925.json'
+      - 'src/main/resources/db/migration/V26__*'
+      - 'src/main/resources/db/migration/V29__*'
+      - 'src/main/resources/db/cache-revalidation/V4__*'
+      - '.github/workflows/translation-name-correction-validation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  name-corrections:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: name-fix-fixture-only
+          MYSQL_DATABASE: name_correction_test
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pname-fix-fixture-only"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard tests and disposable MySQL transaction tests
+        env:
+          NAME_FIX_TEST_CONTAINER: ${{ job.services.mysql.id }}
+          MYSQL_PWD: name-fix-fixture-only
+        run: python3 -B -m unittest scripts.test_translation_name_corrections scripts.test_translation_name_corrections_mysql
