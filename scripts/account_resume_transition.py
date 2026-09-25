@@ -164,14 +164,24 @@ def validate_step(objects, role, phase, commits):
     actual = []
     for item_role in ('api', 'batch'):
         obj = objects[item_role]
-        require(obj['State']['Running'] and obj['Config']['User'] == '1000:1000')
-        require(re.fullmatch(r'[a-f0-9]{40}', commits[item_role]) is not None)
-        require(obj['Config']['Image'].endswith(':' + commits[item_role]))
-        env = environment(obj)
-        require(env.get('ERASURE_LEDGER_PROVIDER') == 'LOCAL')
-        require(env.get('ERASURE_MAINTENANCE_LOCK_ENABLED') == 'true')
-        require(env.get('ERASURE_MAINTENANCE_DIRECTORY') == '/home/luha/geupddong-maintenance')
-        actual.append(phase_of(env))
+        code = 'ACCOUNT_RESUME_' + item_role.upper() + '_'
+        require(obj['State']['Running'], code + 'NOT_RUNNING')
+        require(obj['Config']['User'] == '1000:1000', code + 'USER_MISMATCH')
+        require(re.fullmatch(r'[a-f0-9]{40}', commits[item_role]) is not None,
+                code + 'EXPECTED_COMMIT_INVALID')
+        require(obj['Config']['Image'].endswith(':' + commits[item_role]), code + 'IMAGE_MISMATCH')
+        try:
+            env = environment(obj)
+        except ValueError:
+            raise ValueError(code + 'ENV_INVALID') from None
+        require(env.get('ERASURE_LEDGER_PROVIDER') == 'LOCAL', code + 'LEDGER_PROVIDER_MISMATCH')
+        require(env.get('ERASURE_MAINTENANCE_LOCK_ENABLED') == 'true', code + 'LOCK_MISMATCH')
+        require(env.get('ERASURE_MAINTENANCE_DIRECTORY') == '/home/luha/geupddong-maintenance',
+                code + 'DIRECTORY_MISMATCH')
+        try:
+            actual.append(phase_of(env))
+        except ValueError:
+            raise ValueError(code + 'PHASE_INVALID') from None
     if phase == 'preserve':
         require(actual[0] == actual[1], 'ACCOUNT_RESUME_MIXED_ROLLOUT_REJECTED')
     else:
