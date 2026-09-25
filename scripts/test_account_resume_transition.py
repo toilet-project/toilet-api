@@ -138,6 +138,13 @@ class TransitionTest(unittest.TestCase):
             resume.validate_step({'api': object_for('guarded'), 'batch': object_for('active')},
                                  'api', 'preserve', dict.fromkeys(('api', 'batch'), COMMIT))
 
+    def test_runtime_mismatch_reports_only_a_fixed_reason_code(self):
+        for item_role in ('api', 'batch'):
+            objects = {'api': object_for('active'), 'batch': object_for('active')}
+            objects[item_role]['Config']['Image'] = 'synthetic:' + 'b' * 40
+            with self.assertRaisesRegex(ValueError, f'ACCOUNT_RESUME_{item_role.upper()}_IMAGE_MISMATCH'):
+                resume.validate_step(objects, 'api', 'preserve', dict.fromkeys(('api', 'batch'), COMMIT))
+
     def test_preserving_compose_changes_one_image_only(self):
         old = 'synthetic/toilet-api:' + COMMIT
         source = ('services:\n  api:\n    image: ' + old +
