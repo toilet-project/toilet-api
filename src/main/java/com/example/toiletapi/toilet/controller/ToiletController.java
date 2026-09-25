@@ -3,10 +3,13 @@ package com.example.toiletapi.toilet.controller;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.service.ToiletService;
+import com.example.toiletapi.toilet.service.MapClusterSourceAuth;
 import java.math.BigDecimal;
+import java.util.List;
 import org.springframework.web.bind.annotation.PathVariable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ToiletController {
 
     private final ToiletService toiletService;
+    private final MapClusterSourceAuth mapClusterSourceAuth;
 
     /**
      * 현재 지도 화면 영역 안의 화장실 기본 정보를 반환합니다.
@@ -52,6 +56,15 @@ public class ToiletController {
             @RequestParam BigDecimal eastLng
     ) {
         return toiletService.getMapCellMarkers(southLat, northLat, westLng, eastLng);
+    }
+
+    /** Public coordinates only; the WEB Worker caches this response before serving cluster requests. */
+    @GetMapping("/map-cluster-points")
+    public List<double[]> getMapClusterPoints(
+            @RequestHeader(value = "X-Map-Cluster-Timestamp", required = false) String timestamp,
+            @RequestHeader(value = "X-Map-Cluster-Signature", required = false) String signature) {
+        mapClusterSourceAuth.requireValid(timestamp, signature);
+        return toiletService.getPublicClusterPoints();
     }
 
     /**

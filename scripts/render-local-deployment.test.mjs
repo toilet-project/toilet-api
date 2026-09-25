@@ -54,7 +54,11 @@ test('template drift and unknown roles fail closed',()=>{
 test('active workflow exactly matches reviewed LOCAL preparation candidate',()=>{
   const active=readFileSync(new URL('../.github/workflows/deploy.yml',import.meta.url),'utf8')
   const body=text=>text.replaceAll('\r\n','\n').replace(/^(#.*\n)+/,'').trim()
-  assert.equal(body(active),body(renderMaintenancePreparation(renderLocalDeployment(source,role),role)))
+  const reviewed=renderMaintenancePreparation(renderLocalDeployment(source,role),role)
+  const cacheSecret="WEB_CACHE_REVALIDATION_SECRET=${{ secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET'] }}"
+  assert.equal(reviewed.split(cacheSecret).length,2,'Reviewed cache secret position must remain unique')
+  const expected=reviewed.replace(cacheSecret,cacheSecret+'\n            WEB_CACHE_CLUSTER_PREVIEW_SECRET=${{ secrets.WEB_CACHE_REVALIDATION_SECRET }}')
+  assert.equal(body(active),body(expected))
   assert.ok(active.includes('branches: [ "main" ]'))
   assert.ok(!active.includes('workflow_dispatch:'))
 })

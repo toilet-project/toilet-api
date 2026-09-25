@@ -110,6 +110,9 @@ replaceOnce('JWT_SECRET=${{ secrets.JWT_SECRET }}',
 replaceOnce('WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}',
  'WEB_CACHE_ORIGIN=${{ vars.WEB_CACHE_ORIGIN }}\n'
  +"WEB_CACHE_CONTRACT_VERSION=${{ vars.WEB_CACHE_CONTRACT_VERSION || '1' }}");
+replaceOnce("WEB_CACHE_REVALIDATION_SECRET=${{ secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET'] }}",
+ "WEB_CACHE_REVALIDATION_SECRET=${{ secrets[vars.WEB_CACHE_ORIGIN == 'https://geupddong.com' && 'WEB_CACHE_PRODUCTION_REVALIDATION_SECRET' || 'WEB_CACHE_REVALIDATION_SECRET'] }}\n"
+ +'WEB_CACHE_CLUSTER_PREVIEW_SECRET=${{ secrets.WEB_CACHE_REVALIDATION_SECRET }}');
 replaceOnce('      - .account-lifecycle.env',
  '      - .account-lifecycle.env\n      - /home/luha/.config/geupddong/profile-photo.env');
 assert.equal(deploy.env.DEPLOY_SCRIPT,expectedScript,'Remote commands must match only the allowlisted LOCAL and maintenance delta');

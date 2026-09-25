@@ -20,6 +20,7 @@ import com.example.toiletapi.toilet.dto.ToiletMapResponse;
 import com.example.toiletapi.toilet.dto.ToiletMapSearchResponse;
 import com.example.toiletapi.toilet.dto.ToiletTranslationResponse;
 import com.example.toiletapi.toilet.service.ToiletService;
+import com.example.toiletapi.toilet.service.MapClusterSourceAuth;
 import java.util.List;
 import java.time.Instant;
 import java.util.Map;
@@ -46,6 +47,9 @@ class ToiletControllerTest {
 
     @MockitoBean
     private ToiletService toiletService;
+
+    @MockitoBean
+    private MapClusterSourceAuth mapClusterSourceAuth;
 
     @MockitoBean
     private OAuthLoginSuccessHandler oauthLoginSuccessHandler;
@@ -98,6 +102,20 @@ class ToiletControllerTest {
                 .andExpect(jsonPath("$.toilets[0].translations.en.name").value("Cultural Center"))
                 .andExpect(jsonPath("$.toilets[0].translations.en.roadAddress").isEmpty());
         verify(toiletService).getMapCellMarkers(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldExposeCoordinatesOnlyForSharedClusterSnapshot() throws Exception {
+        when(toiletService.getPublicClusterPoints()).thenReturn(List.of(new double[] {37.52, 127.02}));
+
+        mockMvc.perform(get("/api/v1/toilets/map-cluster-points")
+                        .header("X-Map-Cluster-Timestamp", "1780000000")
+                        .header("X-Map-Cluster-Signature", "a".repeat(64)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0][0]").value(37.52))
+                .andExpect(jsonPath("$[0][1]").value(127.02));
+        verify(toiletService).getPublicClusterPoints();
+        verify(mapClusterSourceAuth).requireValid("1780000000", "a".repeat(64));
     }
 
     @Test
