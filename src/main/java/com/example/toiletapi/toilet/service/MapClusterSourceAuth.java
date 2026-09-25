@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.time.Clock;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -19,6 +20,7 @@ public class MapClusterSourceAuth {
     private final String previewSecret;
     private final Clock clock;
 
+    @Autowired
     public MapClusterSourceAuth(@Value("${web-cache.secret:}") String primarySecret,
             @Value("${web-cache.cluster-preview-secret:}") String previewSecret) {
         this(primarySecret, previewSecret, Clock.systemUTC());
