@@ -1,6 +1,8 @@
 package com.example.toiletapi.review;
 
 import java.time.LocalDate;
+import jakarta.servlet.http.HttpServletRequest;
+import com.example.toiletapi.auth.controller.AuthenticatedMutationBoundary;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,7 +16,10 @@ public class ReviewController {
     public ReviewController(ReviewService service) {this.service=service;}
     @PostMapping("/api/v1/reviews") @ResponseStatus(HttpStatus.CREATED)
     public Item create(@AuthenticationPrincipal Jwt jwt,@RequestBody Create request,
-                       @RequestHeader("Idempotency-Key") String key) {return service.create(actor(jwt),request,key);}
+                       @RequestHeader("Idempotency-Key") String key,HttpServletRequest http) {
+        AuthenticatedMutationBoundary.requireTrustedOriginOrBearer(http,jwt);
+        return service.create(actor(jwt),request,key);
+    }
     @GetMapping("/api/v1/reviews/me")
     public Page mine(@AuthenticationPrincipal Jwt jwt,
                      @RequestParam(required=false) @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,
@@ -29,9 +34,15 @@ public class ReviewController {
         return service.creationStatus(actor(jwt),toiletId);
     }
     @PatchMapping("/api/v1/reviews/{id}")
-    public Item edit(@AuthenticationPrincipal Jwt jwt,@PathVariable long id,@RequestBody Edit request) {return service.edit(actor(jwt),id,request);}
+    public Item edit(@AuthenticationPrincipal Jwt jwt,@PathVariable long id,@RequestBody Edit request,HttpServletRequest http) {
+        AuthenticatedMutationBoundary.requireTrustedOriginOrBearer(http,jwt);
+        return service.edit(actor(jwt),id,request);
+    }
     @PostMapping("/api/v1/reviews/{id}/detach-author")
-    public Detached detach(@AuthenticationPrincipal Jwt jwt,@PathVariable long id,@RequestBody Detach request) {return service.detach(actor(jwt),id,request);}
+    public Detached detach(@AuthenticationPrincipal Jwt jwt,@PathVariable long id,@RequestBody Detach request,HttpServletRequest http) {
+        AuthenticatedMutationBoundary.requireTrustedOriginOrBearer(http,jwt);
+        return service.detach(actor(jwt),id,request);
+    }
     @GetMapping("/api/v1/toilets/{id}/reviews")
     public Page publicPage(@PathVariable long id,@RequestParam(required=false) String cursor,@RequestParam(defaultValue="10") int size) {return service.publicPage(id,cursor,size);}
     @GetMapping("/api/v1/toilets/{id}/reviews/summary")

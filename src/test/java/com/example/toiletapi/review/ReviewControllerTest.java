@@ -55,6 +55,31 @@ class ReviewControllerTest {
                 .andExpect(status().isCreated()).andExpect(header().string("Cache-Control","private, no-store"));
         verify(service).create(eq(new ReviewService.Actor(1,7)),any(),anyString());
     }
+    @Test void nativeWritesRequireVerifiedExplicitBearerForEveryMutation() throws Exception {
+        mvc.perform(post("/api/v1/reviews").header("Authorization","Bearer synthetic")
+                .header("Idempotency-Key",UUID.randomUUID().toString()).contentType("application/json").content(BODY))
+                .andExpect(status().isCreated());
+        mvc.perform(patch("/api/v1/reviews/1").header("Authorization","Bearer synthetic")
+                .contentType("application/json").content("{\"version\":0,\"satisfaction\":4,\"cleanliness\":5,\"paper\":true,\"waitMinutes\":0,\"comment\":\"\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/reviews/1/detach-author").header("Authorization","Bearer synthetic")
+                .contentType("application/json").content("{\"version\":0,\"acknowledgeContentRetention\":true}"))
+                .andExpect(status().isOk());
+        verify(service).create(eq(new ReviewService.Actor(1,7)),any(),anyString());
+        verify(service).edit(eq(new ReviewService.Actor(1,7)),eq(1L),any());
+        verify(service).detach(eq(new ReviewService.Actor(1,7)),eq(1L),any());
+    }
+    @Test void nativeExceptionCannotBeUsedByCookiesOrInvalidBearer() throws Exception {
+        when(jwtDecoder.decode("invalid")).thenThrow(new org.springframework.security.oauth2.jwt.BadJwtException("synthetic invalid"));
+        mvc.perform(post("/api/v1/reviews").cookie(new jakarta.servlet.http.Cookie("geupddong_access","synthetic"))
+                .header("Idempotency-Key",UUID.randomUUID().toString()).contentType("application/json").content(BODY))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/reviews").header("Authorization","Bearer invalid")
+                .cookie(new jakarta.servlet.http.Cookie("geupddong_access","synthetic"))
+                .header("Idempotency-Key",UUID.randomUUID().toString()).contentType("application/json").content(BODY))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(service);
+    }
     @Test void missingOrSiblingOriginCannotMutateWithValidCookie() throws Exception {
         for(String origin:new String[]{"https://evil.example","https://admin.geupddong.com","null",""}) {
             mvc.perform(post("/api/v1/reviews/1/detach-author").header("Authorization","Bearer synthetic").header("Origin",origin)
