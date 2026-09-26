@@ -112,6 +112,31 @@ class AuthControllerTest {
         verify(photoService, never()).state(8L);
     }
 
+    @Test void nativeWithdrawalRequiresVerifiedBearerAndPreservesCookieOriginGuard() throws Exception {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("native-withdrawal")
+                .header("alg", "HS256").subject("7").claim("roles", java.util.List.of("USER"))
+                .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(300)).build();
+        when(jwtDecoder.decode("native-withdrawal")).thenReturn(jwt);
+        for (String origin : java.util.List.of("null", "https://untrusted.example")) {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/auth/me")
+                    .header("Authorization", "Bearer native-withdrawal").header("Origin", origin)
+                    .contentType("application/json").content("{\"retainForRecovery\":false}"))
+                    .andExpect(status().isForbidden());
+        }
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/auth/me")
+                .cookie(new jakarta.servlet.http.Cookie("geupddong_access", "native-withdrawal"))
+                .contentType("application/json").content("{\"retainForRecovery\":false}"))
+                .andExpect(status().isForbidden());
+        org.mockito.Mockito.verifyNoInteractions(accountService, erasureService);
+        when(erasureService.eraseIfDue(eq(7L), org.mockito.ArgumentMatchers.any())).thenReturn(false);
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/auth/me")
+                .header("Authorization", "Bearer native-withdrawal")
+                .contentType("application/json").content("{\"userId\":999,\"retainForRecovery\":false}"))
+                .andExpect(status().isAccepted()).andExpect(header().string("Cache-Control", "no-store"));
+        verify(accountService).withdraw(7L, false, null);
+        verify(erasureService).recordFailure(7L);
+    }
+
     @Test void withdrawalUsesAuthenticatedIdAndReturnsConfirmedDeadline() throws Exception {
         var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("withdrawal-test")
                 .header("alg", "HS256").subject("7").claim("roles", java.util.List.of("USER"))

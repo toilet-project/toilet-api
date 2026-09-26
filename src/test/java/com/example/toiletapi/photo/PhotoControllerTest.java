@@ -23,6 +23,26 @@ class PhotoControllerTest {
         SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt));
     }
     @AfterEach void logout() {SecurityContextHolder.clearContext();}
+    @Test void nativeBearerCanChangeVisibilityUploadAndDeleteWithoutChangingCookieRules() throws Exception {
+        when(photos.visibility(1,false)).thenReturn(new PhotoService.State(true,false,null));
+        when(photos.delete(1)).thenReturn(new PhotoService.State(true,false,null));
+        mvc.perform(patch("/api/v1/auth/me/photo").header("Authorization","Bearer test")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"publicPhoto\":false}"))
+                .andExpect(status().isOk());
+        mvc.perform(delete("/api/v1/auth/me/photo").header("Authorization","Bearer test")).andExpect(status().isOk());
+        mvc.perform(delete("/api/v1/auth/me/photo")).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/v1/auth/me/photo").header("Authorization","Bearer different")).andExpect(status().isForbidden());
+        mvc.perform(delete("/api/v1/auth/me/photo").header("Authorization","Bearer test").header("Origin","https://evil.example"))
+                .andExpect(status().isForbidden());
+        verify(photos,times(1)).delete(1);
+        byte[] jpeg=new byte[]{1,2,3};byte[] webp="RIFFtestWEBP".getBytes();
+        var ticket=new PhotoService.Ticket(1,0,1);
+        when(photos.uploadTicket(1)).thenReturn(ticket);when(processor.convert(jpeg)).thenReturn(webp);
+        when(photos.saveWithReceipt(eq(ticket),eq(webp),eq("DIRECT_UPLOAD"),eq(PhotoService.NOTICE_VERSION),any())).thenReturn(true);
+        when(photos.state(1)).thenReturn(new PhotoService.State(true,false,null));
+        mvc.perform(put("/api/v1/auth/me/photo").header("Authorization","Bearer test").contentType(MediaType.IMAGE_JPEG).content(jpeg))
+                .andExpect(status().isOk());
+    }
     @Test void settingRequiresTrustedOriginAndExplicitFields() throws Exception {
         for(String origin:new String[]{"https://evil.example","https://api.geupddong.com","null"})
             mvc.perform(patch("/api/v1/auth/me/photo").header("Origin",origin).contentType(MediaType.APPLICATION_JSON).content("{\"publicPhoto\":true}"))
