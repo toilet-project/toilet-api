@@ -25,7 +25,13 @@ public class ReviewBoundaryFilter extends OncePerRequestFilter {
         // Including public names: avoid serving stale identities after withdrawal/unlink.
         response.setHeader("Cache-Control","private, no-store");
         response.setHeader("Vary","Cookie, Authorization, Origin");
-        if(!Set.of("GET","HEAD","OPTIONS").contains(request.getMethod()) && !ORIGINS.contains(String.valueOf(request.getHeader("Origin")))) {
+        // This filter runs before JWT verification. An explicit native bearer may
+        // proceed only to the security chain; every write controller verifies it again.
+        String authorization=request.getHeader("Authorization");
+        boolean nativeCandidate=request.getHeader("Origin")==null && authorization!=null
+                && authorization.startsWith("Bearer ") && authorization.length()>7;
+        if(!Set.of("GET","HEAD","OPTIONS").contains(request.getMethod()) && !nativeCandidate
+                && !ORIGINS.contains(String.valueOf(request.getHeader("Origin")))) {
             error(response,403,"REVIEW_ORIGIN_DENIED","허용되지 않은 요청 출처입니다.");return;
         }
         if(request.getContentLengthLong()>8192) {error(response,413,"REVIEW_REQUEST_TOO_LARGE","리뷰 요청이 너무 큽니다.");return;}
