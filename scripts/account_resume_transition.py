@@ -343,6 +343,27 @@ def validate_image_only_render(original, replacement, service, image):
     expected['services'][service]['image'] = image
     require(replacement == expected, 'ACCOUNT_RESUME_NON_IMAGE_CHANGE_REJECTED')
 
+def image_rollout_environment(runtime, old_image, new_image, configured):
+    """Accept only pinned Java patch metadata; preserve every application setting."""
+    previous, following = environment(old_image), environment(new_image)
+    changed = {key for key in previous.keys() | following.keys() if previous.get(key) != following.get(key)}
+    require(changed <= {'JAVA_VERSION'}, 'ACCOUNT_RESUME_IMAGE_ENV_CHANGE_REJECTED')
+    expected = dict(runtime)
+    if 'JAVA_VERSION' in changed:
+        pattern = r'jdk-(21\.\d+)\.\d+(?:\.\d+)?\+\d+'
+        old_version = re.fullmatch(pattern, previous.get('JAVA_VERSION', ''))
+        new_version = re.fullmatch(pattern, following.get('JAVA_VERSION', ''))
+        require(old_version and new_version and old_version[1] == new_version[1],
+                'ACCOUNT_RESUME_JAVA_PATCH_METADATA_REJECTED')
+        if 'JAVA_VERSION' in configured:
+            require(runtime.get('JAVA_VERSION') == configured['JAVA_VERSION'],
+                    'ACCOUNT_RESUME_JAVA_CONFIG_MISMATCH')
+        else:
+            require(runtime.get('JAVA_VERSION') == previous['JAVA_VERSION'],
+                    'ACCOUNT_RESUME_JAVA_RUNTIME_MISMATCH')
+            expected['JAVA_VERSION'] = following['JAVA_VERSION']
+    return expected
+
 def preserve_rollout(args):
     global ROLLOUT_STAGE
     ROLLOUT_STAGE = 'request'
@@ -381,6 +402,12 @@ def preserve_rollout(args):
         image = json.loads(host.run(['docker', 'image', 'inspect', new_image]))[0]
         require(pinned in image.get('RepoDigests', []), 'ACCOUNT_RESUME_IMAGE_DIGEST_REJECTED')
         expected_id = image['Id']
+        ROLLOUT_STAGE = 'image-environment'
+        previous_image = json.loads(host.run(['docker', 'image', 'inspect', old_image]))[0]
+        require(previous_image['Id'] == original_objects[args.role]['Image'],
+                'ACCOUNT_RESUME_ROLLBACK_IMAGE_UNVERIFIED')
+        expected_env = image_rollout_environment(environment(original_objects[args.role]), previous_image, image,
+                                                 rendered['services'][host.service].get('environment', {}))
         def before():
             global ROLLOUT_STAGE
             ROLLOUT_STAGE = 'before'
@@ -398,7 +425,7 @@ def preserve_rollout(args):
             require(current[peer] == original_objects[peer])
             require(current[args.role]['Image'] == expected_id)
             require(read_owned(host.compose) == replacement)
-            require(environment(current[args.role]) == environment(original_objects[args.role]))
+            require(environment(current[args.role]) == expected_env, 'ACCOUNT_RESUME_RUNTIME_ENV_CHANGE_REJECTED')
             require(phase_of(environment(current[args.role])) == initial_phase)
             require(read_owned(host.root / '.env', private=True) == base_env)
             require(read_owned(host.root / '.account-lifecycle.env', private=True) == account_env)

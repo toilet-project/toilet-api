@@ -104,6 +104,40 @@ class InspectionOrderTest(unittest.TestCase):
         self.assertEqual(captured['api'], resume.normalize_inspection(original))
 
 class TransitionTest(unittest.TestCase):
+    def image_env(self, values):
+        return {'Config': {'Env': [k + '=' + v for k, v in values.items()]}}
+
+    def test_pinned_java_patch_metadata_can_change_without_application_settings(self):
+        old = {'JAVA_VERSION': 'jdk-21.0.12+8', 'JAVA_HOME': '/opt/java/openjdk'}
+        new = old | {'JAVA_VERSION': 'jdk-21.0.12.1+1'}
+        runtime = old | resume.flags('active') | {'JWT_SECRET': 'synthetic', 'AUTH_MOBILE_ENABLED': 'true'}
+        expected = resume.image_rollout_environment(runtime, self.image_env(old), self.image_env(new), {})
+        self.assertEqual(expected, runtime | {'JAVA_VERSION': new['JAVA_VERSION']})
+        self.assertEqual(runtime['JAVA_VERSION'], old['JAVA_VERSION'])
+        self.assertEqual(resume.image_rollout_environment(runtime, self.image_env(old), self.image_env(old), {}), runtime)
+
+    def test_configured_java_version_is_preserved_and_mismatch_rejected(self):
+        old = self.image_env({'JAVA_VERSION': 'jdk-21.0.12+8'})
+        new = self.image_env({'JAVA_VERSION': 'jdk-21.0.12.1+1'})
+        runtime = {'JAVA_VERSION': 'operator-override'}
+        self.assertEqual(resume.image_rollout_environment(runtime, old, new, runtime), runtime)
+        with self.assertRaisesRegex(ValueError, 'JAVA_CONFIG_MISMATCH'):
+            resume.image_rollout_environment(runtime, old, new, {'JAVA_VERSION': 'different'})
+        with self.assertRaisesRegex(ValueError, 'JAVA_RUNTIME_MISMATCH'):
+            resume.image_rollout_environment(runtime, old, new, {})
+
+    def test_other_image_environment_changes_and_java_major_changes_are_rejected(self):
+        old = {'JAVA_VERSION': 'jdk-21.0.12+8', 'JAVA_HOME': '/opt/java/openjdk'}
+        for new in (old | {'AUTH_MOBILE_ENABLED': 'true'}, old | {'JAVA_HOME': '/different'},
+                    old | {'ACCOUNT_ERASURE_ENABLED': 'false'}, {'JAVA_VERSION': old['JAVA_VERSION']}):
+            with self.subTest(new=new), self.assertRaisesRegex(ValueError, 'IMAGE_ENV_CHANGE_REJECTED'):
+                resume.image_rollout_environment(old, self.image_env(old), self.image_env(new), {})
+        for version in ('jdk-25.0.1+1', 'jdk-21.1.1+1', '', 'unverified', 'jdk-21.0.12+8\n'):
+            with self.subTest(version=version), self.assertRaisesRegex(ValueError, 'JAVA_PATCH_METADATA_REJECTED'):
+                resume.image_rollout_environment(old, self.image_env(old), self.image_env(old | {'JAVA_VERSION': version}), {})
+        with self.assertRaisesRegex(ValueError, 'JAVA_PATCH_METADATA_REJECTED'):
+            resume.image_rollout_environment(old, self.image_env(old), self.image_env({'JAVA_HOME': old['JAVA_HOME']}), {})
+
     def test_preserving_check_keeps_nonempty_account_queue_and_never_pulls(self):
         from types import SimpleNamespace
         objects = {'api': object_for('active'), 'batch': object_for('active')}
@@ -119,7 +153,8 @@ class TransitionTest(unittest.TestCase):
         host.capture.return_value = objects
         host.check_dependencies.return_value = {'records': 3}
         host.run.side_effect = [json.dumps(rendered), json.dumps(replacement),
-                               json.dumps([{'RepoDigests': ['synthetic@sha256:' + 'c' * 64], 'Id': 'image-id'}]), 'image-id', 'old-image-id']
+                               json.dumps([{'RepoDigests': ['synthetic@sha256:' + 'c' * 64], 'Id': 'image-id', 'Config': {'Env': []}}]),
+                               json.dumps([{'Id': 'old-image-id', 'Config': {'Env': []}}]), 'image-id', 'old-image-id']
         args = SimpleNamespace(role='api', api_commit=COMMIT, batch_commit=COMMIT, next_commit='b' * 40,
                                next_image_digest='sha256:' + 'c' * 64, apply_approved=False)
         with patch.object(resume, 'Host', return_value=host), patch.object(resume, 'read_owned', return_value=source), \
