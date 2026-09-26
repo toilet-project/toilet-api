@@ -84,7 +84,7 @@ public class AuthController {
     public ResponseEntity<?> withdraw(@AuthenticationPrincipal Jwt jwt, HttpServletResponse response,
             jakarta.servlet.http.HttpServletRequest servletRequest,
             @org.springframework.web.bind.annotation.RequestBody(required = false) WithdrawalRequest request) {
-        AccountRecoveryController.requireTrustedOrigin(servletRequest);
+        AuthenticatedMutationBoundary.requireTrustedOriginOrBearer(servletRequest, jwt);
         lifecycle.requireWithdrawal();
         boolean retain = request != null && request.retainForRecovery();
         Long id = Long.valueOf(jwt.getSubject());
