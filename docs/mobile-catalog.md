@@ -15,7 +15,7 @@ Korean plus **five foreign locales** are included: `en`, `ja`, `zh-cn`, **`zh-tw
 - `latest.json` has a 60-second cache lifetime. Immutable files are compressed with HTTP gzip and cached for 30 days.
 - The GitHub workflow reads the production DB through the existing pinned Cloudflare Tunnel SSH transport, builds SQLite on the runner and publishes once daily at approximately **04:30 KST**. GitHub schedules can be delayed.
 - `MOBILE_CATALOG_ENABLED=true`, `MOBILE_CATALOG_ORIGIN`, and secret `MOBILE_CATALOG_PUBLISH_TOKEN` configure the job. The same token is stored as Worker secret `PUBLISH_TOKEN`, never in the app.
-- The implementation branch push trigger bootstraps publication before merging. Scheduled execution requires this workflow on the default branch.
+- Pull requests run validation only. Publication runs on manual dispatch or the default branch schedule.
 - Identical source content produces no new version. A decrease larger than 20% fails publication for investigation.
 - Artifacts are immutable, SHA-256 checked on upload, and verified before the manifest is conditionally committed. A failed or overlapping job cannot publish a manifest pointing to missing files.
 
@@ -35,3 +35,7 @@ node --test mobile-data-worker/worker.test.mjs
 ```
 
 App checks live in `toilet-mobile/tests/catalog.test.mjs`, alongside native app type checks and emulator validation.
+
+Initial production verification on 2026-09-27: 51,918 public facilities, including 50,631 with supported map coordinates. The 32 KiB SQLite page layout uses 134,119,424 bytes on disk and 15,860,179 bytes compressed for the first download. Regional map counts include mapped facilities only; all public details remain in the catalog.
+
+The app's `catalog-storage.test.mjs` also exercises actual SQLite transactions, cold restores, deletions, failed delta/full-download recovery and offline reads. Android 0.1.27 successfully downloaded and opened the first production snapshot; native iOS installation still requires Apple signing.

@@ -3,8 +3,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '30 19 * * *' # 04:30 Asia/Seoul, after the daily source import
-  push:
-    branches: [codex/mobile-offline-catalog]
+  pull_request:
     paths: ['.github/workflows/mobile-catalog.yml', 'scripts/mobile-data/**', 'mobile-data-worker/**']
 permissions:
   contents: read
@@ -25,7 +24,7 @@ jobs:
           node --test mobile-data-worker/worker.test.mjs
   publish:
     needs: validate
-    if: vars.MOBILE_CATALOG_ENABLED == 'true'
+    if: github.event_name != 'pull_request' && vars.MOBILE_CATALOG_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
