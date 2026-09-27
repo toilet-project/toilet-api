@@ -57,6 +57,7 @@ def read_export(path):
     return records
 
 SCHEMA = '''
+PRAGMA page_size=32768;
 PRAGMA journal_mode=DELETE;
 PRAGMA user_version=1;
 CREATE TABLE metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
@@ -91,7 +92,7 @@ def build(source, output, previous_db=None, previous_manifest=None, now=None):
     now = now or dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     records = read_export(source)
     serialized = {i:canonical(r) for i,r in records.items()}
-    digest = hashlib.sha256(('\n'.join(serialized[i] for i in sorted(serialized))).encode()).hexdigest()
+    digest = hashlib.sha256(('mobile-catalog-storage-1\n'+'\n'.join(serialized[i] for i in sorted(serialized))).encode()).hexdigest()
     old_manifest = json.loads(Path(previous_manifest).read_text()) if previous_manifest else None
     if old_manifest and old_manifest.get('contentSha256') == digest:
         return None
@@ -101,9 +102,9 @@ def build(source, output, previous_db=None, previous_manifest=None, now=None):
     path = output / 'catalog.sqlite'
     write_db(path, records, version)
     full = artifact(output, f'full/{version}.sqlite.gz', path.read_bytes(), now)
-    manifest = dict(schemaVersion=1,version=version,createdAt=now,count=len(records),locales=LOCALES,
+    manifest = dict(schemaVersion=1,storageVersion=1,version=version,createdAt=now,count=len(records),locales=LOCALES,
                     contentSha256=digest,full=full,previousFull=old_manifest['full'] if old_manifest else None,deltas=[])
-    if old_manifest and previous_db:
+    if old_manifest and previous_db and old_manifest.get('storageVersion') == 1:
         with closing(sqlite3.connect(f'{Path(previous_db).resolve().as_uri()}?mode=ro',uri=True)) as db:
             if db.execute("SELECT value FROM metadata WHERE key='version'").fetchone()[0] != old_manifest['version']:
                 raise ValueError('Previous snapshot does not match manifest')

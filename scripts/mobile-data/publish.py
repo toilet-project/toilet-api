@@ -15,7 +15,8 @@ def request(origin, path, token=None, method='GET', body=None, headers=None):
     req = urllib.request.Request(origin+'/'+path,data=body,method=method,headers=request_headers)
     with urllib.request.urlopen(req,timeout=180) as response:
         raw = response.read()
-        return gzip.decompress(raw) if response.headers.get('Content-Encoding') == 'gzip' else raw
+        # R2 objects are gzip artifacts; the edge may omit Content-Encoding for identity clients.
+        return gzip.decompress(raw) if raw.startswith(b'\x1f\x8b') else raw
 
 def publish(source, output, origin, token):
     if not origin.startswith('https://') or '/' in origin[8:]: raise ValueError('HTTPS origin required')
