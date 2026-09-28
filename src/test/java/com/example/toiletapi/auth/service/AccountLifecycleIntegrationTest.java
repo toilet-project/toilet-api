@@ -48,7 +48,7 @@ class AccountLifecycleIntegrationTest {
             for (String file : new String[]{"V1__create_auth_data_model.sql", "V2__create_toilet_report_and_coordinate_revision.sql",
                     "V4__create_user_notification.sql", "V5__create_coordinate_quality_review.sql",
                     "V7__create_policy_consent_model.sql", "V11__account_withdrawal_retention.sql", "V13__social_profile_photos.sql",
-                    "V14__profile_photo_cdn_purge.sql"}) {
+                    "V14__profile_photo_cdn_purge.sql", "V34__prepare_email_encryption.sql"}) {
                 new ResourceDatabasePopulator(new ClassPathResource("db/migration/" + file)).execute(ds);
             }
             return ds;
@@ -103,6 +103,28 @@ class AccountLifecycleIntegrationTest {
         assertThat(w.getPurgeAfter()).isEqualTo(LocalDateTime.of(2026, 4, 30, 12, 0));
         assertThat(w.canRecover(w.getPurgeAfter().minusNanos(1))).isTrue();
         assertThat(w.canRecover(w.getPurgeAfter())).isFalse();
+    }
+    @Test void encryptedAccountSearchAndWithdrawalPreserveRolesAndClearEveryEmailColumn() {
+        Long id = fixture();
+        var env = new org.springframework.mock.env.MockEnvironment().withProperty("AUTH_EMAIL_ENCRYPTION_ENABLED","true")
+                .withProperty("AUTH_EMAIL_KEY_V1",java.util.Base64.getEncoder().encodeToString(new byte[32]))
+                .withProperty("AUTH_EMAIL_SEARCH_KEY",java.util.Base64.getEncoder().encodeToString(new byte[32]));
+        var protection = new com.example.toiletapi.auth.privacy.EmailProtection(env);
+        new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
+            protection.protect(users.findById(id).orElseThrow());
+            socials.findAllByUserId(id).forEach(protection::protect);
+        });
+        var results = users.searchAdminUsers("PRIVATE@EXAMPLE.TEST", protection.lookupHash("PRIVATE@EXAMPLE.TEST"),
+                UserStatus.ACTIVE, Role.ADMIN, org.springframework.data.domain.PageRequest.of(0,50));
+        assertThat(results.getContent()).extracting(AppUser::getId).contains(id);
+        assertThat(jdbc.queryForObject("SELECT email FROM app_user WHERE user_id=?",String.class,id)).isNull();
+        assertThat(users.findById(id).orElseThrow().getMaskedEmail()).isEqualTo("pr***@example.test");
+        accounts.withdraw(id,true,AccountWithdrawal.CONSENT_VERSION);
+        var user = users.findById(id).orElseThrow();
+        assertThat(user.getEmailCiphertext()).isNull();
+        assertThat(user.getEmailLookupHash()).isNull();
+        assertThat(user.getEmailMasked()).isNull();
+        assertThat(socials.findAllByUserId(id)).singleElement().satisfies(s -> assertThat(s.getProviderEmailCiphertext()).isNull());
     }
     @Test void retentionIsOptionalAndUnknownConsentVersionCannotWithdraw() {
         Long id = fixture();

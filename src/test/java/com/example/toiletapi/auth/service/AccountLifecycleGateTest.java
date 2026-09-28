@@ -54,7 +54,7 @@ class AccountLifecycleGateTest {
         when(social.getUser()).thenReturn(user);
         when(socials.findByProviderAndProviderSubjectHash(any(),any())).thenReturn(java.util.Optional.of(social));
         when(users.lockById(1L)).thenReturn(java.util.Optional.of(user));
-        var service = new OAuthLoginService(users,socials,roles,null,withdrawals,erasure,new AccountLifecycleGate(true,true,true));
+        var service = new OAuthLoginService(users,socials,roles,null,withdrawals,erasure,new AccountLifecycleGate(true,true,true),new com.example.toiletapi.auth.privacy.EmailProtection(new org.springframework.mock.env.MockEnvironment()));
         org.springframework.test.util.ReflectionTestUtils.setField(service,"entityManager",mock(jakarta.persistence.EntityManager.class));
         var oauth = mock(org.springframework.security.oauth2.core.user.OAuth2User.class);
         when(oauth.getAttributes()).thenReturn(java.util.Map.of("sub","synthetic"));

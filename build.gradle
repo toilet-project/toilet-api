@@ -54,3 +54,15 @@ tasks.named('test') {
     useJUnitPlatform()
     testLogging { exceptionFormat = 'full' }
 }
+
+tasks.register('emailPrivacyCheck', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.toiletapi.auth.privacy.EmailPrivacyMigration'
+    args '--check'
+}
+
+tasks.register('emailPrivacyMigrate', JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.toiletapi.auth.privacy.EmailPrivacyMigration'
+    args '--apply'
+}

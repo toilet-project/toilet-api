@@ -17,7 +17,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
             select distinct user from AppUser user
             where (:keyword is null
                 or lower(coalesce(user.displayName, '')) like lower(concat('%', :keyword, '%'))
-                or lower(coalesce(user.email, '')) like lower(concat('%', :keyword, '%')))
+                or lower(trim(user.email)) = lower(:keyword)
+                or user.emailLookupHash = :emailLookupHash)
               and (:status is null or user.status = :status)
               and (:role is null or exists (
                     select assignment.userId from UserRoleAssignment assignment
@@ -26,6 +27,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
             """)
     Page<AppUser> searchAdminUsers(
             @Param("keyword") String keyword,
+            @Param("emailLookupHash") String emailLookupHash,
             @Param("status") UserStatus status,
             @Param("role") Role role,
             Pageable pageable

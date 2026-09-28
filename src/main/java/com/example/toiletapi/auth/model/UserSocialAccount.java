@@ -18,6 +18,7 @@ public class UserSocialAccount {
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private SocialProvider provider;
     @Column(name = "provider_subject_hash", nullable = false, length = 64) private String providerSubjectHash;
     @Column(name = "provider_email", length = 255) private String providerEmail;
+    @Column(name = "provider_email_ciphertext", length = 2048) private String providerEmailCiphertext;
     @Column(name = "linked_at", nullable = false, updatable = false) private LocalDateTime linkedAt;
     @Column(name = "last_login_at") private LocalDateTime lastLoginAt;
     @PrePersist void onCreate() { linkedAt = KoreanTime.now(); }
@@ -43,5 +44,7 @@ public class UserSocialAccount {
         this.lastLoginAt = KoreanTime.now();
     }
 
-    public void clearPersonalProfile() { providerEmail = null; lastLoginAt = null; }
+    public void protectEmail(String ciphertext) { providerEmailCiphertext = ciphertext; providerEmail = null; }
+
+    public void clearPersonalProfile() { providerEmail = null; providerEmailCiphertext = null; lastLoginAt = null; }
 }

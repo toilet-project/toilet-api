@@ -19,15 +19,18 @@ public class UserRolePolicyService {
     private final UserRoleAssignmentRepository roleRepository;
     private final AdminBootstrapProperties adminBootstrapProperties;
     private final AuditLogService auditLogService;
+    private final com.example.toiletapi.auth.privacy.EmailProtection emailProtection;
 
     public UserRolePolicyService(
             UserRoleAssignmentRepository roleRepository,
             AdminBootstrapProperties adminBootstrapProperties,
-            AuditLogService auditLogService
+            AuditLogService auditLogService,
+            com.example.toiletapi.auth.privacy.EmailProtection emailProtection
     ) {
         this.roleRepository = roleRepository;
         this.adminBootstrapProperties = adminBootstrapProperties;
         this.auditLogService = auditLogService;
+        this.emailProtection = emailProtection;
     }
 
     /**
@@ -43,7 +46,7 @@ public class UserRolePolicyService {
         List<UserRoleAssignment> existingRoles = roleRepository.findAllByUserId(user.getId());
         boolean firstRoleProvisioning = existingRoles.isEmpty();
         grantWhenAbsent(user.getId(), Role.USER, null);
-        if (firstRoleProvisioning && adminBootstrapProperties.isBootstrapAdmin(user.getEmail(), user.isEmailVerified())) {
+        if (firstRoleProvisioning && adminBootstrapProperties.isBootstrapAdmin(emailProtection.email(user), user.isEmailVerified())) {
             grantWhenAbsent(user.getId(), Role.ADMIN);
         }
         return rolesOf(user.getId());

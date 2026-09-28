@@ -179,15 +179,17 @@ class AuthControllerTest {
                 .header("alg", "HS256").subject("7").claim("roles", java.util.List.of("ADMIN"))
                 .issuedAt(Instant.parse("2026-09-13T13:00:00Z")).expiresAt(expiresAt).build();
         when(jwtDecoder.decode("profile-expiration-test")).thenReturn(jwt);
-        AppUser user = org.mockito.Mockito.mock(AppUser.class);
-        when(user.getDisplayName()).thenReturn("운영자");
-        when(user.getEmail()).thenReturn("admin@geupddong.com");
-        when(user.getStatus()).thenReturn(com.example.toiletapi.auth.model.UserStatus.ACTIVE);
+        AppUser user = AppUser.create("운영자", "admin@geupddong.com", true);
+        user.activateAfterConsent();
         when(userRepository.findById(7L)).thenReturn(Optional.of(user));
         when(policyConsentService.status(7L)).thenReturn(new PolicyConsentStatusResponse(false, java.util.List.of(), java.util.List.of()));
 
         mockMvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer profile-expiration-test"))
                 .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.email")
+                        .value("ad***@geupddong.com"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("admin@geupddong.com"))))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.accessTokenExpiresAt")
                         .value("2026-09-13T13:30:00Z"));
     }

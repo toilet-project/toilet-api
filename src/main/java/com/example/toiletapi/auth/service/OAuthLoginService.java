@@ -25,18 +25,21 @@ public class OAuthLoginService {
     private final com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals;
     private final AccountErasureService erasure;
     private final AccountLifecycleGate lifecycle;
+    private final com.example.toiletapi.auth.privacy.EmailProtection emailProtection;
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
 
     public OAuthLoginService(AppUserRepository userRepository, UserSocialAccountRepository socialAccountRepository,
                              UserRolePolicyService rolePolicyService, PolicyConsentService policyConsentService,
                              com.example.toiletapi.auth.repository.AccountWithdrawalRepository withdrawals,
-                             AccountErasureService erasure, AccountLifecycleGate lifecycle) {
+                             AccountErasureService erasure, AccountLifecycleGate lifecycle,
+                             com.example.toiletapi.auth.privacy.EmailProtection emailProtection) {
         this.userRepository = userRepository;
         this.socialAccountRepository = socialAccountRepository;
         this.rolePolicyService = rolePolicyService;
         this.policyConsentService = policyConsentService;
         this.withdrawals = withdrawals; this.erasure = erasure;
         this.lifecycle = lifecycle;
+        this.emailProtection = emailProtection;
     }
 
     @Transactional
@@ -65,14 +68,20 @@ public class OAuthLoginService {
         socialAccount.getUser().refreshOAuthProfile(
                 profile.displayName(), profile.email(), profile.emailVerified());
         socialAccount.recordLogin(profile.email());
+        emailProtection.protect(socialAccount.getUser());
+        emailProtection.protect(socialAccount);
         List<Role> roles = List.copyOf(rolePolicyService.ensureInitialRoles(socialAccount.getUser()));
         return new LoginUser(socialAccount.getUser().getId(), roles,
                 policyConsentService.status(socialAccount.getUser().getId()).consentRequired(), null, newAccount);
     }
 
     private UserSocialAccount link(Profile profile) {
-        AppUser user = userRepository.save(AppUser.create(profile.displayName(), profile.email(), profile.emailVerified()));
-        return socialAccountRepository.save(UserSocialAccount.link(user, profile.provider(), sha256(profile.subject()), profile.email()));
+        AppUser user = AppUser.create(profile.displayName(), profile.email(), profile.emailVerified());
+        emailProtection.protect(user);
+        user = userRepository.save(user);
+        UserSocialAccount social = UserSocialAccount.link(user, profile.provider(), sha256(profile.subject()), profile.email());
+        emailProtection.protect(social);
+        return socialAccountRepository.save(social);
     }
 
     private String sha256(String value) {
