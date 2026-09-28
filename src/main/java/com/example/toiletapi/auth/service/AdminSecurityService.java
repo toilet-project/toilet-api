@@ -19,19 +19,23 @@ public class AdminSecurityService {
     private final UserRoleAssignmentRepository roleRepository;
     private final AuditLogRepository auditLogRepository;
     private final UserRolePolicyService rolePolicyService;
+    private final com.example.toiletapi.auth.privacy.EmailProtection emailProtection;
 
     public AdminSecurityService(AppUserRepository userRepository, UserRoleAssignmentRepository roleRepository,
-                                AuditLogRepository auditLogRepository, UserRolePolicyService rolePolicyService) {
+                                AuditLogRepository auditLogRepository, UserRolePolicyService rolePolicyService,
+                                com.example.toiletapi.auth.privacy.EmailProtection emailProtection) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.auditLogRepository = auditLogRepository;
         this.rolePolicyService = rolePolicyService;
+        this.emailProtection = emailProtection;
     }
 
     @Transactional(readOnly = true)
     public AdminUserPageResponse users(String keyword, UserStatus status, Role role, int page, int size) {
         PageRequest pageable = PageRequest.of(validPage(page), validSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
-        var users = userRepository.searchAdminUsers(blankToNull(keyword), status, role, pageable);
+        String normalizedKeyword = blankToNull(keyword);
+        var users = userRepository.searchAdminUsers(normalizedKeyword, emailProtection.searchHash(normalizedKeyword), status, role, pageable);
         Map<Long, Set<Role>> rolesByUser = roleRepository.findAllByUserIdIn(
                         users.getContent().stream().map(AppUser::getId).toList())
                 .stream().collect(Collectors.groupingBy(UserRoleAssignment::getUserId,

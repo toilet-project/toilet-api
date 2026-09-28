@@ -21,12 +21,12 @@ class AdminSecurityServiceTest {
     private final AuditLogRepository auditLogRepository = Mockito.mock(AuditLogRepository.class);
     private final UserRolePolicyService rolePolicyService = Mockito.mock(UserRolePolicyService.class);
     private final AdminSecurityService service = new AdminSecurityService(
-            userRepository, roleRepository, auditLogRepository, rolePolicyService);
+            userRepository, roleRepository, auditLogRepository, rolePolicyService, new com.example.toiletapi.auth.privacy.EmailProtection(new org.springframework.mock.env.MockEnvironment()));
 
     @Test
     void returnsUsersWithRolesUsingServerPage() throws Exception {
         AppUser user = persistedUser(2L, "사용자", "user@example.com");
-        when(userRepository.searchAdminUsers(eq("사용"), isNull(), eq(Role.ADMIN), any(Pageable.class)))
+        when(userRepository.searchAdminUsers(eq("사용"), isNull(), isNull(), eq(Role.ADMIN), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(user)));
         when(roleRepository.findAllByUserIdIn(List.of(2L))).thenReturn(List.of(
                 UserRoleAssignment.grant(2L, Role.USER, null),
@@ -36,7 +36,7 @@ class AdminSecurityServiceTest {
 
         assertThat(result.totalElements()).isEqualTo(1);
         assertThat(result.items().getFirst().roles()).containsExactlyInAnyOrder(Role.USER, Role.ADMIN);
-        assertThat(result.items().getFirst().email()).isEqualTo("user@example.com");
+        assertThat(result.items().getFirst().email()).isEqualTo("us***@example.com");
     }
 
     @Test

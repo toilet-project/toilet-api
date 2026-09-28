@@ -15,7 +15,7 @@ public record AdminUserResponse(
         LocalDateTime createdAt
 ) {
     public static AdminUserResponse from(AppUser user, Set<Role> roles) {
-        return new AdminUserResponse(user.getId(), user.getDisplayName(), user.getEmail(), user.getStatus().name(),
+        return new AdminUserResponse(user.getId(), user.getDisplayName(), user.getMaskedEmail(), user.getStatus().name(),
                 roles, user.getLastLoginAt(), user.getCreatedAt());
     }
 }

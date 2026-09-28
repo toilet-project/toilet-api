@@ -15,6 +15,9 @@ public class AppUser {
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private UserStatus status = UserStatus.PENDING_CONSENT;
     @Column(name = "display_name", length = 100) private String displayName;
     @Column(length = 255) private String email;
+    @Column(name = "email_ciphertext", length = 2048) private String emailCiphertext;
+    @Column(name = "email_lookup_hash", length = 64) private String emailLookupHash;
+    @Column(name = "email_masked", length = 320) private String emailMasked;
     @Column(name = "email_verified", nullable = false) private boolean emailVerified;
     @Column(name = "last_login_at") private LocalDateTime lastLoginAt;
     @Column(name = "auth_version", nullable = false) private long authVersion;
@@ -51,10 +54,24 @@ public class AppUser {
         this.displayName = displayName;
     }
 
+    public String getMaskedEmail() {
+        return email != null ? com.example.toiletapi.auth.privacy.EmailMask.mask(email) : emailMasked;
+    }
+
+    public void protectEmail(String ciphertext, String lookupHash, String masked) {
+        this.emailCiphertext = ciphertext;
+        this.emailLookupHash = lookupHash;
+        this.emailMasked = masked;
+        this.email = null;
+    }
+
     public void withdraw() {
         status = UserStatus.WITHDRAWN;
         displayName = "탈퇴한 사용자";
         email = null;
+        emailCiphertext = null;
+        emailLookupHash = null;
+        emailMasked = null;
         emailVerified = false;
         lastLoginAt = null;
         authVersion++;

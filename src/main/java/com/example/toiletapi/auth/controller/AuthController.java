@@ -75,7 +75,7 @@ public class AuthController {
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         PhotoService.State profilePhoto = user.getStatus() == UserStatus.ACTIVE ? photos.state(userId) : null;
-        return new AuthProfileResponse(jwt.getSubject(), user.getDisplayName(), user.getEmail(), user.getStatus(),
+        return new AuthProfileResponse(jwt.getSubject(), user.getDisplayName(), user.getMaskedEmail(), user.getStatus(),
                 jwt.getClaimAsStringList("roles"), policyConsentService.status(userId).consentRequired(),
                 profilePhoto, jwt.getExpiresAt());
     }

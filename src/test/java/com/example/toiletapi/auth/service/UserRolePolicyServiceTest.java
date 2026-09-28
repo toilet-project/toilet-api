@@ -23,9 +23,26 @@ class UserRolePolicyServiceTest {
     private final AuditLogService auditLogService = Mockito.mock(AuditLogService.class);
 
     @Test
+    void encryptedVerifiedEmailCanStillBootstrapAdmin() throws Exception {
+        var env = new org.springframework.mock.env.MockEnvironment().withProperty("AUTH_EMAIL_ENCRYPTION_ENABLED","true")
+                .withProperty("AUTH_EMAIL_KEY_V1",java.util.Base64.getEncoder().encodeToString(new byte[32]))
+                .withProperty("AUTH_EMAIL_SEARCH_KEY",java.util.Base64.getEncoder().encodeToString(new byte[32]));
+        var protection = new com.example.toiletapi.auth.privacy.EmailProtection(env);
+        var service = new UserRolePolicyService(roleRepository, new AdminBootstrapProperties("admin@geupddong.com"),
+                auditLogService, protection);
+        var user = persistedUser("admin@geupddong.com",true);
+        protection.protect(user);
+        when(roleRepository.findAllByUserId(1L)).thenReturn(List.of(),List.of(
+                UserRoleAssignment.grant(1L,Role.USER,null),UserRoleAssignment.grant(1L,Role.ADMIN,null)));
+        assertThat(service.ensureInitialRoles(user)).containsExactlyInAnyOrder(Role.USER,Role.ADMIN);
+        assertThat(user.getEmail()).isNull();
+    }
+
+
+    @Test
     void grantsUserAndAdminOnlyForVerifiedAllowListedEmail() throws Exception {
         UserRolePolicyService service = new UserRolePolicyService(
-                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"), auditLogService);
+                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"), auditLogService, new com.example.toiletapi.auth.privacy.EmailProtection(new org.springframework.mock.env.MockEnvironment()));
         AppUser user = persistedUser("admin@geupddong.com", true);
         when(roleRepository.findAllByUserId(1L)).thenReturn(
                 List.of(),
@@ -45,7 +62,7 @@ class UserRolePolicyServiceTest {
     @Test
     void grantsOnlyUserForUnverifiedEmail() throws Exception {
         UserRolePolicyService service = new UserRolePolicyService(
-                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"), auditLogService);
+                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"), auditLogService, new com.example.toiletapi.auth.privacy.EmailProtection(new org.springframework.mock.env.MockEnvironment()));
         AppUser user = persistedUser("admin@geupddong.com", false);
         when(roleRepository.findAllByUserId(1L)).thenReturn(
                 List.of(), List.of(UserRoleAssignment.grant(1L, Role.USER, null)));
@@ -59,7 +76,7 @@ class UserRolePolicyServiceTest {
     @Test
     void rejectsUserBeforePersistence() {
         UserRolePolicyService service = new UserRolePolicyService(
-                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"), auditLogService);
+                roleRepository, new AdminBootstrapProperties("admin@geupddong.com"), auditLogService, new com.example.toiletapi.auth.privacy.EmailProtection(new org.springframework.mock.env.MockEnvironment()));
 
         assertThatThrownBy(() -> service.ensureInitialRoles(AppUser.create("운영자", "admin@geupddong.com", true)))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -69,7 +86,7 @@ class UserRolePolicyServiceTest {
     @Test
     void grantsAdminWithActorAndAuditEvent() {
         UserRolePolicyService service = new UserRolePolicyService(
-                roleRepository, new AdminBootstrapProperties(""), auditLogService);
+                roleRepository, new AdminBootstrapProperties(""), auditLogService, new com.example.toiletapi.auth.privacy.EmailProtection(new org.springframework.mock.env.MockEnvironment()));
         when(roleRepository.findAllByUserId(2L)).thenReturn(List.of(
                 UserRoleAssignment.grant(2L, Role.USER, null),
                 UserRoleAssignment.grant(2L, Role.ADMIN, 1L)));
@@ -85,7 +102,7 @@ class UserRolePolicyServiceTest {
     @Test
     void rejectsRevokingOwnAdminRole() {
         UserRolePolicyService service = new UserRolePolicyService(
-                roleRepository, new AdminBootstrapProperties(""), auditLogService);
+                roleRepository, new AdminBootstrapProperties(""), auditLogService, new com.example.toiletapi.auth.privacy.EmailProtection(new org.springframework.mock.env.MockEnvironment()));
 
         assertThatThrownBy(() -> service.revokeAdmin(1L, 1L))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -96,7 +113,7 @@ class UserRolePolicyServiceTest {
     @Test
     void revokesAdminWhenAnotherAdministratorRemains() {
         UserRolePolicyService service = new UserRolePolicyService(
-                roleRepository, new AdminBootstrapProperties(""), auditLogService);
+                roleRepository, new AdminBootstrapProperties(""), auditLogService, new com.example.toiletapi.auth.privacy.EmailProtection(new org.springframework.mock.env.MockEnvironment()));
         when(roleRepository.existsById(new com.example.toiletapi.auth.model.UserRoleId(2L, Role.ADMIN))).thenReturn(true);
         when(roleRepository.countByRole(Role.ADMIN)).thenReturn(2L);
         when(roleRepository.findAllByUserId(2L)).thenReturn(List.of(UserRoleAssignment.grant(2L, Role.USER, null)));
