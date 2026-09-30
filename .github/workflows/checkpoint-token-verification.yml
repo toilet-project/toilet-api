@@ -1,0 +1,29 @@
+name: Checkpoint token verification
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Read-only validation of this repository secret and both live credentials
+        type: choice
+        options: [probe, check, verify]
+        default: probe
+      api_commit:
+        description: Expected running API image commit for host checks
+        type: string
+        default: ''
+      batch_commit:
+        description: Expected running batch image commit for host checks
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.repository == 'toilet-project/toilet-api' && github.ref == 'refs/heads/main'
+    uses: toilet-project/toilet-batch/.github/workflows/checkpoint-token-rotation.yml@b8ae7f461eb764052458282b11332330bc99d299
+    with:
+      operation: ${{ inputs.operation }}
+      api_commit: ${{ inputs.api_commit }}
+      batch_commit: ${{ inputs.batch_commit }}
+      tools_ref: b8ae7f461eb764052458282b11332330bc99d299
+    secrets: inherit
