@@ -71,6 +71,7 @@ class ServiceAnalyticsMigrationTest {
 
         byte[] visitorHash = new byte[32];
         execute(dataSource, "db/migration/V33__classify_service_analytics_traffic.sql");
+        execute(dataSource, "db/migration/V35__add_analytics_client_context.sql");
         byte[] sessionHash = new byte[32];
         Arrays.fill(visitorHash, (byte) 1);
         Arrays.fill(sessionHash, (byte) 2);
@@ -79,7 +80,7 @@ class ServiceAnalyticsMigrationTest {
         repository.insert(new AnalyticsRepository.EventRow(
                 Instant.parse("2026-09-17T00:10:00Z"), LocalDate.of(2026, 9, 17), "page_view", "/",
                 "Direct", "direct", "desktop", "Windows", "Chrome", "KR", "Seoul",
-                visitorHash, sessionHash, 0, "", "", null, true, false, "UNFLAGGED"));
+                visitorHash, sessionHash, 0, "", "", null, true, false, "UNFLAGGED", "BROWSER", "REQUEST_UA"));
 
         JdbcTemplate db = new JdbcTemplate(dataSource);
         assertThat(db.queryForObject("SELECT COUNT(*) FROM service_analytics_event", Integer.class)).isOne();
@@ -93,6 +94,7 @@ class ServiceAnalyticsMigrationTest {
                 "jdbc:h2:mem:service-analytics-entry-count;MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         execute(dataSource, "db/migration/V21__replace_ga_snapshot_with_service_analytics.sql");
         execute(dataSource, "db/migration/V33__classify_service_analytics_traffic.sql");
+        execute(dataSource, "db/migration/V35__add_analytics_client_context.sql");
         JdbcTemplate db = new JdbcTemplate(dataSource);
         AnalyticsRepository repository = new AnalyticsRepository(db);
         LocalDate date = LocalDate.of(2026, 9, 23);
@@ -117,7 +119,7 @@ class ServiceAnalyticsMigrationTest {
                                                        byte[] session, byte[] visitor) {
         return new AnalyticsRepository.EventRow(now, date, name, "/", "Direct", "none",
                 "mobile", "iOS", "Safari", "KR", "Seoul", visitor, session,
-                0, "", "", null, false, false, "UNFLAGGED");
+                0, "", "", null, false, false, "UNFLAGGED", "BROWSER", "REQUEST_UA");
     }
 
     @Test
@@ -126,6 +128,7 @@ class ServiceAnalyticsMigrationTest {
                 "jdbc:h2:mem:service-analytics-bots;MODE=MySQL;DB_CLOSE_DELAY=-1", "sa", "");
         execute(dataSource,"db/migration/V21__replace_ga_snapshot_with_service_analytics.sql");
         execute(dataSource,"db/migration/V33__classify_service_analytics_traffic.sql");
+        execute(dataSource,"db/migration/V35__add_analytics_client_context.sql");
         JdbcTemplate db=new JdbcTemplate(dataSource);
         AnalyticsRepository repository=new AnalyticsRepository(db);
         LocalDate date=LocalDate.of(2026,9,24);
@@ -134,7 +137,7 @@ class ServiceAnalyticsMigrationTest {
             byte[] hash=new byte[32];Arrays.fill(hash,(byte)traffic.length());
             for(String name:new String[]{"session_start","page_view"}) repository.insert(new AnalyticsRepository.EventRow(
                     now,date,name,"/","Direct",traffic,"desktop","Other","Other","KR","Unknown",hash,hash,
-                    0,"","",null,false,false,traffic));
+                    0,"","",null,false,false,traffic,"BROWSER","REQUEST_UA"));
         }
         repository.aggregate(date,now,false);
         assertThat(db.queryForObject("SELECT views FROM service_analytics_daily_summary",Long.class)).isEqualTo(2);
@@ -156,9 +159,12 @@ class ServiceAnalyticsMigrationTest {
                 VALUES('2026-09-24 01:00:00','2026-09-24','page_view','/','Direct','none','desktop','Other','Other','KR','Unknown',?,?)
                 """,new byte[32],new byte[32]);
         execute(dataSource,"db/migration/V33__classify_service_analytics_traffic.sql");
+        execute(dataSource,"db/migration/V35__add_analytics_client_context.sql");
         assertThat(db.queryForObject("SELECT COUNT(*) FROM service_analytics_event",Long.class)).isOne();
         assertThat(db.queryForObject("SELECT traffic_class FROM service_analytics_event",String.class)).isEqualTo("LEGACY");
         assertThat(db.queryForObject("SELECT source_key FROM service_analytics_event",String.class)).isEqualTo("none");
+        assertThat(db.queryForObject("SELECT client_context FROM service_analytics_event",String.class)).isEqualTo("UNKNOWN");
+        assertThat(db.queryForObject("SELECT client_context_evidence FROM service_analytics_event",String.class)).isEqualTo("UNCLASSIFIED");
     }
 
     private static void execute(DataSource dataSource, String path) throws Exception {

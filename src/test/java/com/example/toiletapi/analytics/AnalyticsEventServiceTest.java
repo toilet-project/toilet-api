@@ -21,6 +21,20 @@ class AnalyticsEventServiceTest {
 
     private static final String SECRET = "12345678901234567890123456789012";
 
+    @Test void appContextDoesNotInventAReferralOrChangeVisitorIdentity() {
+        AnalyticsRepository repository=mock(AnalyticsRepository.class);
+        AnalyticsEventService service=new AnalyticsEventService(repository,Clock.systemUTC(),true,SECRET);
+        service.collect(eventWithReferrer(null),request("https://geupddong.com","203.0.113.1",
+                "Mozilla iPhone AppleWebKit KAKAOTALK/26 Safari/604","","KR"));
+        var row=ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
+        verify(repository).insert(row.capture());
+        assertEquals("KAKAOTALK",row.getValue().clientContext());
+        assertEquals("REQUEST_UA",row.getValue().clientContextEvidence());
+        assertEquals("none",row.getValue().source());
+        assertEquals("Direct",row.getValue().channel());
+        assertEquals("UNFLAGGED",row.getValue().trafficClass());
+    }
+
     @Test
     void storesOnlyAllowlistedAndCoarsenedValues() {
         AnalyticsRepository repository = mock(AnalyticsRepository.class);
@@ -48,6 +62,8 @@ class AnalyticsEventServiceTest {
         assertEquals("map", row.getValue().eventDetail());
         assertEquals(true, row.getValue().newVisitor());
         assertEquals("UNFLAGGED", row.getValue().trafficClass());
+        assertEquals("BROWSER", row.getValue().clientContext());
+        assertEquals("REQUEST_UA", row.getValue().clientContextEvidence());
     }
 
     @Test
