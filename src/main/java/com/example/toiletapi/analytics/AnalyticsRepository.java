@@ -16,7 +16,7 @@ public class AnalyticsRepository {
 
     private static final List<String> DIMENSIONS = List.of(
             "PAGE", "CHANNEL", "SOURCE", "DEVICE", "OS", "BROWSER", "COUNTRY", "CITY",
-            "EVENT", "EVENT_DETAIL", "RESULT_BUCKET");
+            "EVENT", "EVENT_DETAIL", "RESULT_BUCKET", "CLIENT_CONTEXT", "CLIENT_EVIDENCE");
     private final JdbcTemplate jdbc;
 
     public AnalyticsRepository(JdbcTemplate jdbc) {
@@ -29,12 +29,12 @@ public class AnalyticsRepository {
                     occurred_at, occurred_date, event_name, page_key, channel_key, source_key,
                     device_type, os_family, browser_family, country_code, city_name, visitor_hash,
                     session_hash, engagement_seconds, result_count_bucket, event_detail,
-                    success_status, new_visitor, key_event, traffic_class
-                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    success_status, new_visitor, key_event, traffic_class, client_context, client_context_evidence
+                ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, Timestamp.from(value.occurredAt()), Date.valueOf(value.occurredDate()), value.eventName(),
                 value.pageKey(), value.channel(), value.source(), value.device(), value.os(), value.browser(),
                 value.country(), value.city(), value.visitorHash(), value.sessionHash(), value.engagementSeconds(),
-                value.resultBucket(), value.eventDetail(), value.success(), value.newVisitor(), value.keyEvent(), value.trafficClass());
+                value.resultBucket(), value.eventDetail(), value.success(), value.newVisitor(), value.keyEvent(), value.trafficClass(), value.clientContext(), value.clientContextEvidence());
     }
 
     public long startRun(Instant now, LocalDate start, LocalDate end) {
@@ -98,6 +98,8 @@ public class AnalyticsRepository {
             case "DEVICE" -> "device_type";
             case "OS" -> "os_family";
             case "BROWSER" -> "browser_family";
+            case "CLIENT_CONTEXT" -> "client_context";
+            case "CLIENT_EVIDENCE" -> "client_context_evidence";
             case "COUNTRY" -> "country_code";
             case "CITY" -> "city_name";
             case "EVENT" -> "event_name";
@@ -108,7 +110,7 @@ public class AnalyticsRepository {
         String filter = switch (type) {
             case "RESULT_BUCKET" -> " AND result_count_bucket<>''";
             // Acquisition belongs to the entry event, not every action that followed it.
-            case "CHANNEL", "SOURCE" -> " AND event_name='session_start'";
+            case "CHANNEL", "SOURCE", "CLIENT_CONTEXT", "CLIENT_EVIDENCE" -> " AND event_name='session_start'";
             default -> "";
         };
         String sql = """
@@ -134,5 +136,6 @@ public class AnalyticsRepository {
                            String channel, String source, String device, String os, String browser,
                            String country, String city, byte[] visitorHash, byte[] sessionHash,
                            int engagementSeconds, String resultBucket, String eventDetail,
-                           Boolean success, boolean newVisitor, boolean keyEvent, String trafficClass) { }
+                           Boolean success, boolean newVisitor, boolean keyEvent, String trafficClass,
+                           String clientContext, String clientContextEvidence) { }
 }

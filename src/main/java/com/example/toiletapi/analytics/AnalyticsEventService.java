@@ -102,7 +102,8 @@ public class AnalyticsEventService {
                 now, now.atZone(SEOUL).toLocalDate(), event, pageKey(request.path()), referral.channel(), referral.source(),
                 client.device(), client.os(), client.browser(), country(http.getHeader("CF-IPCountry")),
                 city(http.getHeader("CF-IPCity")), visitorHash, sessionHash, engagement, resultBucket, detail,
-                request.success(), Boolean.TRUE.equals(request.newVisitor()), KEY_EVENTS.contains(event), bot ? "BOT" : "UNFLAGGED"));
+                request.success(), Boolean.TRUE.equals(request.newVisitor()), KEY_EVENTS.contains(event), bot ? "BOT" : "UNFLAGGED",
+                AnalyticsClientContext.context(userAgent), "REQUEST_UA"));
         } catch (RuntimeException ignored) {
             // 분석 큐가 가득 차도 사용자 기능과 응답은 계속 동작한다.
         }
@@ -236,9 +237,7 @@ public class AnalyticsEventService {
         String os = value.contains("android") ? "Android" : value.contains("iphone") || value.contains("ipad") ? "iOS"
                 : value.contains("windows") ? "Windows" : value.contains("mac os") || value.contains("macintosh") ? "macOS"
                 : value.contains("linux") ? "Linux" : "Other";
-        String browser = value.contains("edg/") ? "Edge" : value.contains("samsungbrowser") ? "Samsung Internet"
-                : value.contains("chrome/") ? "Chrome" : value.contains("safari/") ? "Safari"
-                : value.contains("firefox/") ? "Firefox" : "Other";
+        String browser = AnalyticsClientContext.browser(ua);
         return new Client(device, os, browser);
     }
 
