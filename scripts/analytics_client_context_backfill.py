@@ -72,6 +72,14 @@ def proposal(events,matches):
 def digest(plan):
     return hashlib.sha256(json.dumps(plan,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
+def bot_audit(events,plan):
+    """Report exact UA evidence without guessing from geography, frequency or browser."""
+    matched=[e for e in events if plan.get(e['id'],{}).get('client')=='AUTOMATION']
+    return {'matchedAutomationEvents':len(matched),
+            'alreadyBotEvents':sum(e['traffic']=='BOT' for e in matched),
+            'additionalBotCandidates':sum(e['traffic']!='BOT' for e in matched),
+            'botFlagsChanged':False}
+
 class Database:
     def __init__(self):
         result=subprocess.run(['docker','inspect','toilet-api'],capture_output=True,text=True,timeout=8)
@@ -175,7 +183,8 @@ def main():
     report={'mode':'apply' if args.apply else 'dry-run','schemaReady':ready,'from':args.start,'to':args.end,
         'eventCount':len(events),'maxEventId':max((e['id'] for e in events),default=0),'proposedEvents':len(plan),
         'remainingUnclassified':sum(e['evidence']=='UNCLASSIFIED' and e['id'] not in plan for e in events),
-        'planSha':digest(plan),'contexts':dict(Counter(p['client'] for p in plan.values())),**coverage}
+        'planSha':digest(plan),'contexts':dict(Counter(p['client'] for p in plan.values())),
+        'botAudit':bot_audit(events,plan),**coverage}
     if args.apply:
         if args.expected_plan_sha!=report['planSha']: raise RuntimeError('dry-run plan changed; inspect a fresh plan')
         by_day=defaultdict(list)

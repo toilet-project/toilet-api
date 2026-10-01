@@ -2,9 +2,16 @@ import datetime as dt
 import unittest
 import io
 from unittest.mock import Mock
-from scripts.analytics_client_context_backfill import classify, compatible, proposal, digest, write_day, read_events, reverse_lines, KST
+from scripts.analytics_client_context_backfill import classify, compatible, proposal, digest, write_day, read_events, reverse_lines, bot_audit, KST
 
 class ClientContextBackfillTest(unittest.TestCase):
+    def test_bot_audit_never_guesses_or_overwrites_existing_traffic(self):
+        events=[{'id':1,'traffic':'BOT'}, {'id':2,'traffic':'LEGACY'}, {'id':3,'traffic':'UNFLAGGED'}, {'id':4,'traffic':'LEGACY'}]
+        plan={1:{'client':'AUTOMATION'},2:{'client':'AUTOMATION'},3:{'client':'BROWSER'}}
+        result=bot_audit(events,plan)
+        self.assertEqual({'matchedAutomationEvents':2,'alreadyBotEvents':1,'additionalBotCandidates':1,'botFlagsChanged':False},result)
+        self.assertEqual('LEGACY',events[1]['traffic'])
+
     def test_newest_first_and_sql_timestamp_format(self):
         self.assertEqual([b'third',b'second',b'first'],list(reverse_lines(io.BytesIO(b'first\nsecond\nthird\n'))))
         db=Mock();db.query.side_effect=[[0],[]]
