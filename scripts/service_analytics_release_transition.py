@@ -23,6 +23,7 @@ ANALYTICS_CONFIG = {
 }
 ANALYTICS_KEYS = tuple(ANALYTICS_CONFIG)
 BOT_CONFIG = {'SERVICE_ANALYTICS_RETAIN_BOT_EVENTS': 'true'}
+ENGAGEMENT_CONFIG = {'ENGAGEMENT_ENABLED': 'true'}
 ACCOUNT_ACTIVE = {
     'ACCOUNT_LIFECYCLE_MAINTENANCE': 'false',
     'ACCOUNT_RETENTION_ENABLED': 'true',
@@ -147,9 +148,9 @@ class Host:
         self.context = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.context)
 
-    def run(self, args, *, input=None, timeout=30):
+    def run(self, args, *, input=None, timeout=30, env=None):
         return subprocess.run(args, input=input, text=True, capture_output=True,
-                              timeout=timeout, check=True).stdout.strip()
+                              timeout=timeout, check=True, env=env).stdout.strip()
 
     def compose(self, *args, file=COMPOSE):
         return ['docker', 'compose', '--project-directory', str(ROOT), '-f', str(file), *args]
@@ -188,6 +189,20 @@ class Host:
                 if time.monotonic() >= deadline:
                     raise ValueError('SERVICE_ANALYTICS_RELEASE_HEALTH_REJECTED') from None
                 time.sleep(2)
+
+    def require_engagement_dependencies(self, objects):
+        env = environment(objects['api'])
+        secret = env.get('ENGAGEMENT_SECRET') or env.get('ANALYTICS_VISITOR_HMAC_SECRET') or env.get('JWT_SECRET', '')
+        require(len(secret) >= 32, 'SERVICE_ANALYTICS_RELEASE_ENGAGEMENT_SECRET_MISSING')
+        result = self.run(['docker', 'exec', '-i', '-e', 'MYSQL_PWD', 'toilet-mysql', 'mysql',
+                          '--protocol=socket', '-u', env['SPRING_DB_USERNAME'], 'toilet_db',
+                          '--batch', '--skip-column-names'], env=dict(os.environ, MYSQL_PWD=env['SPRING_DB_PASSWORD']), input="""
+SET SESSION MAX_EXECUTION_TIME=5000;
+SELECT COUNT(*) FROM flyway_schema_history WHERE version='36' AND success=1;
+SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()
+ AND table_name IN ('toilet_view_stats','toilet_view_daily','toilet_view_guard','toilet_view_receipt','toilet_like');
+""")
+        require(result.splitlines() == ['1', '5'], 'SERVICE_ANALYTICS_RELEASE_ENGAGEMENT_SCHEMA_MISSING')
 
     def require_bot_dependencies(self, objects, admin_commit):
         require(environment(objects['api']).get('SERVICE_ANALYTICS_ENABLED') == 'true')
@@ -260,7 +275,7 @@ def main():
     parser.add_argument('--batch-commit', required=True)
     parser.add_argument('--apply-approved', action='store_true')
     parser.add_argument('--deployment-freeze-confirmed', action='store_true')
-    parser.add_argument('--feature', choices=('analytics', 'bot-retention'), default='analytics')
+    parser.add_argument('--feature', choices=('analytics', 'bot-retention', 'engagement'), default='analytics')
     parser.add_argument('--admin-commit')
     parser.add_argument('--admin-compatible-confirmed', action='store_true')
     args = parser.parse_args()
@@ -276,6 +291,9 @@ def main():
                 'SERVICE_ANALYTICS_RELEASE_ADMIN_COMPATIBILITY_REQUIRED')
         ANALYTICS_CONFIG = dict(BOT_CONFIG)
         ANALYTICS_KEYS = tuple(ANALYTICS_CONFIG)
+    if args.feature == 'engagement':
+        ANALYTICS_CONFIG = dict(ENGAGEMENT_CONFIG)
+        ANALYTICS_KEYS = tuple(ANALYTICS_CONFIG)
     host = Host()
     commits = {'api': args.api_commit, 'batch': args.batch_commit}
     with host.context.maintenance_lease.acquire():
@@ -284,6 +302,8 @@ def main():
         validate_runtime(objects, commits, state)
         if args.feature == 'bot-retention':
             host.require_bot_dependencies(objects, args.admin_commit)
+        if args.feature == 'engagement':
+            host.require_engagement_dependencies(objects)
         snapshots = {
             'objects': objects,
             'render': host.rendered(),
