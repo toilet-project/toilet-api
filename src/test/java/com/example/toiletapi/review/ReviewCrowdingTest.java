@@ -2,11 +2,17 @@ package com.example.toiletapi.review;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 class ReviewCrowdingTest {
-    @Test void noReviewsAndStrictMajority() {
+    @Test void averageUnderFiveIsClearRegardlessOfZeroCount() {
         assertEquals("UNKNOWN",ReviewCrowding.of(0,0,0,null).status());
         assertEquals("CLEAR",ReviewCrowding.of(3,2,10,null).status());
         assertEquals("WAIT",ReviewCrowding.of(2,1,10,null).status());
-        assertEquals("UNDER_FIVE",ReviewCrowding.of(3,1,10,null).status());
+        assertEquals("CLEAR",ReviewCrowding.of(3,0,11,null).status());
+        assertEquals("CLEAR",ReviewCrowding.of(100,0,499,null).status());
+        assertEquals("WAIT",ReviewCrowding.of(3,2,20,null).status());
+        assertEquals(5,ReviewCrowding.of(3,2,20,null).waitLowerBound());
+        assertEquals("WAIT",ReviewCrowding.of(1,0,5,null).status());
+        assertEquals(5,ReviewCrowding.of(100,0,999,null).waitLowerBound());
+        assertEquals(10,ReviewCrowding.of(100,0,1499,null).waitLowerBound());
     }
     @Test void fiveMinuteFloorAndHighAverageOverridesZeroMajority() {
         assertEquals(10,ReviewCrowding.of(5,3,60,null).waitLowerBound());

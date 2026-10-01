@@ -9,10 +9,8 @@ public record ReviewCrowding(String status,Integer waitLowerBound,long sampleCou
         if(count==0)return new ReviewCrowding("UNKNOWN",null,0,0,null,7,null);
         double average=(double)sum/count;
         String status;Integer bound;
-        if(average>=10) {status="WAIT";bound=(int)Math.floor(average/5)*5;}
-        else if(zero>count/2) {status="CLEAR";bound=0;}
-        else if(average<5) {status="UNDER_FIVE";bound=0;}
-        else {status="WAIT";bound=5;}
+        if(average<5) {status="CLEAR";bound=0;}
+        else {status="WAIT";bound=(int)Math.floor(average/5)*5;}
         return new ReviewCrowding(status,bound,count,zero,Math.round(average*10)/10.0,7,latest);
     }
 }
