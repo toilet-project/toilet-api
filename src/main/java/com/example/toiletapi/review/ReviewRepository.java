@@ -128,7 +128,15 @@ public class ReviewRepository {
                 """,(rs,n)->new Object[]{rs.getInt(1),rs.getObject(2,LocalDateTime.class)},toilet,now.minusHours(1));
         return new ReviewModels.Summary(((Number)sums.get("n")).longValue(),rounded(sums.get("rating")),
                 rounded(sums.get("average_rating")),rounded(sums.get("paper_percent")),((Number)sums.get("paper_n")).longValue(),
-                latest.isEmpty()?null:(Integer)latest.getFirst()[0],latest.isEmpty()?null:((LocalDateTime)latest.getFirst()[1]).atOffset(java.time.ZoneOffset.ofHours(9)));
+                latest.isEmpty()?null:(Integer)latest.getFirst()[0],latest.isEmpty()?null:((LocalDateTime)latest.getFirst()[1]).atOffset(java.time.ZoneOffset.ofHours(9)),crowding(toilet,now));
+    }
+    private ReviewCrowding crowding(long toilet,LocalDateTime now) {
+        return jdbc.queryForObject("""
+                SELECT COUNT(*),COALESCE(SUM(CASE WHEN wait_minutes=0 THEN 1 ELSE 0 END),0),
+                       COALESCE(SUM(wait_minutes),0),MAX(created_at)
+                FROM toilet_review WHERE toilet_id=? AND created_at>=? AND created_at<=?
+                """,(r,n)->ReviewCrowding.of(r.getLong(1),r.getLong(2),r.getLong(3),
+                r.getObject(4,LocalDateTime.class)==null?null:r.getObject(4,LocalDateTime.class).atOffset(java.time.ZoneOffset.ofHours(9))),toilet,now.minusDays(7),now);
     }
     private static Double rounded(Object value) { return value == null ? null : Math.round(((Number)value).doubleValue()*10)/10.0; }
     private static Double nullableDouble(ResultSet rs,int column) throws SQLException {

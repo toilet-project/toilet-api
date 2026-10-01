@@ -23,14 +23,20 @@ const server = http.createServer(async (request, response) => {
     if (request.headers['x-review-verification'] !== 'synthetic-only') return reject(403)
     const url = new URL(request.url, 'http://fixture.invalid'), path = url.pathname
     const read = request.method === 'GET' && (/^\/api\/v1\/reviews(?:\/me|\/creation-status|\/[1-9]\d*)?$/.test(path)
-      || /^\/api\/v1\/toilets(?:\/[1-9]\d*(?:\/reviews(?:\/summary)?)?)?$/.test(path)
+      || /^\/api\/v1\/toilets(?:\/[1-9]\d*(?:\/reviews(?:\/summary)?|\/engagement)?)?$/.test(path)
+      || /^\/api\/v1\/engagement\/toilets\/[1-9]\d*\/like$/.test(path)
       || ['/api/v1/auth/me', '/api/v1/notifications/unread-count'].includes(path))
     const write = request.method === 'POST' && /^\/api\/v1\/reviews(?:\/[1-9]\d*\/detach-author)?$/.test(path)
       || request.method === 'PATCH' && /^\/api\/v1\/reviews\/[1-9]\d*$/.test(path)
+      || request.method === 'POST' && /^\/api\/v1\/toilets\/[1-9]\d*\/views$/.test(path)
+      || ['PUT', 'DELETE'].includes(request.method) && /^\/api\/v1\/engagement\/toilets\/[1-9]\d*\/like$/.test(path)
     if (!read && !write || url.search.length > 1000) return reject(403)
     const chunks = []; let size = 0
     for await (const chunk of request) { size += chunk.length; if (size > 8192) return reject(413); chunks.push(chunk) }
-    const forwarded = { Authorization: 'Bearer ' + token, Origin: 'https://preview.geupddong.com', Accept: 'application/json' }
+    const actor = request.headers['x-engagement-fixture-actor']
+    const actorToken = ['1', '2'].includes(actor) ? metadata.tokens[actor] : actor === 'anonymous' ? null : token
+    const forwarded = { Origin: 'https://preview.geupddong.com', Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 EngagementAcceptance' }
+    if (actorToken) forwarded.Authorization = 'Bearer ' + actorToken
     if (write) forwarded['Content-Type'] = 'application/json'
     const key = request.headers['idempotency-key']
     if (typeof key === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(key)) forwarded['Idempotency-Key'] = key

@@ -34,5 +34,5 @@ public final class ReviewModels {
     public record CreationStatus(boolean canCreate, String existingReviewId, OffsetDateTime nextAllowedAt) { }
     public record CreationConflict(String code, String message, String existingReviewId, OffsetDateTime nextAllowedAt) { }
     public record Summary(long count, Double rating, Double averageRating, Double paperPercent,
-                          long paperSampleCount, Integer latestWaitMinutes, OffsetDateTime latestWaitAt) { }
+                          long paperSampleCount, Integer latestWaitMinutes, OffsetDateTime latestWaitAt, ReviewCrowding crowding) { }
 }
