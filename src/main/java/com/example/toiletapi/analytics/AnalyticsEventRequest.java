@@ -18,5 +18,14 @@ public record AnalyticsEventRequest(
         Boolean newVisitor,
         @Size(max = 120) String referrerHost,
         @Size(max = 40) String utmSource,
-        @Size(max = 24) String utmMedium
-) { }
+        @Size(max = 24) String utmMedium,
+        @Size(max = 24) String acquisitionEvidence,
+        @Size(max = 16) String entryNavigation
+) {
+    public AnalyticsEventRequest(String event,String path,String source,String resultCountBucket,Integer engagementSeconds,
+                                 Integer scrollPercent,String sessionId,String detail,Boolean success,Boolean newVisitor,
+                                 String referrerHost,String utmSource,String utmMedium) {
+        this(event,path,source,resultCountBucket,engagementSeconds,scrollPercent,sessionId,detail,success,newVisitor,
+                referrerHost,utmSource,utmMedium,null,null);
+    }
+}
