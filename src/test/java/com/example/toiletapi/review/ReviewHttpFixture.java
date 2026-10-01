@@ -88,7 +88,7 @@ public class ReviewHttpFixture {
             for(int id=1;id<=40;id++)jdbc.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES(?,?,36.3,127.3)",id,"격리 시험 화장실 "+id);
             jdbc.update("UPDATE toilet SET road_address='대전광역시 중구 · 프리뷰 가상 시설',updated_at='2026-09-01 00:00:00'");
             for(int id=1;id<=5;id++) {
-                int[] waits=switch(id){case 1->new int[]{0,5,5};case 2->new int[]{10,20};case 3->new int[]{};case 4->new int[]{0,0,0,0,60};default->new int[]{5,10};};
+                int[] waits=switch(id){case 1->new int[]{0,0,10};case 2->new int[]{10,20};case 3->new int[]{};case 4->new int[]{0,0,0,0,60};default->new int[]{0,0,20};};
                 for(int wait:waits)jdbc.update("INSERT INTO toilet_review(review_key,toilet_id,author_user_id,satisfaction,cleanliness,paper_available,wait_minutes,comment,created_at,updated_at) VALUES(UUID(),?,1,4,5,true,?,'혼잡도 계산용 가상 리뷰',DATE_SUB(NOW(6),INTERVAL 1 DAY),DATE_SUB(NOW(6),INTERVAL 1 DAY))",id,wait);
             }
             // Optional operator-supplied synthetic facility; never change a real facility or spoof device GPS.
