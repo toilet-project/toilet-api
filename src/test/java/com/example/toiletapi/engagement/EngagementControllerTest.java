@@ -31,9 +31,16 @@ class EngagementControllerTest {
     @Test void publicCountsButEveryPersonalPathRequiresAuthentication() throws Exception {
         mvc.perform(get("/api/v1/toilets/1/engagement")).andExpect(status().isOk()).andExpect(header().string("Cache-Control","private, no-store"));
         mvc.perform(get(OWN)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/engagement/likes")).andExpect(status().isUnauthorized());
         mvc.perform(put(OWN).header("Origin",ORIGIN)).andExpect(status().isUnauthorized());
         mvc.perform(delete(OWN).header("Origin",ORIGIN)).andExpect(status().isUnauthorized());
         verify(service,never()).setLike(anyLong(),any(),anyBoolean());
+    }
+    @Test void likedListUsesAuthenticatedActorAndIsNeverPubliclyCacheable() throws Exception {
+        mvc.perform(get("/api/v1/engagement/likes").header("Authorization","Bearer fixture")
+                .param("sort","distance").param("latitude","37.5").param("longitude","127"))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","private, no-store"));
+        verify(service).likedToilets(new EngagementService.Actor(2,3),"distance",0,30,37.5,127.0);
     }
     @Test void ownerComesFromVerifiedJwtAndCookieWritesRequireTrustedOrigin() throws Exception {
         mvc.perform(put(OWN).header("Origin",ORIGIN).header("Authorization","Bearer fixture")).andExpect(status().isOk());

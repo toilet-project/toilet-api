@@ -71,11 +71,12 @@ public class ReviewHttpFixture {
             CorsConfig.class,com.example.toiletapi.global.exception.GlobalExceptionHandler.class,PolicyConsentService.class,FixtureReads.class,
             com.example.toiletapi.engagement.EngagementConfiguration.class,com.example.toiletapi.engagement.EngagementRepository.class,
             com.example.toiletapi.engagement.EngagementService.class,com.example.toiletapi.engagement.EngagementController.class,
+            com.example.toiletapi.toilet.translation.ToiletTranslationRepository.class,com.example.toiletapi.toilet.translation.ToiletTranslationService.class,
             com.example.toiletapi.engagement.EngagementBoundaryFilter.class,com.example.toiletapi.engagement.EngagementExceptionHandler.class})
     static class Config {
         @Bean DataSource dataSource() {
             var ds=NativeMySqlFixture.create(); var jdbc=new JdbcTemplate(ds);
-            jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7),visibility_status VARCHAR(24) DEFAULT 'VISIBLE',road_address VARCHAR(255),jibun_address VARCHAR(255),updated_at DATETIME(6),region_revision BIGINT DEFAULT 0)");
+            jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),toilet_type VARCHAR(30) DEFAULT '공중화장실',latitude DECIMAL(10,7),longitude DECIMAL(10,7),visibility_status VARCHAR(24) DEFAULT 'VISIBLE',road_address VARCHAR(255),jibun_address VARCHAR(255),updated_at DATETIME(6),region_revision BIGINT DEFAULT 0)");
             for(String file:new String[]{"V1__create_auth_data_model.sql","V2__create_toilet_report_and_coordinate_revision.sql",
                     "V4__create_user_notification.sql","V5__create_coordinate_quality_review.sql","V7__create_policy_consent_model.sql",
                     "V11__account_withdrawal_retention.sql","V12__create_location_reviews.sql","V13__social_profile_photos.sql",
@@ -87,6 +88,16 @@ public class ReviewHttpFixture {
             }
             for(int id=1;id<=40;id++)jdbc.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES(?,?,36.3,127.3)",id,"격리 시험 화장실 "+id);
             jdbc.update("UPDATE toilet SET road_address='대전광역시 중구 · 프리뷰 가상 시설',updated_at='2026-09-01 00:00:00'");
+            // Distinct synthetic positions and timestamps make all three liked-list orders reviewable.
+            for(int id=1;id<=40;id++)jdbc.update("UPDATE toilet SET latitude=?,longitude=?,toilet_type=? WHERE toilet_id=?",
+                    36.3+(id%7)*0.012,127.3+(id%5)*0.018,id%3==0?"개방화장실":"공중화장실",id);
+            for(String file:new String[]{"V26__create_toilet_translation.sql","V29__track_translation_address_status.sql"})
+                new ResourceDatabasePopulator(new ClassPathResource("db/migration/"+file)).execute(ds);
+            jdbc.update("INSERT INTO toilet_translation(toilet_id,locale,name,source_hash,translation_status,translation_source) SELECT toilet_id,'en',CONCAT('Preview restroom ',toilet_id),source_hash,'REVIEWED','FIXTURE' FROM toilet_translation WHERE locale='ko'");
+            if("true".equals(System.getenv("LIKED_TOILETS_FIXTURE"))) {
+                for(int id=1;id<=35;id++)jdbc.update("INSERT INTO toilet_like(user_id,toilet_id,created_at) VALUES(1,?,DATE_SUB(NOW(6),INTERVAL ? HOUR))",id,id);
+                jdbc.update("INSERT INTO toilet_like(user_id,toilet_id,created_at) VALUES(2,36,NOW(6)),(2,37,DATE_SUB(NOW(6),INTERVAL 1 DAY))");
+            }
             for(int id=1;id<=5;id++) {
                 int[] waits=switch(id){case 1->new int[]{0,0,10};case 2->new int[]{10,20};case 3->new int[]{};case 4->new int[]{0,0,0,0,60};default->new int[]{0,0,20};};
                 for(int wait:waits)jdbc.update("INSERT INTO toilet_review(review_key,toilet_id,author_user_id,satisfaction,cleanliness,paper_available,wait_minutes,comment,created_at,updated_at) VALUES(UUID(),?,1,4,5,true,?,'혼잡도 계산용 가상 리뷰',DATE_SUB(NOW(6),INTERVAL 1 DAY),DATE_SUB(NOW(6),INTERVAL 1 DAY))",id,wait);

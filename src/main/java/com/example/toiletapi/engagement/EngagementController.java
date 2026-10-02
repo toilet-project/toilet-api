@@ -35,6 +35,12 @@ public class EngagementController {
     }
     @GetMapping("/api/v1/engagement/toilets/{id}/like")
     public LikeState mine(@PathVariable long id,@AuthenticationPrincipal Jwt jwt) { return service.mine(id,actor(jwt)); }
+    @GetMapping("/api/v1/engagement/likes")
+    public LikedToiletPage likes(@AuthenticationPrincipal Jwt jwt,@RequestParam(defaultValue="newest") String sort,
+                                  @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="30") int size,
+                                  @RequestParam(required=false) Double latitude,@RequestParam(required=false) Double longitude) {
+        return service.likedToilets(actor(jwt),sort,page,size,latitude,longitude);
+    }
     @PutMapping("/api/v1/engagement/toilets/{id}/like")
     public LikeState like(@PathVariable long id,@AuthenticationPrincipal Jwt jwt,HttpServletRequest req) {
         AuthenticatedMutationBoundary.requireTrustedOriginOrBearer(req,jwt);return service.setLike(id,actor(jwt),true);

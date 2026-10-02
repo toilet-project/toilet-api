@@ -18,7 +18,9 @@ public class EngagementBoundaryFilter extends OncePerRequestFilter {
     }
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         String path=request.getRequestURI();
-        return !path.matches("/api/v1/toilets/[0-9]+/(?:engagement|views)") && !path.matches("/api/v1/engagement/toilets/[0-9]+/like");
+        return !path.matches("/api/v1/toilets/[0-9]+/(?:engagement|views)")
+                && !path.matches("/api/v1/engagement/toilets/[0-9]+/like")
+                && !path.equals("/api/v1/engagement/likes");
     }
     @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain) throws ServletException,IOException {
         res.setHeader("Cache-Control","private, no-store");res.setHeader("Vary","Cookie, Authorization, Origin");
