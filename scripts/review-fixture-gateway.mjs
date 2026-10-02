@@ -25,7 +25,7 @@ const server = http.createServer(async (request, response) => {
     const read = request.method === 'GET' && (/^\/api\/v1\/reviews(?:\/me|\/creation-status|\/[1-9]\d*)?$/.test(path)
       || /^\/api\/v1\/toilets(?:\/[1-9]\d*(?:\/reviews(?:\/summary)?|\/engagement)?)?$/.test(path)
       || /^\/api\/v1\/engagement\/toilets\/[1-9]\d*\/like$/.test(path)
-      || ['/api/v1/auth/me', '/api/v1/notifications/unread-count'].includes(path))
+      || ['/api/v1/auth/me', '/api/v1/notifications/unread-count', '/api/v1/engagement/likes'].includes(path))
     const write = request.method === 'POST' && /^\/api\/v1\/reviews(?:\/[1-9]\d*\/detach-author)?$/.test(path)
       || request.method === 'PATCH' && /^\/api\/v1\/reviews\/[1-9]\d*$/.test(path)
       || request.method === 'POST' && /^\/api\/v1\/toilets\/[1-9]\d*\/views$/.test(path)
