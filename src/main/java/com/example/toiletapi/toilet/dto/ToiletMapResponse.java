@@ -14,6 +14,7 @@ import java.util.Map;
  * @param longitude 경도
  * @param displayGroupId 관리자가 지정한 지도 노출 그룹 식별자
  * @param displayGroupName 지도에 표시할 그룹 이름
+ * @param filterFlags 확인된 필터 비트: 1=24시간, 2=CCTV, 4=기저귀 교환대, 8=비상벨
  */
 public record ToiletMapResponse(
         Long id,
@@ -26,12 +27,22 @@ public record ToiletMapResponse(
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         Map<String, String> displayGroupTranslations,
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
-        Map<String, ToiletTranslationResponse> translations
+        Map<String, ToiletTranslationResponse> translations,
+        int filterFlags
 ) {
 
     public ToiletMapResponse {
         displayGroupTranslations = displayGroupTranslations == null ? Map.of() : Map.copyOf(displayGroupTranslations);
         translations = translations == null ? Map.of() : Map.copyOf(translations);
+    }
+
+    public ToiletMapResponse(
+            Long id, String name, String toiletType, double latitude, double longitude,
+            Long displayGroupId, String displayGroupName, Map<String, String> displayGroupTranslations,
+            Map<String, ToiletTranslationResponse> translations
+    ) {
+        this(id, name, toiletType, latitude, longitude, displayGroupId, displayGroupName,
+                displayGroupTranslations, translations, 0);
     }
 
     public ToiletMapResponse(
@@ -68,6 +79,14 @@ public record ToiletMapResponse(
             Map<String, String> displayGroupTranslations,
             Map<String, ToiletTranslationResponse> translations
     ) {
+        return from(toilet, displayGroupId, displayGroupName, displayGroupTranslations, translations, 0);
+    }
+
+    public static ToiletMapResponse from(
+            Toilet toilet, Long displayGroupId, String displayGroupName,
+            Map<String, String> displayGroupTranslations,
+            Map<String, ToiletTranslationResponse> translations, int filterFlags
+    ) {
         return new ToiletMapResponse(
                 toilet.getId(),
                 toilet.getName(),
@@ -77,7 +96,8 @@ public record ToiletMapResponse(
                 displayGroupId,
                 displayGroupName,
                 displayGroupTranslations,
-                translations
+                translations,
+                filterFlags
         );
     }
 }

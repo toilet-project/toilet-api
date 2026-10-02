@@ -40,10 +40,27 @@ class MapClusterSourceAuthTest {
                 .getStatusCode());
     }
 
+    @Test
+    void filterSourceRequiresItsOwnExactPathSignature() throws Exception {
+        var auth = new MapClusterSourceAuth(SECRET, "", CLOCK);
+        String signedFilter = signature("1780000000", "/api/v1/toilets/map-filter-points");
+        assertDoesNotThrow(() -> auth.requireValidFilterPoints("1780000000", signedFilter));
+        assertThrows(ResponseStatusException.class,
+                () -> auth.requireValidFilterPoints("1780000000", signature("1780000000")));
+        assertThrows(ResponseStatusException.class, () -> auth.requireValid("1780000000", signedFilter));
+        assertThrows(ResponseStatusException.class, () -> auth.requireValidFilterPoints("1780000000",
+                signature("1780000000", "/api/v1/toilets/map-filter-points/")));
+        assertThrows(ResponseStatusException.class, () -> auth.requireValidFilterPoints(null, null));
+    }
+
     private static String signature(String timestamp) throws Exception {
+        return signature(timestamp, "/api/v1/toilets/map-cluster-points");
+    }
+
+    private static String signature(String timestamp, String path) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         return java.util.HexFormat.of().formatHex(mac.doFinal(
-                ("v1\nGET\n/api/v1/toilets/map-cluster-points\n" + timestamp).getBytes(StandardCharsets.UTF_8)));
+                ("v1\nGET\n" + path + "\n" + timestamp).getBytes(StandardCharsets.UTF_8)));
     }
 }

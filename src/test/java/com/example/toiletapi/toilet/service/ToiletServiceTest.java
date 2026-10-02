@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyList;
 
 import com.example.toiletapi.global.exception.ToiletNotFoundException;
 import com.example.toiletapi.quality.repository.ToiletDisplayGroupRepository;
@@ -17,6 +18,8 @@ import com.example.toiletapi.toilet.dto.ToiletDetailResponse;
 import com.example.toiletapi.toilet.model.Toilet;
 import com.example.toiletapi.toilet.repository.ToiletRepository;
 import com.example.toiletapi.toilet.repository.ToiletMarkerProjection;
+import com.example.toiletapi.toilet.repository.ToiletFilterFlagsProjection;
+import com.example.toiletapi.toilet.repository.ToiletFilterPointProjection;
 import com.example.toiletapi.toilet.openinghours.OpeningHoursService;
 import com.example.toiletapi.toilet.repository.ToiletRegionProjection;
 import com.example.toiletapi.toilet.translation.ToiletTranslationModels.Text;
@@ -89,6 +92,14 @@ class ToiletServiceTest {
     void noTranslationsByDefault() {
         lenient().when(translationService.currentTranslations(anyCollection())).thenReturn(Map.of());
         lenient().when(translationService.currentMarkerNames(anyCollection())).thenReturn(Map.of());
+        lenient().when(toiletRepository.findFilterFlagsByIds(anyList())).thenAnswer(invocation -> {
+            List<Long> ids = invocation.getArgument(0);
+            return ids.stream().map(id -> {
+                var row = mock(ToiletFilterFlagsProjection.class);
+                lenient().when(row.getId()).thenReturn(id);
+                return row;
+            }).toList();
+        });
     }
 
     @Test
@@ -101,6 +112,7 @@ class ToiletServiceTest {
         when(row.getToiletType()).thenReturn("공중화장실");
         when(row.getLatitude()).thenReturn(new BigDecimal("37.52"));
         when(row.getLongitude()).thenReturn(new BigDecimal("127.02"));
+        when(row.getFilterFlags()).thenReturn(10);
         when(toiletRepository.findMarkerRowsByBounds(south, north, west, east)).thenReturn(List.of(row));
         when(displayGroupRepository.assignmentsFor(List.of(101L))).thenReturn(Map.of());
         when(translationService.currentMarkerNames(List.of(101L))).thenReturn(Map.of(101L, Map.of("en", "Cultural Center")));
@@ -110,6 +122,7 @@ class ToiletServiceTest {
         assertEquals("Cultural Center", response.toilets().getFirst().translations().get("en").name());
         assertNull(response.toilets().getFirst().translations().get("en").roadAddress());
         assertEquals(8, response.meta().mapLevel());
+        assertEquals(10, response.toilets().getFirst().filterFlags());
         verify(toiletRepository).findMarkerRowsByBounds(south, north, west, east);
     }
 
@@ -219,6 +232,78 @@ class ToiletServiceTest {
         );
 
         verifyNoInteractions(toiletRepository);
+    }
+
+    @Test
+    void filteredMarkerReadsFlagsOnceForTheWholeResultAndPreservesLegacyOpen24h() {
+        var south = new BigDecimal("37.50"); var north = new BigDecimal("37.55");
+        var west = new BigDecimal("127.00"); var east = new BigDecimal("127.05");
+        var toilet = mock(Toilet.class);
+        when(toilet.getId()).thenReturn(101L);
+        when(toilet.getLatitude()).thenReturn(south);
+        when(toilet.getLongitude()).thenReturn(west);
+        when(toiletRepository.findFilteredByBounds(south, north, west, east, 7)).thenReturn(List.of(toilet));
+        var flagRow = mock(ToiletFilterFlagsProjection.class);
+        when(flagRow.getId()).thenReturn(101L);
+        when(flagRow.getFilterFlags()).thenReturn(15);
+        when(toiletRepository.findFilterFlagsByIds(List.of(101L))).thenReturn(List.of(flagRow));
+        when(displayGroupRepository.assignmentsFor(List.of(101L))).thenReturn(Map.of());
+
+        var result = toiletService.getToiletsInBounds(south, north, west, east, 3, false, true, 6);
+
+        assertEquals(15, result.toilets().getFirst().filterFlags());
+        assertEquals(1, result.meta().totalCount());
+        verify(toiletRepository).findFilterFlagsByIds(List.of(101L));
+        verifyNoInteractions(openingHoursService);
+    }
+
+    @Test
+    void wideFiltersApplyBeforeClusterCountsWithoutLoadingIndividualDetails() {
+        var south = new BigDecimal("37.50"); var north = new BigDecimal("37.55");
+        var west = new BigDecimal("127.00"); var east = new BigDecimal("127.05");
+        when(toiletRepository.findFilteredClustersByBounds(south, north, west, east,
+                new BigDecimal("0.01"), 9)).thenReturn(List.of());
+        var result = toiletService.getToiletsInBounds(south, north, west, east, 10, false, true, 8);
+        assertEquals(0, result.meta().totalCount());
+        verify(toiletRepository).findFilteredClustersByBounds(south, north, west, east,
+                new BigDecimal("0.01"), 9);
+        verifyNoInteractions(openingHoursService, translationService, displayGroupRepository);
+    }
+
+    @Test
+    void rejectsUnsupportedFilterBitsBeforeAnyDatabaseQuery() {
+        for (int flags : new int[]{-1, 16, 255}) {
+            assertThrows(IllegalArgumentException.class, () -> toiletService.getToiletsInBounds(
+                    BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, 3, false, false, flags));
+        }
+        verifyNoInteractions(toiletRepository);
+    }
+
+    @Test
+    void missingBulkMetadataMustNotBecomeAnInventedZeroFlag() {
+        var south = new BigDecimal("37.50"); var north = new BigDecimal("37.55");
+        var west = new BigDecimal("127.00"); var east = new BigDecimal("127.05");
+        var toilet = mock(Toilet.class);
+        when(toilet.getId()).thenReturn(101L);
+        when(toiletRepository.findByLatitudeBetweenAndLongitudeBetween(south, north, west, east))
+                .thenReturn(List.of(toilet));
+        when(toiletRepository.findFilterFlagsByIds(List.of(101L))).thenReturn(List.of());
+        assertThrows(IllegalStateException.class,
+                () -> toiletService.getToiletsInBounds(south, north, west, east, 3, false));
+        verifyNoInteractions(translationService, displayGroupRepository, openingHoursService);
+    }
+
+    @Test
+    void filterSourceContainsOnlyCompactPublicIdCoordinatesAndFlags() {
+        var row = mock(ToiletFilterPointProjection.class);
+        when(row.getId()).thenReturn(101L);
+        when(row.getLatitude()).thenReturn(new BigDecimal("37.5"));
+        when(row.getLongitude()).thenReturn(new BigDecimal("127.0"));
+        when(row.getFilterFlags()).thenReturn(13);
+        when(toiletRepository.findPublicFilterPoints()).thenReturn(List.of(row));
+        org.junit.jupiter.api.Assertions.assertArrayEquals(new double[]{101, 37.5, 127.0, 13},
+                toiletService.getPublicFilterPoints().getFirst());
+        verifyNoInteractions(openingHoursService, translationService, displayGroupRepository);
     }
 
     @Test
