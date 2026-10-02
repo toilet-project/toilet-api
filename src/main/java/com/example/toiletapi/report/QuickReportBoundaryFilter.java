@@ -36,7 +36,8 @@ public class QuickReportBoundaryFilter extends OncePerRequestFilter {
         if (!nativeMember && !ORIGINS.contains(Objects.toString(req.getHeader("Origin"), ""))) { fail(res, 403, "ORIGIN_DENIED"); return; }
         if (req.getContentType() == null || !req.getContentType().toLowerCase(Locale.ROOT).matches("application/json(?:;.*)?")) { fail(res, 415, "JSON_REQUIRED"); return; }
         if (req.getContentLengthLong() > 8192) { fail(res, 413, "PAYLOAD_TOO_LARGE"); return; }
-        if (!allow("peer:" + req.getRemoteAddr(), 120) || !allow("guest:" + Objects.toString(req.getHeader("X-Report-Guest"), req.getRemoteAddr()), 12)) {
+        boolean guest = req.getRequestURI().endsWith("/guest");
+        if (!allow("peer:" + req.getRemoteAddr(), 120) || (guest && !allow("guest:" + Objects.toString(req.getHeader("X-Report-Guest"), req.getRemoteAddr()), 12))) {
             res.setHeader("Retry-After", "60"); fail(res, 429, "RATE_LIMITED"); return;
         }
         byte[] body = req.getInputStream().readNBytes(8193);

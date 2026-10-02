@@ -19,6 +19,7 @@ assert.equal(created.status,201)
 const reportId=created.data.id,path=`/api/admin/v1/reports/${reportId}/actions`
 let state=(await call(path)).data
 assert.equal(state.reportStatus,'PENDING');assert.equal(state.facility.visibilityStatus,'VISIBLE')
+const originalLatitude=state.facility.latitude
 const historyCount=state.history.length
 const pendingFailure=await call(path,{method:'POST',body:{action:'UPDATE_OPENING_HOURS',reason:'대기 제보 실패 원자성 검증',requestId:randomUUID(),expectedState:state.expectedState,openingHours:{openingPolicy:'SCHEDULED',open24h:false,holidayPolicy:'UNKNOWN',schedules:[]}}})
 assert.equal(pendingFailure.status,400);assert.equal((await call(path)).data.reportStatus,'PENDING');assert.equal((await call(path)).data.expectedState,state.expectedState)
@@ -39,11 +40,12 @@ await apply('RESTORE');assert.equal(state.facility.visibilityStatus,'VISIBLE');a
 const beforeFailure=state.expectedState
 const invalid=await call(path,{method:'POST',body:{action:'UPDATE_OPENING_HOURS',reason:'실패 롤백 검증',requestId:randomUUID(),expectedState:state.expectedState,openingHours:{openingPolicy:'SCHEDULED',open24h:false,holidayPolicy:'UNKNOWN',schedules:[]}}})
 assert.equal(invalid.status,400);assert.equal((await call(path)).data.expectedState,beforeFailure)
-await apply('UPDATE_OPENING_HOURS',{openingHours:{openingPolicy:'SCHEDULED',open24h:false,holidayPolicy:'CLOSED',schedules:[{dayOfWeek:1,slotIndex:0,startTime:'09:00',endTime:'18:00',crossesMidnight:false,closed:false},{dayOfWeek:2,slotIndex:0,startTime:'20:00',endTime:'02:00',crossesMidnight:true,closed:false}]}})
+const firstStart=String(state.openingHours?.schedules?.[0]?.startTime).startsWith('09:00')?'09:30':'09:00'
+await apply('UPDATE_OPENING_HOURS',{openingHours:{openingPolicy:'SCHEDULED',open24h:false,holidayPolicy:'CLOSED',schedules:[{dayOfWeek:1,slotIndex:0,startTime:firstStart,endTime:'18:00',crossesMidnight:false,closed:false},{dayOfWeek:2,slotIndex:0,startTime:'20:00',endTime:'02:00',crossesMidnight:true,closed:false}]}})
 assert.equal(state.openingHours.manualOverride,true);assert.equal(state.openingHours.schedules.length,2)
 const invalidCoordinate=await call(path,{method:'POST',body:{action:'UPDATE_COORDINATES',reason:'범위 오류 검증',requestId:randomUUID(),expectedState:state.expectedState,latitude:0,longitude:0}})
 assert.equal(invalidCoordinate.status,400);assert.equal((await call(path)).data.history.length,historyCount+3)
-await apply('UPDATE_COORDINATES',{latitude:36.3661,longitude:127.3145})
+await apply('UPDATE_COORDINATES',{latitude:originalLatitude===36.3661?36.36612:36.3661,longitude:127.3145})
 assert.equal(state.facility.coordinateSource,'ADMIN_CONFIRMED');assert.ok(state.facility.roadAddress || state.facility.jibunAddress)
 assert.equal(state.history.length,historyCount+4)
 const detail=await call(`/api/admin/v1/reports/${reportId}`)

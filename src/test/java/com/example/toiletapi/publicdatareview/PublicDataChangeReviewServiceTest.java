@@ -161,6 +161,21 @@ class PublicDataChangeReviewServiceTest {
         assertEquals(409,assertThrows(ResponseStatusException.class,()->service.decide(9,11,new DecisionRequest(Action.KEEP_CURRENT,"확인",3L,baselineHash))).getStatusCode().value());
     }
 
+    @Test
+    void temporarilyHiddenReportKeepsItsReasonAndCanReviewSourceWithoutUnhiding() {
+        String named=PublicDataChangeReviewService.hashNamed("테스트 화장실",new BigDecimal("37.5000000"),new BigDecimal("127.1000000"),"서울 도로 1","서울 지번 1");
+        db.update("INSERT INTO toilet_visibility_event VALUES(7,NULL,'제보 현장 확인: 시설 없음','2026-10-02 12:00:00')");
+        db.update("UPDATE toilet SET visibility_status='HIDDEN_TEMPORARY',hidden_event_id=7 WHERE toilet_id=1");
+        db.update("UPDATE public_data_change_review SET baseline_name='테스트 화장실',proposal_name='변경된 화장실',hidden_event_id=7,baseline_hash=?,changed_fields='NAME,ROAD_ADDRESS' WHERE review_id=11",named);
+        var detail=service.detail(11);
+        assertEquals("제보 현장 확인: 시설 없음",detail.hiddenContext().reason());
+        assertFalse(detail.isStale());
+        service.decide(9,11,new DecisionRequest(Action.APPLY,"명칭 변경만 반영",3L,named));
+        assertEquals("변경된 화장실",db.queryForObject("SELECT name FROM toilet WHERE toilet_id=1",String.class));
+        assertEquals("HIDDEN_TEMPORARY",db.queryForObject("SELECT visibility_status FROM toilet WHERE toilet_id=1",String.class));
+        assertEquals(7L,db.queryForObject("SELECT hidden_event_id FROM toilet WHERE toilet_id=1",Long.class));
+    }
+
     private void createSchema() {
         db.execute("CREATE TABLE app_user(user_id BIGINT PRIMARY KEY,display_name VARCHAR(100))");
         db.execute("""

@@ -41,4 +41,14 @@ class QuickReportBoundaryFilterTest {
         assertThat(resolver.resolve(request)).isNull(); request.setRequestURI("/api/v1/reports/me"); request.setMethod("GET");
         assertThat(resolver.resolve(request)).isEqualTo("expired");
     }
+    @Test void memberRequestsBehindOneProxyDoNotShareTheAnonymousTwelveRequestBucket() throws Exception {
+        var filter = new QuickReportBoundaryFilter(true);
+        for (int i=0;i<13;i++) {
+            var member=request(); member.setRequestURI("/api/v1/reports/quick"); member.removeHeader("X-Report-Guest");
+            var response=new MockHttpServletResponse(); var chain=new MockFilterChain();
+            filter.doFilter(member,response,chain);
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(chain.getRequest()).isNotNull(); // Authentication still happens in the security chain.
+        }
+    }
 }

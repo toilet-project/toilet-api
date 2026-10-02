@@ -267,7 +267,7 @@ public class PublicDataChangeReviewService {
         return rows.isEmpty()?null:rows.getFirst();
     }
     private boolean hiddenStillCurrent(long id) {
-        return jdbc.queryForObject("SELECT COUNT(*) FROM public_data_change_review r JOIN toilet t ON t.toilet_id=r.toilet_id WHERE r.review_id=:id AND t.visibility_status='HIDDEN_DUPLICATE' AND r.hidden_event_id=t.hidden_event_id",values(id),Long.class)==1;
+        return jdbc.queryForObject("SELECT COUNT(*) FROM public_data_change_review r JOIN toilet t ON t.toilet_id=r.toilet_id WHERE r.review_id=:id AND t.visibility_status IN ('HIDDEN_DUPLICATE','HIDDEN_TEMPORARY') AND r.hidden_event_id=t.hidden_event_id",values(id),Long.class)==1;
     }
     private static String comparisonHash(HiddenContext hidden,BigDecimal lat,BigDecimal lng,String road,String jibun) {
         return hidden==null?hash(lat,lng,road,jibun):hashNamed(hidden.currentName(),lat,lng,road,jibun);
