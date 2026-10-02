@@ -14,6 +14,8 @@ public record ToiletReportDetailResponse(ToiletReportResponse report, ToiletSnap
     }
 
     public static ToiletReportDetailResponse from(ToiletReportResponse report, Toilet toilet, String reporterDisplayName) {
-        return new ToiletReportDetailResponse(report, ToiletSnapshot.from(toilet), reporterDisplayName);
+        return new ToiletReportDetailResponse(report, toilet == null
+                ? new ToiletSnapshot(null, report.toiletName(), report.latitude(), report.longitude(), report.roadAddress(), report.jibunAddress(), report.openTime())
+                : ToiletSnapshot.from(toilet), reporterDisplayName);
     }
 }

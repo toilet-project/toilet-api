@@ -10,7 +10,12 @@ import lombok.*;
 @Table(name = "toilet_report")
 public class ToiletReport {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "report_id") private Long id;
-    @Column(name = "toilet_id", nullable = false) private Long toiletId;
+    @Column(name = "toilet_id") private Long toiletId;
+    @Column(name = "reporter_kind", nullable = false, length = 10) private String reporterKind = "MEMBER";
+    @Column(name = "proposed_name", length = 100) private String proposedName;
+    @Column(name = "observed_at") private LocalDateTime observedAt;
+    @Column(name = "submission_key", length = 64) private String submissionKey;
+    @Column(name = "submission_fingerprint", length = 64) private String submissionFingerprint;
     @Column(name = "reporter_user_id") private Long reporterUserId;
     @Column(name = "report_type", nullable = false, length = 30) private String reportType;
     @Column(name = "proposed_latitude", precision = 10, scale = 7) private BigDecimal proposedLatitude;
@@ -40,6 +45,25 @@ public class ToiletReport {
         report.reason = reason; report.activeRequestKey = activeKey; return report;
     }
     public void approve(Long adminId, String note) { review(adminId, note, ReportStatus.APPROVED); }
+    public static ToiletReport quick(Long toiletId, Long userId, String type, String name,
+            BigDecimal latitude, BigDecimal longitude, String address, String openTime,
+            String reason, String activeKey, String submissionKey, String fingerprint) {
+        ToiletReport report = new ToiletReport();
+        report.toiletId = toiletId; report.reporterUserId = userId;
+        report.reporterKind = userId == null ? "GUEST" : "MEMBER";
+        report.reportType = type; report.proposedName = name;
+        report.proposedLatitude = latitude; report.proposedLongitude = longitude;
+        report.proposedRoadAddress = address; report.proposedOpenTime = openTime;
+        report.reason = reason; report.observedAt = KoreanTime.now();
+        report.activeRequestKey = activeKey; report.submissionKey = submissionKey;
+        report.submissionFingerprint = fingerprint;
+        return report;
+    }
+    public void linkApprovedFacility(Long toiletId) {
+        if (!"NEW_FACILITY".equals(reportType) || this.toiletId != null || status != ReportStatus.PENDING)
+            throw new IllegalArgumentException("신규 시설 제보만 등록할 수 있습니다.");
+        this.toiletId = toiletId;
+    }
     public void reject(Long adminId, String note) { review(adminId, note, ReportStatus.REJECTED); }
     private void review(Long adminId, String note, ReportStatus next) {
         if (status != ReportStatus.PENDING) throw new IllegalArgumentException("대기 중인 제보만 처리할 수 있습니다.");
