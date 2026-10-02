@@ -47,8 +47,8 @@ public class ReportPreviewServer {
         var app = new SpringApplication(Config.class);
         var context = app.run("--spring.config.location=optional:classpath:report-preview-only.properties", "--server.address=127.0.0.1", "--server.port=0",
                 "--spring.flyway.enabled=false", "--spring.data.redis.repositories.enabled=false", "--spring.jpa.open-in-view=false",
-                "--reports.quick-enabled=true", "--kakao.api.key=preview-no-provider-secret", "--logging.level.root=WARN");
-        var expires = Instant.now().plus(Duration.ofHours(2));
+                "--reports.quick-enabled=true", "--kakao.api.key=" + System.getenv().getOrDefault("REPORT_PREVIEW_KAKAO_KEY", "preview-no-provider-secret"), "--logging.level.root=WARN");
+        var expires = reuseMetadata() == null ? Instant.now().plus(Duration.ofHours(2)) : Instant.parse((String) reuseMetadata().get("expiresAt"));
         var encoder = context.getBean(JwtEncoder.class);
         Map<String, String> tokens = new LinkedHashMap<>();
         for (int id = 1; id <= 3; id++) {
@@ -60,8 +60,40 @@ public class ReportPreviewServer {
                 "expiresAt", expires.toString(), "marker", System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER"),
                 "jdbcUrl", ((org.springframework.jdbc.datasource.DriverManagerDataSource) context.getBean(DataSource.class)).getUrl());
         Files.writeString(output, new ObjectMapper().writeValueAsString(metadata), StandardOpenOption.CREATE_NEW);
-        Thread.ofPlatform().daemon(true).start(() -> { try { Thread.sleep(Duration.ofHours(2)); context.close(); } catch (InterruptedException error) { Thread.currentThread().interrupt(); } });
+        Thread.ofPlatform().daemon(true).start(() -> { try { Thread.sleep(Duration.between(Instant.now(), expires)); context.close(); } catch (InterruptedException error) { Thread.currentThread().interrupt(); } });
         System.out.println("REPORT_PREVIEW_READY isolated=true publicSource=true lifetime=2h");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> reuseMetadata() {
+        String file = System.getenv("REPORT_PREVIEW_REUSE_METADATA");
+        if (file == null) return null;
+        try {
+            Path path = Path.of(file).toAbsolutePath().normalize();
+            if (!path.getParent().getFileName().toString().equals("account-retention-mysql-" + System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER"))) throw new IllegalArgumentException();
+            Map<String, Object> value = new ObjectMapper().readValue(Files.readString(path), Map.class);
+            Instant expiry = Instant.parse((String) value.get("expiresAt"));
+            if (!Objects.equals(value.get("marker"), System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER")) || !expiry.isAfter(Instant.now()) || expiry.isAfter(Instant.now().plus(Duration.ofHours(2)))) throw new IllegalArgumentException();
+            return value;
+        } catch (Exception failure) { throw new IllegalStateException("Invalid existing isolated fixture"); }
+    }
+
+    private static DataSource existingSource(Map<String, Object> metadata) {
+        String url = (String) metadata.get("jdbcUrl");
+        int port = Integer.parseInt(System.getenv("ACCOUNT_RETENTION_MYSQL_PORT"));
+        String marker = System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER");
+        if (port < 1024 || port > 65535 || port == 3306 || !marker.matches("[a-f0-9]{10}") || url == null
+                || !url.matches("jdbc:mysql://127\\.0\\.0\\.1:" + port + "/account_retention_test_[a-f0-9]{32}\\?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true"))
+            throw new IllegalStateException("Existing fixture URL is not allowlisted");
+        var source = new org.springframework.jdbc.datasource.DriverManagerDataSource(url, "root", "");
+        var jdbc = new JdbcTemplate(source);
+        String datadir = jdbc.queryForObject("SELECT @@datadir", String.class);
+        if (datadir == null || !datadir.replace('\\', '/').contains("/account-retention-mysql-" + marker + "/data/")
+                || !marker.equals(jdbc.queryForObject("SELECT marker FROM account_retention_fixture_guard.fixture_guard", String.class)))
+            throw new IllegalStateException("Existing database is not the isolated fixture");
+        Integer columns = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet_report' AND column_name='observed_open_time_detail'", Integer.class);
+        if (columns == 0) jdbc.execute("ALTER TABLE toilet_report ADD COLUMN observed_open_time_detail TEXT NULL");
+        return source;
     }
 
     @org.springframework.boot.test.context.TestConfiguration @EnableAutoConfiguration @EnableTransactionManagement
@@ -72,6 +104,8 @@ public class ReportPreviewServer {
             ToiletTranslationService.class, ToiletTranslationRepository.class, OpeningHoursService.class, OpeningHoursRepository.class, OpeningHoursParser.class, SourceImport.class})
     static class Config {
         @Bean DataSource dataSource() {
+            var existing = reuseMetadata();
+            if (existing != null) return existingSource(existing);
             var source = NativeMySqlFixture.create();
             new ResourceDatabasePopulator(new ClassPathResource("report-preview-toilet.sql")).execute(source);
             for (String file : List.of("V1__create_auth_data_model.sql", "V2__create_toilet_report_and_coordinate_revision.sql", "V4__create_user_notification.sql",

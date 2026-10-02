@@ -14,6 +14,7 @@ public class ToiletReport {
     @Column(name = "reporter_kind", nullable = false, length = 10) private String reporterKind = "MEMBER";
     @Column(name = "proposed_name", length = 100) private String proposedName;
     @Column(name = "observed_at") private LocalDateTime observedAt;
+    @Column(name = "observed_open_time_detail", columnDefinition = "TEXT") private String observedOpenTimeDetail;
     @Column(name = "submission_key", length = 64) private String submissionKey;
     @Column(name = "submission_fingerprint", length = 64) private String submissionFingerprint;
     @Column(name = "reporter_user_id") private Long reporterUserId;
@@ -63,6 +64,12 @@ public class ToiletReport {
         if (!"NEW_FACILITY".equals(reportType) || this.toiletId != null || status != ReportStatus.PENDING)
             throw new IllegalArgumentException("신규 시설 제보만 등록할 수 있습니다.");
         this.toiletId = toiletId;
+    }
+    public void captureObservationDetails(String openTimeDetail, String jibunAddress) {
+        if (!"FACILITY_MISSING".equals(reportType) && !"TEMPORARILY_CLOSED".equals(reportType))
+            throw new IllegalArgumentException("관찰 제보만 당시 정보를 보관할 수 있습니다.");
+        this.observedOpenTimeDetail = openTimeDetail;
+        this.proposedJibunAddress = jibunAddress;
     }
     public void reject(Long adminId, String note) { review(adminId, note, ReportStatus.REJECTED); }
     private void review(Long adminId, String note, ReportStatus next) {

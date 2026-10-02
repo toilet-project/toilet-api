@@ -60,6 +60,7 @@ public class ToiletReportService {
                 observation ? toilet.getLatitude() : request.latitude(), observation ? toilet.getLongitude() : request.longitude(),
                 observation ? toilet.getRoadAddress() : address, observation ? toilet.getOpenTime() : null,
                 reason, activeKey, key, fingerprint);
+        if (observation) report.captureObservationDetails(toilet.getOpenTimeDetail(), toilet.getJibunAddress());
         return response(reportRepository.save(report), report.getProposedName());
     }
     private static void requireUuid(String value) {

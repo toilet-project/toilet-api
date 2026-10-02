@@ -42,11 +42,15 @@ class QuickToiletReportServiceTest {
     }
     QuickToiletReportRequest observation(String type) { return new QuickToiletReportRequest(10L, type, null, null, null, null, null); }
     @Test void observationsSnapshotServerDataWithoutChangingFacility() {
+        ReflectionTestUtils.setField(facility, "openTimeDetail", "평일 09:00~18:00 / 주말 10:00~16:00");
+        ReflectionTestUtils.setField(facility, "jibunAddress", "접수 당시 지번주소");
         for (String type : List.of("FACILITY_MISSING", "TEMPORARILY_CLOSED")) {
             var result = service.submitQuick(null, guest, UUID.randomUUID().toString(), observation(type));
             assertThat(result.reporterKind()).isEqualTo("GUEST"); assertThat(result.observedAt()).isNotNull();
             assertThat(result.latitude()).isEqualTo(lat); assertThat(result.openTime()).isEqualTo("09:00~18:00");
             assertThat(result.reason()).isEmpty(); assertThat(result.status()).isEqualTo("PENDING");
+            assertThat(result.openTimeDetail()).isEqualTo("평일 09:00~18:00 / 주말 10:00~16:00");
+            assertThat(result.jibunAddress()).isEqualTo("접수 당시 지번주소");
         }
         verify(toilets, never()).save(any()); verifyNoInteractions(resolver, translations, hours, users);
     }
