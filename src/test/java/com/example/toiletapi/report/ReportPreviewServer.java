@@ -45,10 +45,11 @@ public class ReportPreviewServer {
         if (!output.getParent().getFileName().toString().equals("account-retention-mysql-" + System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER")))
             throw new IllegalArgumentException("Invalid fixture metadata path");
         var app = new SpringApplication(Config.class);
+        app.setDefaultProperties(Map.of("kakao.api.key", System.getenv().getOrDefault("REPORT_PREVIEW_KAKAO_KEY", "preview-no-provider-secret")));
         var context = app.run("--spring.config.location=optional:classpath:report-preview-only.properties", "--server.address=127.0.0.1", "--server.port=0",
                 "--spring.flyway.enabled=false", "--spring.data.redis.repositories.enabled=false", "--spring.jpa.open-in-view=false",
-                "--reports.quick-enabled=true", "--kakao.api.key=" + System.getenv().getOrDefault("REPORT_PREVIEW_KAKAO_KEY", "preview-no-provider-secret"), "--logging.level.root=WARN");
-        var expires = reuseMetadata() == null ? Instant.now().plus(Duration.ofHours(2)) : Instant.parse((String) reuseMetadata().get("expiresAt"));
+                "--reports.quick-enabled=true", "--logging.level.root=WARN");
+        var expires = reuseMetadata() == null || renewApproved() ? Instant.now().plus(Duration.ofHours(2)) : Instant.parse((String) reuseMetadata().get("expiresAt"));
         var encoder = context.getBean(JwtEncoder.class);
         Map<String, String> tokens = new LinkedHashMap<>();
         for (int id = 1; id <= 3; id++) {
@@ -73,9 +74,13 @@ public class ReportPreviewServer {
             if (!path.getParent().getFileName().toString().equals("account-retention-mysql-" + System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER"))) throw new IllegalArgumentException();
             Map<String, Object> value = new ObjectMapper().readValue(Files.readString(path), Map.class);
             Instant expiry = Instant.parse((String) value.get("expiresAt"));
-            if (!Objects.equals(value.get("marker"), System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER")) || !expiry.isAfter(Instant.now()) || expiry.isAfter(Instant.now().plus(Duration.ofHours(2)))) throw new IllegalArgumentException();
+            if (!Objects.equals(value.get("marker"), System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER")) || (!renewApproved() && !expiry.isAfter(Instant.now())) || expiry.isAfter(Instant.now().plus(Duration.ofHours(2)))) throw new IllegalArgumentException();
             return value;
         } catch (Exception failure) { throw new IllegalStateException("Invalid existing isolated fixture"); }
+    }
+
+    private static boolean renewApproved() {
+        return "approved-two-hour-trial".equals(System.getenv("REPORT_PREVIEW_RENEW"));
     }
 
     private static DataSource existingSource(Map<String, Object> metadata) {
