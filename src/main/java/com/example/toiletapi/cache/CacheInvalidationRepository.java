@@ -25,18 +25,22 @@ public class CacheInvalidationRepository {
     // A 20-event signed probe completed in 4.13 s on the production Worker;
     // the sender times out after 8 s, while the previous 100-event batches stalled.
     private static final int DELIVERY_BATCH_SIZE = 20;
+    // Related-table triggers also queue UPSERTs. Never let hours/translation changes
+    // turn a hidden facility back into a public cache entry.
+    private static final String DELIVERY_ACTION = "CASE WHEN q.action='UPSERT' AND t.visibility_status<>'VISIBLE' THEN 'PRIVATE' ELSE q.action END AS action";
     public CacheInvalidationRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public List<Pending> due() {
-        return jdbc.query("SELECT toilet_id,event_id,revision,action,catalog_changed,attempts FROM web_cache_invalidation "
-                +"WHERE delivered_at IS NULL AND next_attempt_at<=UTC_TIMESTAMP(6) "
-                +"ORDER BY next_attempt_at,toilet_id LIMIT " + DELIVERY_BATCH_SIZE,
+        return jdbc.query("SELECT q.toilet_id,q.event_id,q.revision,"+DELIVERY_ACTION+",q.catalog_changed,q.attempts FROM web_cache_invalidation q "
+                +"LEFT JOIN toilet t ON t.toilet_id=q.toilet_id "
+                +"WHERE q.delivered_at IS NULL AND q.next_attempt_at<=UTC_TIMESTAMP(6) "
+                +"ORDER BY q.next_attempt_at,q.toilet_id LIMIT " + DELIVERY_BATCH_SIZE,
                 (rs,n) -> new Pending(rs.getLong(1),rs.getString(2),rs.getLong(3),
                         CacheInvalidationEvent.Action.valueOf(rs.getString(4)),rs.getBoolean(5),rs.getInt(6)));
     }
     /** Only the opt-in v3 sender requires the V6 region-scope columns. */
     public List<Pending> dueScoped() {
-        return jdbc.query("SELECT q.toilet_id,q.event_id,q.revision,q.action,q.catalog_changed,q.attempts,"
+        return jdbc.query("SELECT q.toilet_id,q.event_id,q.revision,"+DELIVERY_ACTION+",q.catalog_changed,q.attempts,"
                 +"q.region_scope_complete,q.region_west,q.region_south,q.region_east,q.region_north,"
                 +"t.latitude AS current_latitude,t.longitude AS current_longitude "
                 +"FROM web_cache_invalidation q LEFT JOIN toilet t ON t.toilet_id=q.toilet_id "

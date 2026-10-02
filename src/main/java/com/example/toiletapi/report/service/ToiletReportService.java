@@ -26,6 +26,53 @@ public class ToiletReportService {
     private final CoordinateAddressResolver addressResolver;
     private final ToiletTranslationService translations;
     private final OpeningHoursService openingHours;
+    /** No facility/cache mutations on public submission. Idempotency survives review completion. */
+    public ToiletReportResponse submitQuick(Long userId, String guestId, String requestId, QuickToiletReportRequest request) {
+        if (request == null || request.reportType() == null || !Set.of("FACILITY_MISSING", "TEMPORARILY_CLOSED", "COORDINATE_CORRECTION", "NEW_FACILITY").contains(request.reportType()))
+            throw new IllegalArgumentException("지원하지 않는 제보 유형입니다.");
+        requireUuid(requestId);
+        if (userId == null) requireUuid(guestId);
+        else userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
+        boolean isNew = "NEW_FACILITY".equals(request.reportType());
+        String reason = clean(request.reason(), 500), name = clean(request.name(), 100), address = clean(request.roadAddress(), 255);
+        if (isNew && (request.toiletId() != null || name.isBlank())) throw new IllegalArgumentException("신규 화장실 이름을 입력해 주세요.");
+        if (!isNew && (request.toiletId() == null || request.toiletId() <= 0)) throw new IllegalArgumentException("대상 화장실을 선택해 주세요.");
+        if (isNew || "COORDINATE_CORRECTION".equals(request.reportType())) {
+            CoordinateAddressResolver.validateCoordinates(request.latitude(), request.longitude());
+            if (request.latitude().doubleValue() < 32 || request.latitude().doubleValue() > 39.5
+                    || request.longitude().doubleValue() < 124 || request.longitude().doubleValue() > 132)
+                throw new IllegalArgumentException("대한민국 내 위치를 선택해 주세요.");
+        }
+        String actor = userId == null ? "guest:" + guestId : "member:" + userId;
+        String key = hash(actor + ":" + requestId);
+        String fingerprint = hash(request.toString());
+        Optional<ToiletReport> existing = reportRepository.findBySubmissionKey(key);
+        if (existing.isPresent()) {
+            if (!fingerprint.equals(existing.get().getSubmissionFingerprint())) throw new IllegalArgumentException("접수 요청이 변경되었습니다. 새 제보를 시작해 주세요.");
+            return response(existing.get(), existing.get().getProposedName());
+        }
+        Toilet toilet = isNew ? null : toiletRepository.findById(request.toiletId())
+                .filter(Toilet::isPubliclyVisible).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
+        String activeKey = hash(actor + ":" + request.reportType() + ":" + (isNew ? name + ":" + request.latitude() + ":" + request.longitude() : request.toiletId()));
+        if (reportRepository.existsByActiveRequestKey(activeKey)) throw new IllegalArgumentException("이미 처리 대기 중인 같은 유형의 제보가 있습니다.");
+        boolean observation = Set.of("FACILITY_MISSING", "TEMPORARILY_CLOSED").contains(request.reportType());
+        ToiletReport report = ToiletReport.quick(request.toiletId(), userId, request.reportType(), isNew ? name : toilet.getName(),
+                observation ? toilet.getLatitude() : request.latitude(), observation ? toilet.getLongitude() : request.longitude(),
+                observation ? toilet.getRoadAddress() : address, observation ? toilet.getOpenTime() : null,
+                reason, activeKey, key, fingerprint);
+        if (observation) report.captureObservationDetails(toilet.getOpenTimeDetail(), toilet.getJibunAddress());
+        return response(reportRepository.save(report), report.getProposedName());
+    }
+    private static void requireUuid(String value) {
+        if (value == null || !value.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
+            throw new IllegalArgumentException("유효한 접수 식별자가 필요합니다.");
+    }
+    private static String clean(String value, int maximum) {
+        String result = value == null ? "" : value.trim();
+        if (result.length() > maximum || result.codePoints().anyMatch(c -> Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t'))
+            throw new IllegalArgumentException("입력 내용을 확인해 주세요.");
+        return result;
+    }
     public ToiletReportResponse submit(Long userId, CreateToiletReportRequest request) {
         validateRequest(request); Toilet toilet = toiletRepository.findById(request.toiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
         userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
@@ -67,11 +114,12 @@ public class ToiletReportService {
     }
     @Transactional(readOnly = true) public ToiletReportDetailResponse pendingDetail(Long reportId) {
         ToiletReport report = reportRepository.findById(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
-        Toilet toilet = toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
-        return ToiletReportDetailResponse.from(response(report, toilet.getName()), toilet, reporterDisplayName(report));
+        Toilet toilet = report.getToiletId() == null ? null : toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
+        return ToiletReportDetailResponse.from(response(report, toilet == null ? report.getProposedName() : toilet.getName()), toilet, reporterDisplayName(report));
     }
     // Resolve on the admin detail read only: do not snapshot names into retained reports.
     private String reporterDisplayName(ToiletReport report) {
+        if ("GUEST".equals(report.getReporterKind())) return "비회원";
         if (report.getReporterUserId() == null) return "탈퇴한 사용자";
         return userRepository.findById(report.getReporterUserId()).map(user -> {
             if (user.getStatus() == UserStatus.WITHDRAWN) return "탈퇴한 사용자";
@@ -83,13 +131,16 @@ public class ToiletReportService {
         ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
         if (report.getStatus() != ReportStatus.PENDING) throw new IllegalArgumentException("대기 중인 제보만 처리할 수 있습니다.");
         CoordinateAddress address = null;
-        if ("COORDINATE_CORRECTION".equals(report.getReportType())) {
+        if (Set.of("COORDINATE_CORRECTION", "NEW_FACILITY").contains(report.getReportType())) {
             if (request != null && (request.confirmedLatitude() == null) != (request.confirmedLongitude() == null)) {
                 throw new IllegalArgumentException("관리자 확정 위도와 경도는 함께 입력해 주세요.");
             }
             address = addressResolver.resolve(confirmedLatitude(request, report), confirmedLongitude(request, report));
         }
-        Toilet toilet = toiletRepository.findByIdForUpdate(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
+        boolean isNew = "NEW_FACILITY".equals(report.getReportType());
+        Toilet toilet = isNew ? toiletRepository.saveAndFlush(Toilet.fromApprovedReport(report.getProposedName(), address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress()))
+                : toiletRepository.findByIdForUpdate(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
+        if (isNew) report.linkApprovedFacility(toilet.getId());
         boolean translationSourceChanged = false;
         if ("COORDINATE_CORRECTION".equals(report.getReportType())) {
             BigDecimal previousLatitude = toilet.getLatitude(), previousLongitude = toilet.getLongitude(); String previousRoadAddress = toilet.getRoadAddress();
@@ -102,7 +153,11 @@ public class ToiletReportService {
             toilet.applyReportedOpenTime(report.getProposedOpenTime());
             toiletRepository.flush();
             openingHours.synchronize(report.getToiletId(), report.getProposedOpenTime(), toilet.getOpenTimeDetail());
-        } else throw new IllegalArgumentException("처리할 수 없는 제보 유형입니다.");
+        } else if (isNew) {
+            translationSourceChanged = true;
+        } else if (!Set.of("FACILITY_MISSING", "TEMPORARILY_CLOSED").contains(report.getReportType())) {
+            throw new IllegalArgumentException("처리할 수 없는 제보 유형입니다.");
+        }
         if (translationSourceChanged) {
             toiletRepository.flush();
             translations.synchronizeKoreanSource(report.getToiletId());
@@ -116,11 +171,12 @@ public class ToiletReportService {
     }
     public ToiletReportResponse reject(Long adminId, Long reportId, ReviewToiletReportRequest request) {
         ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
-        Toilet toilet = toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
+        Toilet toilet = report.getToiletId() == null ? null : toiletRepository.findById(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
         report.reject(adminId, note(request));
-        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_REJECTED, Map.of("toiletId", report.getToiletId()));
-        notificationService.createReportDecision(report, toilet.getName());
-        return response(report, toilet.getName());
+        auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_REJECTED, report.getToiletId() == null ? Map.of("reportType", report.getReportType()) : Map.of("toiletId", report.getToiletId()));
+        String name = toilet == null ? report.getProposedName() : toilet.getName();
+        notificationService.createReportDecision(report, name);
+        return response(report, name);
     }
     private void validateRequest(CreateToiletReportRequest request) {
         if (request == null || request.toiletId() == null || request.reportType() == null || request.reason() == null || request.reason().isBlank()) throw new IllegalArgumentException("화장실, 제보 유형, 제보 사유는 필수입니다.");
@@ -131,7 +187,7 @@ public class ToiletReportService {
             if (request.openTime() == null || request.openTime().isBlank() || request.openTime().trim().length() > 50) throw new IllegalArgumentException("개방 시간은 50자 이하여야 합니다.");
         } else throw new IllegalArgumentException("지원하지 않는 제보 유형입니다.");
     }
-    private String note(ReviewToiletReportRequest request) { return request == null || request.note() == null ? null : request.note().trim(); }
+    private String note(ReviewToiletReportRequest request) { return request == null || request.note() == null ? null : clean(request.note(), 500); }
     private BigDecimal confirmedLatitude(ReviewToiletReportRequest request, ToiletReport report) { return request != null && request.confirmedLatitude() != null ? request.confirmedLatitude() : report.getProposedLatitude(); }
     private BigDecimal confirmedLongitude(ReviewToiletReportRequest request, ToiletReport report) { return request != null && request.confirmedLongitude() != null ? request.confirmedLongitude() : report.getProposedLongitude(); }
     private boolean hasCoordinateOverride(ReviewToiletReportRequest request) { return request != null && (request.confirmedLatitude() != null || request.confirmedLongitude() != null); }
@@ -144,7 +200,7 @@ public class ToiletReportService {
         return reports.stream().map(report -> ToiletReportListItem.from(report, toiletNames.get(report.getToiletId()))).toList();
     }
     private Map<Long, String> toiletNames(List<ToiletReport> reports) {
-        return toiletRepository.findAllById(reports.stream().map(ToiletReport::getToiletId).distinct().toList()).stream()
+        return toiletRepository.findAllById(reports.stream().map(ToiletReport::getToiletId).filter(Objects::nonNull).distinct().toList()).stream()
                 .collect(java.util.stream.Collectors.toMap(Toilet::getId, Toilet::getName));
     }
     private ToiletReportResponse response(ToiletReport report, String toiletName) { return ToiletReportResponse.from(report, toiletName); }

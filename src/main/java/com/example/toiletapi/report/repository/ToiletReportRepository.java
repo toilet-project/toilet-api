@@ -10,20 +10,21 @@ public interface ToiletReportRepository extends JpaRepository<ToiletReport, Long
     List<ToiletReport> findByToiletIdInAndStatusAndReportTypeOrderByCreatedAtAsc(
             Collection<Long> toiletIds, ReportStatus status, String reportType);
     boolean existsByActiveRequestKey(String activeRequestKey);
+    Optional<ToiletReport> findBySubmissionKey(String submissionKey);
     List<ToiletReport> findByReporterUserIdOrderByCreatedAtDesc(Long reporterUserId);
     List<ToiletReport> findByStatusOrderByCreatedAtAsc(ReportStatus status);
     List<ToiletReport> findTop5ByStatusOrderByCreatedAtAsc(ReportStatus status);
     long countByStatus(ReportStatus status);
     @Query(value = """
             select r from ToiletReport r where r.status = :status and (
-                :keyword = '' or exists (
+                :keyword = '' or lower(r.proposedName) like lower(concat('%', :keyword, '%')) or exists (
                     select t.id from Toilet t where t.id = r.toiletId
                     and lower(t.name) like lower(concat('%', :keyword, '%'))
                 )
             ) order by r.createdAt asc
             """, countQuery = """
             select count(r) from ToiletReport r where r.status = :status and (
-                :keyword = '' or exists (
+                :keyword = '' or lower(r.proposedName) like lower(concat('%', :keyword, '%')) or exists (
                     select t.id from Toilet t where t.id = r.toiletId
                     and lower(t.name) like lower(concat('%', :keyword, '%'))
                 )
@@ -34,7 +35,7 @@ public interface ToiletReportRepository extends JpaRepository<ToiletReport, Long
             select r from ToiletReport r where (:status is null or r.status = :status)
               and (:from is null or r.createdAt >= :from)
               and (:to is null or r.createdAt < :to)
-              and (:keyword = '' or exists (
+              and (:keyword = '' or lower(r.proposedName) like lower(concat('%', :keyword, '%')) or exists (
                 select t.id from Toilet t where t.id = r.toiletId
                 and lower(t.name) like lower(concat('%', :keyword, '%'))
               ))
@@ -42,7 +43,7 @@ public interface ToiletReportRepository extends JpaRepository<ToiletReport, Long
             select count(r) from ToiletReport r where (:status is null or r.status = :status)
               and (:from is null or r.createdAt >= :from)
               and (:to is null or r.createdAt < :to)
-              and (:keyword = '' or exists (
+              and (:keyword = '' or lower(r.proposedName) like lower(concat('%', :keyword, '%')) or exists (
                 select t.id from Toilet t where t.id = r.toiletId
                 and lower(t.name) like lower(concat('%', :keyword, '%'))
               ))

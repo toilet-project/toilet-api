@@ -34,6 +34,7 @@ public class CookieBearerTokenResolver implements BearerTokenResolver {
             return "GET".equals(method) || "POST".equals(method) || "DELETE".equals(method);
         }
         return "POST".equals(method)
-                && ("/api/v1/auth/refresh".equals(path) || "/api/v1/auth/logout".equals(path));
+                && ("/api/v1/auth/refresh".equals(path) || "/api/v1/auth/logout".equals(path)
+                    || "/api/v1/reports/guest".equals(path));
     }
 }

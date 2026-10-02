@@ -31,6 +31,16 @@ public class Toilet {
 
     public boolean isPubliclyVisible() { return "VISIBLE".equals(visibilityStatus); }
 
+    /** Called only in the administrator's locked report-approval transaction. */
+    public static Toilet fromApprovedReport(String name, BigDecimal latitude, BigDecimal longitude,
+            String roadAddress, String jibunAddress) {
+        Toilet toilet = new Toilet();
+        toilet.name = name;
+        toilet.dataSource = "USER_REPORT";
+        toilet.applyAdminConfirmedCoordinates(latitude, longitude, roadAddress, jibunAddress);
+        return toilet;
+    }
+
     @Column(name = "mng_no", length = 50)
     private String managementNumber;
 

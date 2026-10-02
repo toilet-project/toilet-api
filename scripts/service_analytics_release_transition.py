@@ -24,6 +24,7 @@ ANALYTICS_CONFIG = {
 ANALYTICS_KEYS = tuple(ANALYTICS_CONFIG)
 BOT_CONFIG = {'SERVICE_ANALYTICS_RETAIN_BOT_EVENTS': 'true'}
 ENGAGEMENT_CONFIG = {'ENGAGEMENT_ENABLED': 'true'}
+REPORT_CONFIG = {'REPORTS_QUICK_ENABLED': 'true'}
 ACCOUNT_ACTIVE = {
     'ACCOUNT_LIFECYCLE_MAINTENANCE': 'false',
     'ACCOUNT_RETENTION_ENABLED': 'true',
@@ -204,6 +205,25 @@ SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()
 """)
         require(result.splitlines() == ['1', '5'], 'SERVICE_ANALYTICS_RELEASE_ENGAGEMENT_SCHEMA_MISSING')
 
+    def require_report_dependencies(self, objects):
+        env = environment(objects['api'])
+        require(bool(env.get('KAKAO_REST_API_KEY')), 'SERVICE_ANALYTICS_RELEASE_REPORT_GEOCODING_MISSING')
+        require(env.get('WEB_CACHE_REVALIDATION_ENABLED') == 'true'
+                and env.get('WEB_CACHE_CONTRACT_VERSION') in ('2', '3')
+                and bool(env.get('WEB_CACHE_REVALIDATION_SECRET')),
+                'SERVICE_ANALYTICS_RELEASE_REPORT_CACHE_MISSING')
+        result = self.run(['docker', 'exec', '-i', '-e', 'MYSQL_PWD', 'toilet-mysql', 'mysql',
+                          '--protocol=socket', '-u', env['SPRING_DB_USERNAME'], 'toilet_db',
+                          '--batch', '--skip-column-names'], env=dict(os.environ, MYSQL_PWD=env['SPRING_DB_PASSWORD']), input="""
+SET SESSION MAX_EXECUTION_TIME=5000;
+SELECT COUNT(*) FROM flyway_schema_history WHERE version IN ('37','38') AND success=1;
+SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()
+ AND table_name IN ('toilet_report_resolution','web_cache_invalidation');
+SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=DATABASE()
+ AND trigger_name='cache_toilet_visibility_update';
+""")
+        require(result.splitlines() == ['2', '2', '1'], 'SERVICE_ANALYTICS_RELEASE_REPORT_SCHEMA_MISSING')
+
     def require_bot_dependencies(self, objects, admin_commit):
         require(environment(objects['api']).get('SERVICE_ANALYTICS_ENABLED') == 'true')
         admin = json.loads(self.run(['docker', 'inspect', 'toilet-admin']))[0]
@@ -275,7 +295,7 @@ def main():
     parser.add_argument('--batch-commit', required=True)
     parser.add_argument('--apply-approved', action='store_true')
     parser.add_argument('--deployment-freeze-confirmed', action='store_true')
-    parser.add_argument('--feature', choices=('analytics', 'bot-retention', 'engagement'), default='analytics')
+    parser.add_argument('--feature', choices=('analytics', 'bot-retention', 'engagement', 'reports'), default='analytics')
     parser.add_argument('--admin-commit')
     parser.add_argument('--admin-compatible-confirmed', action='store_true')
     args = parser.parse_args()
@@ -294,6 +314,9 @@ def main():
     if args.feature == 'engagement':
         ANALYTICS_CONFIG = dict(ENGAGEMENT_CONFIG)
         ANALYTICS_KEYS = tuple(ANALYTICS_CONFIG)
+    if args.feature == 'reports':
+        ANALYTICS_CONFIG = dict(REPORT_CONFIG)
+        ANALYTICS_KEYS = tuple(ANALYTICS_CONFIG)
     host = Host()
     commits = {'api': args.api_commit, 'batch': args.batch_commit}
     with host.context.maintenance_lease.acquire():
@@ -304,6 +327,8 @@ def main():
             host.require_bot_dependencies(objects, args.admin_commit)
         if args.feature == 'engagement':
             host.require_engagement_dependencies(objects)
+        if args.feature == 'reports':
+            host.require_report_dependencies(objects)
         snapshots = {
             'objects': objects,
             'render': host.rendered(),

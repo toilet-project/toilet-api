@@ -6,6 +6,9 @@ account:
   retention:
     enabled: ${ACCOUNT_RETENTION_ENABLED:false}
 
+reports:
+  quick-enabled: ${REPORTS_QUICK_ENABLED:false}
+
 web-cache:
   enabled: ${WEB_CACHE_REVALIDATION_ENABLED:false}
   origin: ${WEB_CACHE_ORIGIN:}

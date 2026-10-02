@@ -1,0 +1,15 @@
+// Test classpath only. Production credentials/configuration are never loaded.
+allprojects {
+    afterEvaluate {
+        tasks.register('reportPreview', JavaExec) {
+            dependsOn testClasses
+            classpath = sourceSets.test.runtimeClasspath
+            mainClass = 'com.example.toiletapi.report.ReportPreviewServer'
+            doFirst {
+                if (!System.getenv('REPORT_PREVIEW_METADATA')) throw new GradleException('Isolated metadata path required')
+                args System.getenv('REPORT_PREVIEW_METADATA')
+            }
+            jvmArgs '-Duser.timezone=Asia/Seoul'
+        }
+    }
+}
