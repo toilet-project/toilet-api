@@ -98,12 +98,24 @@ public class ReportPreviewServer {
             throw new IllegalStateException("Existing database is not the isolated fixture");
         Integer columns = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet_report' AND column_name='observed_open_time_detail'", Integer.class);
         if (columns == 0) jdbc.execute("ALTER TABLE toilet_report ADD COLUMN observed_open_time_detail TEXT NULL");
+        resolutionSchema(source);
         return source;
+    }
+
+    private static void resolutionSchema(DataSource source) {
+        var jdbc = new JdbcTemplate(source);
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet' AND column_name='visibility_version'", Integer.class) == 0) {
+            new ResourceDatabasePopulator(new ClassPathResource("report-preview-visibility.sql")).execute(source);
+        }
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='toilet_report_resolution'", Integer.class) == 0) {
+            new ResourceDatabasePopulator(new ClassPathResource("db/migration/V38__create_report_resolution.sql")).execute(source);
+        }
     }
 
     @org.springframework.boot.test.context.TestConfiguration @EnableAutoConfiguration @EnableTransactionManagement
     @EnableJpaRepositories(basePackages = {"com.example.toiletapi.auth.repository", "com.example.toiletapi.policy.repository", "com.example.toiletapi.report.repository", "com.example.toiletapi.toilet.repository", "com.example.toiletapi.notification.repository"})
-    @Import({ToiletReportController.class, ToiletReportService.class, QuickReportBoundaryFilter.class, SecurityConfig.class, JwtConfig.class,
+    @Import({ToiletReportController.class, ToiletReportService.class, com.example.toiletapi.report.controller.ReportResolutionController.class,
+            com.example.toiletapi.report.service.ReportResolutionService.class, QuickReportBoundaryFilter.class, SecurityConfig.class, JwtConfig.class,
             com.example.toiletapi.global.config.CorsConfig.class, com.example.toiletapi.global.exception.GlobalExceptionHandler.class,
             PolicyConsentService.class, AuditLogService.class, UserNotificationService.class, CoordinateAddressResolver.class,
             ToiletTranslationService.class, ToiletTranslationRepository.class, OpeningHoursService.class, OpeningHoursRepository.class, OpeningHoursParser.class, SourceImport.class})
@@ -123,6 +135,7 @@ public class ReportPreviewServer {
                 jdbc.update("INSERT INTO app_user(user_id,status,display_name) VALUES(?,'ACTIVE',?)", id, "격리 시험 계정 " + id);
                 jdbc.update("INSERT INTO user_policy_consent(user_id,policy_document_id,consent_source) SELECT ?,policy_document_id,'WEB_OAUTH_ONBOARDING' FROM policy_document WHERE required=true", id);
             }
+            resolutionSchema(source);
             return source;
         }
         @Bean ObjectMapper mapper() { return new ObjectMapper(); }
