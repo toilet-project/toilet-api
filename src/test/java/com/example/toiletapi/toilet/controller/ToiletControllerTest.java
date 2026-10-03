@@ -120,7 +120,7 @@ class ToiletControllerTest {
 
     @Test
     void shouldAuthenticateSeparateFilterSourceBeforeServingPublicMetadata() throws Exception {
-        when(toiletService.getPublicFilterPoints()).thenReturn(List.of(new double[]{101, 37.52, 127.02, 31}));
+        when(toiletService.getPublicFilterPoints()).thenReturn(List.of(new double[]{101, 37.52, 127.02, 127}));
         mockMvc.perform(get("/api/v1/toilets/map-filter-points")
                         .header("X-Map-Cluster-Timestamp", "1780000000")
                         .header("X-Map-Cluster-Signature", "b".repeat(64)))
@@ -128,7 +128,8 @@ class ToiletControllerTest {
                 .andExpect(jsonPath("$[0][0]").value(101))
                 .andExpect(jsonPath("$[0][1]").value(37.52))
                 .andExpect(jsonPath("$[0][2]").value(127.02))
-                .andExpect(jsonPath("$[0][3]").value(31));
+                .andExpect(jsonPath("$[0][3]").value(127))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Map-Filter-Schema", "3"));
         verify(mapClusterSourceAuth).requireValidFilterPoints("1780000000", "b".repeat(64));
     }
 

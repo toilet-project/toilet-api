@@ -19,7 +19,9 @@ SELECT /*+ MAX_EXECUTION_TIME(15000) */ JSON_ARRAY(t.toilet_id,t.latitude,t.long
   + CASE WHEN ASCII(t.has_diaper_table)=89 AND OCTET_LENGTH(t.has_diaper_table)=1 THEN 4 ELSE 0 END
   + CASE WHEN ASCII(t.has_emergency_bell)=89 AND OCTET_LENGTH(t.has_emergency_bell)=1 THEN 8 ELSE 0 END
   + CASE WHEN COALESCE(t.male_disabled_toilet_count,0)>0
-    OR COALESCE(t.female_disabled_toilet_count,0)>0 THEN 16 ELSE 0 END)
+    OR COALESCE(t.female_disabled_toilet_count,0)>0 THEN 16 ELSE 0 END
+  + CASE WHEN COALESCE(t.male_disabled_toilet_count,0)>0 THEN 32 ELSE 0 END
+  + CASE WHEN COALESCE(t.female_disabled_toilet_count,0)>0 THEN 64 ELSE 0 END)
 FROM toilet t LEFT JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id
 WHERE t.visibility_status='VISIBLE' AND t.latitude BETWEEN 32 AND 40
   AND t.longitude BETWEEN 124 AND 132

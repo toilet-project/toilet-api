@@ -72,8 +72,8 @@ public class ToiletService {
             BigDecimal southLat, BigDecimal northLat, BigDecimal westLng, BigDecimal eastLng,
             Integer zoom, boolean includeList, boolean open24h, int filterFlags
     ) {
-        if (filterFlags < 0 || filterFlags > 31) {
-            throw new IllegalArgumentException("지도 필터 값은 0부터 31 사이여야 합니다.");
+        if (filterFlags < 0 || filterFlags > 127) {
+            throw new IllegalArgumentException("지도 필터 값은 0부터 127 사이여야 합니다.");
         }
         int requiredFlags = filterFlags | (open24h ? 1 : 0);
         int mapLevel = normalizeMapLevel(zoom);

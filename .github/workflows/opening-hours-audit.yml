@@ -106,12 +106,13 @@ jobs:
             if (!Array.isArray(row) || row.length!==4 || !Number.isSafeInteger(row[0]) || row[0]<1
                 || !Number.isFinite(row[1]) || row[1]<32 || row[1]>40
                 || !Number.isFinite(row[2]) || row[2]<124 || row[2]>132
-                || !Number.isInteger(row[3]) || row[3]<0 || row[3]>31 || ids.has(row[0])) throw Error('Invalid public tuple');
+                || !Number.isInteger(row[3]) || row[3]<0 || row[3]>127 || ids.has(row[0])
+                || Boolean(row[3]&16)!==Boolean(row[3]&96)) throw Error('Invalid public tuple');
             ids.add(row[0]);
           }
-          const data=JSON.stringify({schema:2,exportedAt:new Date().toISOString(),points});
+          const data=JSON.stringify({schema:3,exportedAt:new Date().toISOString(),points});
           fs.writeFileSync('map-filter-preview-source.json',data);
-          const counts=Object.fromEntries([1,2,4,8,16,31].map(mask=>[mask,points.filter(p=>(p[3]&mask)===mask).length]));
+          const counts=Object.fromEntries([1,2,4,8,16,32,64,96,127].map(mask=>[mask,points.filter(p=>(p[3]&mask)===mask).length]));
           const summary=`# Public map filter preview snapshot\n\nRead-only export; no operational deployment or private data.\n\nPublic points: ${points.length}\n\nJSON bytes: ${Buffer.byteLength(data)}; gzip bytes: ${gzipSync(data).length}\n\nPositive flags: ${JSON.stringify(counts)}\n`;
           fs.writeFileSync('map-filter-preview-summary.md',summary);
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,summary);

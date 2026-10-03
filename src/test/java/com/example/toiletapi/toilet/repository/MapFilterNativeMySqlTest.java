@@ -71,6 +71,7 @@ class MapFilterNativeMySqlTest {
         jdbc.update("UPDATE toilet SET female_disabled_toilet_count=1 WHERE toilet_id=2");
         jdbc.update("UPDATE toilet SET male_disabled_toilet_count=0,female_disabled_toilet_count=0,male_disabled_urinal_count=1 WHERE toilet_id=3");
         jdbc.update("UPDATE toilet SET male_disabled_toilet_count=-1,female_disabled_toilet_count=0 WHERE toilet_id=4");
+        jdbc.update("UPDATE toilet SET male_disabled_toilet_count=1,female_disabled_toilet_count=2 WHERE toilet_id=6");
         jdbc.update("INSERT INTO toilet_opening_hours VALUES(1,TRUE,'PARSED',FALSE),(2,TRUE,'CONFIRMED',FALSE),"
                 + "(3,TRUE,'PARSED',TRUE),(4,TRUE,'NEEDS_REVIEW',FALSE),(5,NULL,'PARSED',FALSE),"
                 + "(7,TRUE,'CONFIRMED',FALSE),(8,TRUE,'CONFIRMED',FALSE),(9,TRUE,'CONFIRMED',FALSE)");
@@ -91,19 +92,19 @@ class MapFilterNativeMySqlTest {
     @Test void compactSourceUsesConservativeBitsAndOnlyVisibleKoreanCoordinates() {
         var rows = jdbc.queryForList(query("findPublicFilterPoints"));
         assertEquals(List.of(1L,2L,3L,4L,5L,6L), rows.stream().map(row -> ((Number) row.get("id")).longValue()).toList());
-        assertEquals(List.of(31,31,12,0,0,14), rows.stream().map(row -> ((Number) row.get("filterFlags")).intValue()).toList());
+        assertEquals(List.of(63,95,12,0,0,126), rows.stream().map(row -> ((Number) row.get("filterFlags")).intValue()).toList());
         assertEquals(4, rows.getFirst().size());
     }
 
     @Test void realSpringDataNativeProjectionsHydrateFlagsAndCoordinates() {
         var points = repository.findPublicFilterPoints();
-        assertEquals(31, points.getFirst().getFilterFlags());
+        assertEquals(63, points.getFirst().getFilterFlags());
         assertEquals(1L, points.getFirst().getId());
         assertEquals(0, points.getFirst().getLatitude().compareTo(new BigDecimal("37.51")));
         assertEquals(6, points.size());
         var rows = repository.findMarkerRowsByBounds(new BigDecimal("37.50"), new BigDecimal("37.55"),
                 new BigDecimal("127.00"), new BigDecimal("127.05"));
-        assertEquals(31, rows.stream().filter(row -> row.getId() == 1L).findFirst().orElseThrow().getFilterFlags());
+        assertEquals(63, rows.stream().filter(row -> row.getId() == 1L).findFirst().orElseThrow().getFilterFlags());
         var flags = repository.findFilterFlagsByIds(List.of(1L, 4L, 7L));
         assertEquals(2, flags.size());
         assertTrue(flags.stream().anyMatch(row -> row.getId() == 4L && row.getFilterFlags() == 0));
@@ -113,7 +114,7 @@ class MapFilterNativeMySqlTest {
     }
 
     @Test void allMasksUseAndAndClustersCountOnlyMatchingRows() {
-        for (int mask = 0; mask <= 31; mask++) {
+        for (int mask = 0; mask <= 127; mask++) {
             var markerRows = named.queryForList(query("findMarkerRowsByBounds"), bounds(mask));
             int required = mask;
             var expectedIds = markerRows.stream().filter(row -> (((Number) row.get("filterFlags")).intValue() & required) == required)
@@ -123,6 +124,13 @@ class MapFilterNativeMySqlTest {
             int clusterCount = named.queryForList(query("findFilteredClustersByBounds"), bounds(mask)).stream()
                     .mapToInt(row -> ((Number) row.get("toiletCount")).intValue()).sum();
             assertEquals(expectedIds.size(), clusterCount, "mask " + mask);
+        }
+    }
+
+    @Test void selectingBothAccessibleGendersRequiresBothNotEither() {
+        for (var selection : Map.of(32, List.of(1L,6L), 64, List.of(2L,6L), 96, List.of(6L)).entrySet()) {
+            var rows = named.queryForList(query("findFilteredByBounds"), bounds(selection.getKey()));
+            assertEquals(selection.getValue(), rows.stream().map(row -> ((Number)row.get("toilet_id")).longValue()).sorted().toList());
         }
     }
 

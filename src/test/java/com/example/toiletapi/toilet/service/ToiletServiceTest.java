@@ -272,7 +272,7 @@ class ToiletServiceTest {
 
     @Test
     void rejectsUnsupportedFilterBitsBeforeAnyDatabaseQuery() {
-        for (int flags : new int[]{-1, 32, 255}) {
+        for (int flags : new int[]{-1, 128, 255}) {
             assertThrows(IllegalArgumentException.class, () -> toiletService.getToiletsInBounds(
                     BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, 3, false, false, flags));
         }
