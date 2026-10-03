@@ -58,6 +58,7 @@ public class SecurityConfig {
                         // 실제 인증은 AuthController가 refresh token 저장소 조회로 수행한다.
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh", "/api/v1/auth/logout").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reports/guest").permitAll()
                         .requestMatchers("/api/v1/reports/**").authenticated()
                         .anyRequest().authenticated()
                 )

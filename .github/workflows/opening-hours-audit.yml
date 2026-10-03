@@ -2,6 +2,12 @@ name: Opening hours production audit
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: Read-only audit scope (map preview exports public ID/coordinates/filter flags only)
+        type: choice
+        options: [opening-hours, map-filter-preview]
+        default: opening-hours
 
 permissions:
   contents: read
@@ -19,10 +25,17 @@ jobs:
 
       - name: Validate read-only audit script
         shell: bash
+        env:
+          AUDIT_SCOPE: ${{ inputs.scope || 'opening-hours' }}
         run: |
           set -euo pipefail
-          bash -n scripts/collect-opening-hours-audit.sh
-          if grep -Ein '(^|[[:space:];])(insert|update|delete|replace|alter|drop|truncate|create|grant|revoke)[[:space:]]' scripts/collect-opening-hours-audit.sh; then
+          case "$AUDIT_SCOPE" in
+            opening-hours) audit_script=scripts/collect-opening-hours-audit.sh ;;
+            map-filter-preview) audit_script=scripts/collect-map-filter-preview.sh ;;
+            *) exit 1 ;;
+          esac
+          bash -n "$audit_script"
+          if grep -Ein '(^|[[:space:];])(insert|update|delete|replace|alter|drop|truncate|create|grant|revoke)[[:space:]]' "$audit_script"; then
             echo 'Mutating SQL is forbidden in the audit script.' >&2
             exit 1
           fi
@@ -48,6 +61,7 @@ jobs:
           TUNNEL_KNOWN_HOSTS: ${{ secrets.TUNNEL_DEPLOY_SSH_KNOWN_HOSTS }}
           TUNNEL_SSH_HOST: ${{ vars.TUNNEL_DEPLOY_SSH_HOST }}
           TUNNEL_SSH_USER: ${{ secrets.MINI_PC_USERNAME }}
+          AUDIT_SCOPE: ${{ inputs.scope || 'opening-hours' }}
         run: |
           set -euo pipefail
           umask 077
@@ -61,6 +75,11 @@ jobs:
           printf '%s\n' "$TUNNEL_KNOWN_HOSTS" > "$RUNNER_TEMP/opening-hours-audit-known-hosts"
           ssh-keygen -y -P '' -f "$RUNNER_TEMP/opening-hours-audit-key" >/dev/null
           export PATH="$RUNNER_TEMP/cloudflared-package/usr/bin:$PATH"
+          case "$AUDIT_SCOPE" in
+            opening-hours) audit_script=scripts/collect-opening-hours-audit.sh; audit_output=opening-hours-audit.md ;;
+            map-filter-preview) audit_script=scripts/collect-map-filter-preview.sh; audit_output=map-filter-points.jsonl ;;
+            *) exit 1 ;;
+          esac
           timeout 10m ssh -F /dev/null -T -i "$RUNNER_TEMP/opening-hours-audit-key" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/opening-hours-audit-known-hosts" \
@@ -69,9 +88,35 @@ jobs:
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
             -o 'ProxyCommand=cloudflared access ssh --hostname %h' \
             "$TUNNEL_SSH_USER@$TUNNEL_SSH_HOST" 'bash -s' \
-            < scripts/collect-opening-hours-audit.sh \
-            > opening-hours-audit.md
-          cat opening-hours-audit.md >> "$GITHUB_STEP_SUMMARY"
+            < "$audit_script" \
+            > "$audit_output"
+          if [ "$AUDIT_SCOPE" = opening-hours ]; then cat opening-hours-audit.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Validate and package public map snapshot
+        if: inputs.scope == 'map-filter-preview'
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import { gzipSync } from 'node:zlib';
+          const points=fs.readFileSync('map-filter-points.jsonl','utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
+          const ids=new Set();
+          if (!points.length || points.length>200000) throw Error('Invalid export size');
+          for (const row of points) {
+            if (!Array.isArray(row) || row.length!==4 || !Number.isSafeInteger(row[0]) || row[0]<1
+                || !Number.isFinite(row[1]) || row[1]<32 || row[1]>40
+                || !Number.isFinite(row[2]) || row[2]<124 || row[2]>132
+                || !Number.isInteger(row[3]) || row[3]<0 || row[3]>127 || ids.has(row[0])
+                || Boolean(row[3]&16)!==Boolean(row[3]&96)) throw Error('Invalid public tuple');
+            ids.add(row[0]);
+          }
+          const data=JSON.stringify({schema:3,exportedAt:new Date().toISOString(),points});
+          fs.writeFileSync('map-filter-preview-source.json',data);
+          const counts=Object.fromEntries([1,2,4,8,16,32,64,96,127].map(mask=>[mask,points.filter(p=>(p[3]&mask)===mask).length]));
+          const summary=`# Public map filter preview snapshot\n\nRead-only export; no operational deployment or private data.\n\nPublic points: ${points.length}\n\nJSON bytes: ${Buffer.byteLength(data)}; gzip bytes: ${gzipSync(data).length}\n\nPositive flags: ${JSON.stringify(counts)}\n`;
+          fs.writeFileSync('map-filter-preview-summary.md',summary);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,summary);
+          JS
 
       - name: Remove ephemeral Tunnel credentials
         if: always()
@@ -82,10 +127,21 @@ jobs:
           rm -f -- "$RUNNER_TEMP/opening-hours-audit-key" "$RUNNER_TEMP/opening-hours-audit-known-hosts"
 
       - name: Upload audit report
-        if: always()
+        if: always() && inputs.scope != 'map-filter-preview'
         uses: actions/upload-artifact@v4
         with:
           name: opening-hours-production-audit-${{ github.run_id }}
           path: opening-hours-audit.md
           retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload public map preview snapshot
+        if: inputs.scope == 'map-filter-preview'
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-filter-preview-source-${{ github.run_id }}
+          path: |
+            map-filter-preview-source.json
+            map-filter-preview-summary.md
+          retention-days: 3
           if-no-files-found: error

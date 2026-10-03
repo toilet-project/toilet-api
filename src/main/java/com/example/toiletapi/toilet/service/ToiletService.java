@@ -65,11 +65,25 @@ public class ToiletService {
             boolean includeList,
             boolean open24h
     ) {
+        return getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom, includeList, open24h, 0);
+    }
+
+    public ToiletMapSearchResponse getToiletsInBounds(
+            BigDecimal southLat, BigDecimal northLat, BigDecimal westLng, BigDecimal eastLng,
+            Integer zoom, boolean includeList, boolean open24h, int filterFlags
+    ) {
+        if (filterFlags < 0 || filterFlags > 127) {
+            throw new IllegalArgumentException("지도 필터 값은 0부터 127 사이여야 합니다.");
+        }
+        int requiredFlags = filterFlags | (open24h ? 1 : 0);
         int mapLevel = normalizeMapLevel(zoom);
         validateBounds(southLat, northLat, westLng, eastLng, mapLevel);
 
         if (mapLevel >= CLUSTER_MIN_ZOOM_LEVEL && !includeList) {
-            var projections = open24h
+            var projections = requiredFlags > 1
+                    ? toiletRepository.findFilteredClustersByBounds(southLat, northLat, westLng, eastLng,
+                            resolveGridSize(mapLevel), requiredFlags)
+                    : requiredFlags == 1
                     ? toiletRepository.findOpen24hClustersByBounds(southLat, northLat, westLng, eastLng,
                             resolveGridSize(mapLevel))
                     : toiletRepository.findClustersByBounds(southLat, northLat, westLng, eastLng,
@@ -82,10 +96,19 @@ public class ToiletService {
             return ToiletMapSearchResponse.clusters(mapLevel, clusters);
         }
 
-        var toilets = open24h
+        var toilets = requiredFlags > 1
+                ? toiletRepository.findFilteredByBounds(southLat, northLat, westLng, eastLng, requiredFlags)
+                : requiredFlags == 1
                 ? toiletRepository.findOpen24hByBounds(southLat, northLat, westLng, eastLng)
                 : toiletRepository.findByLatitudeBetweenAndLongitudeBetween(southLat, northLat, westLng, eastLng);
         var toiletIds = toilets.stream().map(toilet -> toilet.getId()).toList();
+        var flags = toiletIds.isEmpty() ? Map.<Long, Integer>of()
+                : toiletRepository.findFilterFlagsByIds(toiletIds).stream().collect(java.util.stream.Collectors.toMap(
+                        row -> row.getId(), row -> row.getFilterFlags()));
+        if (!flags.keySet().containsAll(toiletIds)) {
+            // Missing metadata is not proof that a facility lacks an amenity. Never publish/cache guessed zeros.
+            throw new IllegalStateException("지도 필터 정보가 완전하지 않습니다. 다시 조회해 주세요.");
+        }
         var displayGroups = displayGroupRepository.assignmentsFor(toiletIds);
         var translations = translationService.currentTranslations(toiletIds);
         List<ToiletMapResponse> markers = toilets
@@ -97,7 +120,8 @@ public class ToiletService {
                             assignment == null ? null : assignment.groupId(),
                             assignment == null ? null : assignment.displayName(),
                             assignment == null ? Map.of() : assignment.translations(),
-                            responseTranslations(translations.get(toilet.getId()))
+                            responseTranslations(translations.get(toilet.getId())),
+                            flags.get(toilet.getId())
                     );
                 })
                 .toList();
@@ -130,7 +154,7 @@ public class ToiletService {
                     row.getLatitude().doubleValue(), row.getLongitude().doubleValue(),
                     assignment == null ? null : assignment.groupId(),
                     assignment == null ? null : assignment.displayName(),
-                    assignment == null ? Map.of() : assignment.translations(), translations);
+                    assignment == null ? Map.of() : assignment.translations(), translations, row.getFilterFlags());
         }).toList();
         return ToiletMapSearchResponse.markers(8, markers);
     }
@@ -139,6 +163,14 @@ public class ToiletService {
     public List<double[]> getPublicClusterPoints() {
         return toiletRepository.findPublicClusterPoints().stream()
                 .map(row -> new double[] { row.getLatitude().doubleValue(), row.getLongitude().doubleValue() })
+                .toList();
+    }
+
+    /** Versioned compact public metadata; liked IDs and member data never enter the shared snapshot. */
+    public List<double[]> getPublicFilterPoints() {
+        return toiletRepository.findPublicFilterPoints().stream()
+                .map(row -> new double[] { row.getId(), row.getLatitude().doubleValue(),
+                        row.getLongitude().doubleValue(), row.getFilterFlags() })
                 .toList();
     }
 

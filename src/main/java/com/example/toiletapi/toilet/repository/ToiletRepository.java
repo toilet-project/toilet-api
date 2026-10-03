@@ -46,14 +46,9 @@ public interface ToiletRepository extends JpaRepository<Toilet, Long> {
             BigDecimal eastLng
     );
 
-    @Query("""
-            select t.id as id, t.name as name, t.toiletType as toiletType,
-                   t.latitude as latitude, t.longitude as longitude
-            from Toilet t
-            where t.visibilityStatus='VISIBLE'
-              and t.latitude between :southLat and :northLat
-              and t.longitude between :westLng and :eastLng
-            """)
+    @Query(value = "SELECT t.toilet_id AS id, t.name AS name, t.toilet_type AS toiletType, "
+            + "t.latitude AS latitude, t.longitude AS longitude, " + MapFilterSql.FLAGS + " AS filterFlags "
+            + MapFilterSql.FROM + MapFilterSql.BOUNDS, nativeQuery = true)
     List<ToiletMarkerProjection> findMarkerRowsByBounds(
             @Param("southLat") BigDecimal southLat,
             @Param("northLat") BigDecimal northLat,
@@ -70,6 +65,33 @@ public interface ToiletRepository extends JpaRepository<Toilet, Long> {
             ORDER BY toilet_id
             """, nativeQuery = true)
     List<ToiletClusterPointProjection> findPublicClusterPoints();
+
+    @Query(value = MapFilterSql.PUBLIC_POINTS, nativeQuery = true)
+    List<ToiletFilterPointProjection> findPublicFilterPoints();
+
+    @Query(value = "SELECT t.toilet_id AS id, " + MapFilterSql.FLAGS + " AS filterFlags "
+            + MapFilterSql.FROM + " WHERE t.visibility_status='VISIBLE' AND t.toilet_id IN (:ids)", nativeQuery = true)
+    List<ToiletFilterFlagsProjection> findFilterFlagsByIds(@Param("ids") List<Long> ids);
+
+    @Query(value = "SELECT t.* " + MapFilterSql.FROM + MapFilterSql.BOUNDS + MapFilterSql.REQUIRED_FLAGS,
+            nativeQuery = true)
+    List<Toilet> findFilteredByBounds(
+            @Param("southLat") BigDecimal southLat,
+            @Param("northLat") BigDecimal northLat,
+            @Param("westLng") BigDecimal westLng,
+            @Param("eastLng") BigDecimal eastLng,
+            @Param("filterFlags") int filterFlags);
+
+    @Query(value = "SELECT AVG(t.latitude) AS latitude, AVG(t.longitude) AS longitude, COUNT(*) AS toiletCount "
+            + MapFilterSql.FROM + MapFilterSql.BOUNDS + MapFilterSql.REQUIRED_FLAGS
+            + " GROUP BY FLOOR(t.latitude / :gridSize), FLOOR(t.longitude / :gridSize)", nativeQuery = true)
+    List<ToiletClusterProjection> findFilteredClustersByBounds(
+            @Param("southLat") BigDecimal southLat,
+            @Param("northLat") BigDecimal northLat,
+            @Param("westLng") BigDecimal westLng,
+            @Param("eastLng") BigDecimal eastLng,
+            @Param("gridSize") BigDecimal gridSize,
+            @Param("filterFlags") int filterFlags);
 
     @Query(value = """
             SELECT t.* FROM toilet t

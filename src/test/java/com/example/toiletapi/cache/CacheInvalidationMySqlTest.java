@@ -25,7 +25,11 @@ class CacheInvalidationMySqlTest {
     static JdbcTemplate jdbc;
     static CacheInvalidationRepository repository;
     @BeforeAll static void schema() {
-        dataSource=new DriverManagerDataSource(mysql.getJdbcUrl(),mysql.getUsername(),mysql.getPassword());
+        schema(new DriverManagerDataSource(mysql.getJdbcUrl(),mysql.getUsername(),mysql.getPassword()),
+                new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword()));
+    }
+    static void schema(DriverManagerDataSource source, DriverManagerDataSource ddlDataSource) {
+        dataSource=source;
         jdbc=new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE toilet (toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7),road_address VARCHAR(255),jibun_address VARCHAR(255),visibility_status VARCHAR(24) NOT NULL DEFAULT 'VISIBLE')");
         jdbc.execute("CREATE TABLE toilet_region (toilet_id BIGINT PRIMARY KEY,status VARCHAR(30))");
@@ -37,7 +41,6 @@ class CacheInvalidationMySqlTest {
         jdbc.execute("CREATE TABLE toilet_display_group_member (group_id BIGINT,toilet_id BIGINT,sort_order INT DEFAULT 0,PRIMARY KEY(group_id,toilet_id),FOREIGN KEY(group_id) REFERENCES toilet_display_group(group_id) ON DELETE CASCADE)");
         jdbc.execute("CREATE TABLE toilet_display_group_translation (group_id BIGINT,locale VARCHAR(10),display_name VARCHAR(255),PRIMARY KEY(group_id,locale),FOREIGN KEY(group_id) REFERENCES toilet_display_group(group_id) ON DELETE CASCADE)");
         // DDL is an explicit DBA operation; application writes below keep the regular test user.
-        var ddlDataSource=new DriverManagerDataSource(mysql.getJdbcUrl(),"root",mysql.getPassword());
         Flyway.configure().dataSource(ddlDataSource).baselineOnMigrate(true).baselineVersion("0")
                 .locations("classpath:db/cache-revalidation").load().migrate();
         repository=new CacheInvalidationRepository(jdbc);
@@ -131,6 +134,29 @@ class CacheInvalidationMySqlTest {
         assertEquals(CacheInvalidationEvent.Action.UPSERT, restored.action());
         assertTrue(restored.catalogChanged());
         assertEquals(hidden.revision()+1, restored.revision());
+    }
+    @Test void hiddenHoursAndTranslationsRemainPrivateUntilExplicitRestore() {
+        for (String status : java.util.List.of("HIDDEN_DUPLICATE", "HIDDEN_TEMPORARY")) {
+            clear();
+            jdbc.update("INSERT INTO toilet (toilet_id,name,latitude,longitude) VALUES (1,'sample',37,127)");
+            repository.due().forEach(repository::acknowledge);
+            jdbc.update("UPDATE toilet SET visibility_status=? WHERE toilet_id=1",status);
+            var hidden=repository.due().getFirst();
+            assertEquals(CacheInvalidationEvent.Action.PRIVATE,hidden.action());
+            repository.acknowledge(hidden);
+            jdbc.update("INSERT INTO toilet_opening_hours VALUES (1,FALSE,'PARSED',FALSE)");
+            var hours=repository.dueScoped().getFirst();
+            assertEquals(CacheInvalidationEvent.Action.PRIVATE,hours.action());
+            assertTrue(hours.catalogChanged());
+            jdbc.update("INSERT INTO toilet_translation VALUES (1,'en','Renamed while hidden')");
+            assertEquals(CacheInvalidationEvent.Action.PRIVATE,repository.due().getFirst().action());
+            repository.acknowledgeScoped(hours);
+            assertEquals(1,repository.pendingCount(),"old hours ACK cannot discard later translation");
+            assertEquals(CacheInvalidationEvent.Action.PRIVATE,repository.dueScoped().getFirst().action());
+            jdbc.update("UPDATE toilet SET visibility_status='VISIBLE' WHERE toilet_id=1");
+            assertEquals(CacheInvalidationEvent.Action.UPSERT,repository.dueScoped().getFirst().action());
+            assertTrue(repository.dueScoped().getFirst().revision()>hours.revision());
+        }
     }
     @Test void nonKoreanTranslationChangesInvalidateDetailAndCatalog() {
         jdbc.update("INSERT INTO toilet (toilet_id,name,latitude) VALUES (1,'sample',37)");

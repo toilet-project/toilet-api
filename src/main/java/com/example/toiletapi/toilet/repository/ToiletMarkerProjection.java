@@ -9,4 +9,5 @@ public interface ToiletMarkerProjection {
     String getToiletType();
     BigDecimal getLatitude();
     BigDecimal getLongitude();
+    int getFilterFlags();
 }

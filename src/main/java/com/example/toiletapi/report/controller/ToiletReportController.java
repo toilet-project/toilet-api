@@ -6,6 +6,24 @@ import com.example.toiletapi.policy.service.PolicyConsentService;
 public class ToiletReportController {
     private final ToiletReportService service;
     private final PolicyConsentService policyConsentService;
+    public record Receipt(Long id, String status) { }
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public java.util.Map<String, Object> duplicateSubmission() {
+        return java.util.Map.of("error", java.util.Map.of("code", "REPORT_CONFLICT", "message", "접수 상태가 변경되었습니다. 다시 눌러 확인해 주세요."));
+    }
+    @PostMapping("/api/v1/reports/quick") @ResponseStatus(HttpStatus.CREATED)
+    public Receipt quick(@RequestBody QuickToiletReportRequest request, @RequestHeader("Idempotency-Key") String requestId, @AuthenticationPrincipal Jwt jwt) {
+        Long id = userId(jwt); policyConsentService.requireEligibleUser(id);
+        ToiletReportResponse result = service.submitQuick(id, null, requestId, request);
+        return new Receipt(result.id(), result.status());
+    }
+    @PostMapping("/api/v1/reports/guest") @ResponseStatus(HttpStatus.CREATED)
+    public Receipt guest(@RequestBody QuickToiletReportRequest request, @RequestHeader("Idempotency-Key") String requestId,
+            @RequestHeader("X-Report-Guest") String guestId) {
+        ToiletReportResponse result = service.submitQuick(null, guestId, requestId, request);
+        return new Receipt(result.id(), result.status());
+    }
     @PostMapping("/api/v1/reports") @ResponseStatus(HttpStatus.CREATED) public ToiletReportResponse submit(@RequestBody CreateToiletReportRequest request, @AuthenticationPrincipal Jwt jwt) { Long userId = userId(jwt); policyConsentService.requireEligibleUser(userId); return service.submit(userId, request); }
     @GetMapping("/api/v1/reports/me") public List<ToiletReportResponse> mine(@AuthenticationPrincipal Jwt jwt) { Long userId = userId(jwt); policyConsentService.requireEligibleUser(userId); return service.mine(userId); }
     @GetMapping("/api/admin/v1/reports/summary") public ToiletReportDashboardResponse pendingSummary() { return service.pendingDashboard(); }

@@ -6,6 +6,7 @@ import com.example.toiletapi.toilet.service.ToiletService;
 import com.example.toiletapi.toilet.service.MapClusterSourceAuth;
 import java.math.BigDecimal;
 import java.util.List;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +34,7 @@ public class ToiletController {
      * @param westLng 최서단 경도
      * @param eastLng 최동단 경도
      * @param zoom 카카오맵 줌 레벨
+     * @param filterFlags 0..127, 선택한 모든 조건을 만족하는 공개 시설만 반환
      * @return 지도 마커용 화장실 목록
      */
     @GetMapping
@@ -43,8 +45,13 @@ public class ToiletController {
             @RequestParam BigDecimal eastLng,
             @RequestParam(required = false) Integer zoom,
             @RequestParam(defaultValue = "false") boolean includeList,
-            @RequestParam(defaultValue = "false") boolean open24h
+            @RequestParam(defaultValue = "false") boolean open24h,
+            @RequestParam(defaultValue = "0") int filterFlags
     ) {
+        if (filterFlags != 0) {
+            return toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom,
+                    includeList, open24h, filterFlags);
+        }
         return toiletService.getToiletsInBounds(southLat, northLat, westLng, eastLng, zoom, includeList, open24h);
     }
 
@@ -65,6 +72,15 @@ public class ToiletController {
             @RequestHeader(value = "X-Map-Cluster-Signature", required = false) String signature) {
         mapClusterSourceAuth.requireValid(timestamp, signature);
         return toiletService.getPublicClusterPoints();
+    }
+
+    /** Authenticated whole-catalog public metadata read for one shared, filter-independent edge snapshot. */
+    @GetMapping("/map-filter-points")
+    public ResponseEntity<List<double[]>> getMapFilterPoints(
+            @RequestHeader(value = "X-Map-Cluster-Timestamp", required = false) String timestamp,
+            @RequestHeader(value = "X-Map-Cluster-Signature", required = false) String signature) {
+        mapClusterSourceAuth.requireValidFilterPoints(timestamp, signature);
+        return ResponseEntity.ok().header("X-Map-Filter-Schema", "3").body(toiletService.getPublicFilterPoints());
     }
 
     /**

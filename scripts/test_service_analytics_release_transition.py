@@ -13,6 +13,67 @@ COMPOSE = b'''services:\n  api:\n    environment:\n      ERASURE_MAINTENANCE_LOC
 
 
 class ServiceAnalyticsReleaseTransitionTest(unittest.TestCase):
+    def test_reports_change_only_their_flag_and_require_schema_cache_and_geocoder(self):
+        before = {'services': {'api': {'environment': {'WEB_CACHE_REVALIDATION_ENABLED': 'true',
+                   'ENGAGEMENT_ENABLED': 'true'}}, 'batch': {'image': 'unchanged'}}}
+        with patch.object(release, 'ANALYTICS_CONFIG', release.REPORT_CONFIG), \
+                patch.object(release, 'ANALYTICS_KEYS', tuple(release.REPORT_CONFIG)):
+            active = release.inject_analytics(COMPOSE)
+            self.assertEqual(COMPOSE, release.remove_analytics(active))
+            after = copy.deepcopy(before)
+            after['services']['api']['environment'].update(release.REPORT_CONFIG)
+            release.validate_render_change(before, after, True)
+            after['services']['api']['environment']['WEB_CACHE_REVALIDATION_ENABLED'] = 'false'
+            with self.assertRaises(ValueError):
+                release.validate_render_change(before, after, True)
+        host = object.__new__(release.Host)
+        env = ['KAKAO_REST_API_KEY=synthetic', 'WEB_CACHE_REVALIDATION_ENABLED=true',
+               'WEB_CACHE_CONTRACT_VERSION=3', 'WEB_CACHE_REVALIDATION_SECRET=synthetic',
+               'SPRING_DB_USERNAME=test', 'SPRING_DB_PASSWORD=synthetic-password']
+        objects = {'api': {'Config': {'Env': env}}}
+        with patch.object(host, 'run', return_value='2\n2\n1') as run:
+            host.require_report_dependencies(objects)
+            self.assertNotIn('synthetic-password', str(run.call_args.args))
+        for result in ('1\n2\n1', '2\n1\n1', '2\n2\n0'):
+            with patch.object(host, 'run', return_value=result), self.assertRaises(ValueError):
+                host.require_report_dependencies(objects)
+        for missing in ('KAKAO_REST_API_KEY=', 'WEB_CACHE_REVALIDATION_ENABLED=', 'WEB_CACHE_CONTRACT_VERSION=', 'WEB_CACHE_REVALIDATION_SECRET='):
+            incomplete = {'api': {'Config': {'Env': [v for v in env if not v.startswith(missing)]}}}
+            with self.assertRaises(ValueError):
+                host.require_report_dependencies(incomplete)
+
+    def test_engagement_changes_only_its_flag_and_can_roll_back(self):
+        original = release.inject_analytics(COMPOSE)
+        before = {'services': {'api': {'environment': {
+            **release.ANALYTICS_CONFIG, 'WEB_CACHE_REVALIDATION_ENABLED': 'true',
+            'REVIEWS_ENABLED': 'true'}}, 'batch': {'image': 'unchanged'}}}
+        with patch.object(release, 'ANALYTICS_CONFIG', release.ENGAGEMENT_CONFIG), \
+                patch.object(release, 'ANALYTICS_KEYS', tuple(release.ENGAGEMENT_CONFIG)):
+            active = release.inject_analytics(original)
+            self.assertEqual(original, release.remove_analytics(active))
+            after = copy.deepcopy(before)
+            after['services']['api']['environment'].update(release.ENGAGEMENT_CONFIG)
+            release.validate_render_change(before, after, True)
+            release.validate_render_change(after, before, False)
+            after['services']['api']['environment']['REVIEWS_ENABLED'] = 'false'
+            with self.assertRaises(ValueError):
+                release.validate_render_change(before, after, True)
+
+    def test_engagement_requires_migration_tables_and_secret_without_logging_it(self):
+        host = object.__new__(release.Host)
+        objects = {'api': {'Config': {'Env': ['JWT_SECRET=' + 'x' * 32,
+            'SPRING_DB_USERNAME=test', 'SPRING_DB_PASSWORD=synthetic-password']}}}
+        with patch.object(host, 'run', return_value='1\n5') as run:
+            host.require_engagement_dependencies(objects)
+            self.assertNotIn('synthetic-password', str(run.call_args.args))
+        for result in ('0\n5', '1\n4', '1\n5\nextra'):
+            with patch.object(host, 'run', return_value=result):
+                with self.assertRaises(ValueError):
+                    host.require_engagement_dependencies(objects)
+        objects['api']['Config']['Env'][0] = 'JWT_SECRET=short'
+        with self.assertRaises(ValueError):
+            host.require_engagement_dependencies(objects)
+
     def test_bot_transition_preserves_existing_analytics_and_unrelated_settings(self):
         original = release.inject_analytics(COMPOSE)
         before = {'services': {'api': {'environment': {

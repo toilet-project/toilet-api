@@ -14,6 +14,8 @@ import java.util.Map;
  * @param longitude 경도
  * @param displayGroupId 관리자가 지정한 지도 노출 그룹 식별자
  * @param displayGroupName 지도에 표시할 그룹 이름
+ * @param filterFlags 확인된 필터 비트: 1=24시간, 2=CCTV, 4=기저귀 교환대, 8=비상벨, 16=장애인용 대변기, 32=남성용, 64=여성용
+ * @param filterSchema 성별 정보까지 확인된 필터 계약은 3, 메타데이터 미지정은 0
  */
 public record ToiletMapResponse(
         Long id,
@@ -26,12 +28,32 @@ public record ToiletMapResponse(
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
         Map<String, String> displayGroupTranslations,
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
-        Map<String, ToiletTranslationResponse> translations
+        Map<String, ToiletTranslationResponse> translations,
+        int filterFlags,
+        int filterSchema
 ) {
 
     public ToiletMapResponse {
         displayGroupTranslations = displayGroupTranslations == null ? Map.of() : Map.copyOf(displayGroupTranslations);
         translations = translations == null ? Map.of() : Map.copyOf(translations);
+    }
+
+    public ToiletMapResponse(
+            Long id, String name, String toiletType, double latitude, double longitude,
+            Long displayGroupId, String displayGroupName, Map<String, String> displayGroupTranslations,
+            Map<String, ToiletTranslationResponse> translations, int filterFlags
+    ) {
+        this(id, name, toiletType, latitude, longitude, displayGroupId, displayGroupName,
+                displayGroupTranslations, translations, filterFlags, 3);
+    }
+
+    public ToiletMapResponse(
+            Long id, String name, String toiletType, double latitude, double longitude,
+            Long displayGroupId, String displayGroupName, Map<String, String> displayGroupTranslations,
+            Map<String, ToiletTranslationResponse> translations
+    ) {
+        this(id, name, toiletType, latitude, longitude, displayGroupId, displayGroupName,
+                displayGroupTranslations, translations, 0, 0);
     }
 
     public ToiletMapResponse(
@@ -68,6 +90,16 @@ public record ToiletMapResponse(
             Map<String, String> displayGroupTranslations,
             Map<String, ToiletTranslationResponse> translations
     ) {
+        return new ToiletMapResponse(toilet.getId(), toilet.getName(), toilet.getToiletType(),
+                toilet.getLatitude().doubleValue(), toilet.getLongitude().doubleValue(),
+                displayGroupId, displayGroupName, displayGroupTranslations, translations);
+    }
+
+    public static ToiletMapResponse from(
+            Toilet toilet, Long displayGroupId, String displayGroupName,
+            Map<String, String> displayGroupTranslations,
+            Map<String, ToiletTranslationResponse> translations, int filterFlags
+    ) {
         return new ToiletMapResponse(
                 toilet.getId(),
                 toilet.getName(),
@@ -77,7 +109,8 @@ public record ToiletMapResponse(
                 displayGroupId,
                 displayGroupName,
                 displayGroupTranslations,
-                translations
+                translations,
+                filterFlags
         );
     }
 }

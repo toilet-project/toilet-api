@@ -43,7 +43,8 @@ public class ReviewHttpFixture {
         var ctx=app.run("--spring.config.location=optional:classpath:review-http-fixture-only.properties",
                 "--server.address=127.0.0.1","--server.port=0","--spring.flyway.enabled=false",
                 "--spring.data.redis.repositories.enabled=false","--spring.jpa.open-in-view=false",
-                "--reviews.enabled=true","--logging.level.root=WARN");
+                "--reviews.enabled=true","--engagement.enabled=true","--engagement.secret=isolated-engagement-fixture-secret-32-characters",
+                "--engagement.allowed-origins=https://preview.geupddong.com","--logging.level.root=WARN");
         int port=((WebServerApplicationContext)ctx).getWebServer().getPort();
         var encoder=ctx.getBean(JwtEncoder.class);
         int minutes=Integer.parseInt(System.getenv().getOrDefault("REVIEW_FIXTURE_MINUTES","20"));
@@ -54,7 +55,8 @@ public class ReviewHttpFixture {
                     .expiresAt(Instant.now().plusSeconds(minutes*60L)).claim("auth_version",0).claim("roles",List.of("USER")).build();
             tokens.put(Integer.toString(id),encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(),claims)).getTokenValue());
         }
-        var metadata=Map.of("port",port,"tokens",tokens,"marker",System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER"));
+        var metadata=Map.of("port",port,"tokens",tokens,"marker",System.getenv("ACCOUNT_RETENTION_MYSQL_MARKER"),
+                "jdbcUrl",((org.springframework.jdbc.datasource.DriverManagerDataSource)ctx.getBean(DataSource.class)).getUrl());
         Files.writeString(output,new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(metadata),StandardOpenOption.CREATE_NEW);
         Thread.ofPlatform().daemon(true).start(()->{
             try{Thread.sleep(Duration.ofMinutes(minutes));ctx.close();}catch(InterruptedException e){Thread.currentThread().interrupt();}
@@ -66,20 +68,40 @@ public class ReviewHttpFixture {
     @EnableJpaRepositories(basePackages={"com.example.toiletapi.auth.repository","com.example.toiletapi.policy.repository"})
     @Import({ReviewConfiguration.class,ReviewRepository.class,ReviewService.class,ReviewController.class,
             ReviewExceptionHandler.class,ReviewBoundaryFilter.class,SecurityConfig.class,JwtConfig.class,
-            CorsConfig.class,com.example.toiletapi.global.exception.GlobalExceptionHandler.class,PolicyConsentService.class,FixtureReads.class})
+            CorsConfig.class,com.example.toiletapi.global.exception.GlobalExceptionHandler.class,PolicyConsentService.class,FixtureReads.class,
+            com.example.toiletapi.engagement.EngagementConfiguration.class,com.example.toiletapi.engagement.EngagementRepository.class,
+            com.example.toiletapi.engagement.EngagementService.class,com.example.toiletapi.engagement.EngagementController.class,
+            com.example.toiletapi.toilet.translation.ToiletTranslationRepository.class,com.example.toiletapi.toilet.translation.ToiletTranslationService.class,
+            com.example.toiletapi.engagement.EngagementBoundaryFilter.class,com.example.toiletapi.engagement.EngagementExceptionHandler.class})
     static class Config {
         @Bean DataSource dataSource() {
             var ds=NativeMySqlFixture.create(); var jdbc=new JdbcTemplate(ds);
-            jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),latitude DECIMAL(10,7),longitude DECIMAL(10,7),visibility_status VARCHAR(24) DEFAULT 'VISIBLE')");
+            jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY,name VARCHAR(100),toilet_type VARCHAR(30) DEFAULT '공중화장실',latitude DECIMAL(10,7),longitude DECIMAL(10,7),visibility_status VARCHAR(24) DEFAULT 'VISIBLE',road_address VARCHAR(255),jibun_address VARCHAR(255),updated_at DATETIME(6),region_revision BIGINT DEFAULT 0)");
             for(String file:new String[]{"V1__create_auth_data_model.sql","V2__create_toilet_report_and_coordinate_revision.sql",
                     "V4__create_user_notification.sql","V5__create_coordinate_quality_review.sql","V7__create_policy_consent_model.sql",
-                    "V11__account_withdrawal_retention.sql","V12__create_location_reviews.sql"})
+                    "V11__account_withdrawal_retention.sql","V12__create_location_reviews.sql","V13__social_profile_photos.sql",
+                    "V34__prepare_email_encryption.sql","V36__toilet_engagement.sql"})
                 new ResourceDatabasePopulator(new ClassPathResource("db/migration/"+file)).execute(ds);
             for(int id=1;id<=7;id++) {
                 jdbc.update("INSERT INTO app_user(user_id,status,display_name) VALUES(?,'ACTIVE',?)",id,"가상 검증 사용자 "+id);
                 if(id!=7)jdbc.update("INSERT INTO user_policy_consent(user_id,policy_document_id,consent_source) SELECT ?,policy_document_id,'WEB_OAUTH_ONBOARDING' FROM policy_document WHERE required=true",id);
             }
             for(int id=1;id<=40;id++)jdbc.update("INSERT INTO toilet(toilet_id,name,latitude,longitude) VALUES(?,?,36.3,127.3)",id,"격리 시험 화장실 "+id);
+            jdbc.update("UPDATE toilet SET road_address='대전광역시 중구 · 프리뷰 가상 시설',updated_at='2026-09-01 00:00:00'");
+            // Distinct synthetic positions and timestamps make all three liked-list orders reviewable.
+            for(int id=1;id<=40;id++)jdbc.update("UPDATE toilet SET latitude=?,longitude=?,toilet_type=? WHERE toilet_id=?",
+                    36.3+(id%7)*0.012,127.3+(id%5)*0.018,id%3==0?"개방화장실":"공중화장실",id);
+            for(String file:new String[]{"V26__create_toilet_translation.sql","V29__track_translation_address_status.sql"})
+                new ResourceDatabasePopulator(new ClassPathResource("db/migration/"+file)).execute(ds);
+            jdbc.update("INSERT INTO toilet_translation(toilet_id,locale,name,source_hash,translation_status,translation_source) SELECT toilet_id,'en',CONCAT('Preview restroom ',toilet_id),source_hash,'REVIEWED','FIXTURE' FROM toilet_translation WHERE locale='ko'");
+            if("true".equals(System.getenv("LIKED_TOILETS_FIXTURE"))) {
+                for(int id=1;id<=35;id++)jdbc.update("INSERT INTO toilet_like(user_id,toilet_id,created_at) VALUES(1,?,DATE_SUB(NOW(6),INTERVAL ? HOUR))",id,id);
+                jdbc.update("INSERT INTO toilet_like(user_id,toilet_id,created_at) VALUES(2,36,NOW(6)),(2,37,DATE_SUB(NOW(6),INTERVAL 1 DAY))");
+            }
+            for(int id=1;id<=5;id++) {
+                int[] waits=switch(id){case 1->new int[]{0,0,10};case 2->new int[]{10,20};case 3->new int[]{};case 4->new int[]{0,0,0,0,60};default->new int[]{0,0,20};};
+                for(int wait:waits)jdbc.update("INSERT INTO toilet_review(review_key,toilet_id,author_user_id,satisfaction,cleanliness,paper_available,wait_minutes,comment,created_at,updated_at) VALUES(UUID(),?,1,4,5,true,?,'혼잡도 계산용 가상 리뷰',DATE_SUB(NOW(6),INTERVAL 1 DAY),DATE_SUB(NOW(6),INTERVAL 1 DAY))",id,wait);
+            }
             // Optional operator-supplied synthetic facility; never change a real facility or spoof device GPS.
             if(System.getenv("REVIEW_FIXTURE_LATITUDE")!=null){
                 double lat=Double.parseDouble(System.getenv("REVIEW_FIXTURE_LATITUDE")),lon=Double.parseDouble(System.getenv("REVIEW_FIXTURE_LONGITUDE"));
