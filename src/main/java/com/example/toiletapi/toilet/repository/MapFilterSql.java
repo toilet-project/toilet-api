@@ -11,7 +11,9 @@ public final class MapFilterSql {
                         AND oh.source_changed=FALSE THEN 1 ELSE 0 END
              + CASE WHEN ASCII(t.has_cctv)=89 AND OCTET_LENGTH(t.has_cctv)=1 THEN 2 ELSE 0 END
              + CASE WHEN ASCII(t.has_diaper_table)=89 AND OCTET_LENGTH(t.has_diaper_table)=1 THEN 4 ELSE 0 END
-             + CASE WHEN ASCII(t.has_emergency_bell)=89 AND OCTET_LENGTH(t.has_emergency_bell)=1 THEN 8 ELSE 0 END)
+             + CASE WHEN ASCII(t.has_emergency_bell)=89 AND OCTET_LENGTH(t.has_emergency_bell)=1 THEN 8 ELSE 0 END
+             + CASE WHEN COALESCE(t.male_disabled_toilet_count,0)>0
+                         OR COALESCE(t.female_disabled_toilet_count,0)>0 THEN 16 ELSE 0 END)
             """;
     public static final String FROM = " FROM toilet t LEFT JOIN toilet_opening_hours oh ON oh.toilet_id=t.toilet_id ";
     public static final String BOUNDS = """

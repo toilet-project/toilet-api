@@ -262,17 +262,17 @@ class ToiletServiceTest {
         var south = new BigDecimal("37.50"); var north = new BigDecimal("37.55");
         var west = new BigDecimal("127.00"); var east = new BigDecimal("127.05");
         when(toiletRepository.findFilteredClustersByBounds(south, north, west, east,
-                new BigDecimal("0.01"), 9)).thenReturn(List.of());
-        var result = toiletService.getToiletsInBounds(south, north, west, east, 10, false, true, 8);
+                new BigDecimal("0.01"), 31)).thenReturn(List.of());
+        var result = toiletService.getToiletsInBounds(south, north, west, east, 10, false, true, 30);
         assertEquals(0, result.meta().totalCount());
         verify(toiletRepository).findFilteredClustersByBounds(south, north, west, east,
-                new BigDecimal("0.01"), 9);
+                new BigDecimal("0.01"), 31);
         verifyNoInteractions(openingHoursService, translationService, displayGroupRepository);
     }
 
     @Test
     void rejectsUnsupportedFilterBitsBeforeAnyDatabaseQuery() {
-        for (int flags : new int[]{-1, 16, 255}) {
+        for (int flags : new int[]{-1, 32, 255}) {
             assertThrows(IllegalArgumentException.class, () -> toiletService.getToiletsInBounds(
                     BigDecimal.ONE, BigDecimal.TEN, BigDecimal.ONE, BigDecimal.TEN, 3, false, false, flags));
         }

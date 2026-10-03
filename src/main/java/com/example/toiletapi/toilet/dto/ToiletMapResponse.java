@@ -14,7 +14,7 @@ import java.util.Map;
  * @param longitude 경도
  * @param displayGroupId 관리자가 지정한 지도 노출 그룹 식별자
  * @param displayGroupName 지도에 표시할 그룹 이름
- * @param filterFlags 확인된 필터 비트: 1=24시간, 2=CCTV, 4=기저귀 교환대, 8=비상벨
+ * @param filterFlags 확인된 필터 비트: 1=24시간, 2=CCTV, 4=기저귀 교환대, 8=비상벨, 16=장애인용 대변기
  */
 public record ToiletMapResponse(
         Long id,

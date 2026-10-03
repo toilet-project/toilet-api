@@ -33,7 +33,7 @@ public class ToiletController {
      * @param westLng 최서단 경도
      * @param eastLng 최동단 경도
      * @param zoom 카카오맵 줌 레벨
-     * @param filterFlags 0..15, 선택한 모든 조건을 만족하는 공개 시설만 반환
+     * @param filterFlags 0..31, 선택한 모든 조건을 만족하는 공개 시설만 반환
      * @return 지도 마커용 화장실 목록
      */
     @GetMapping
