@@ -11,10 +11,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Authenticate the single full-catalog read used by the WEB edge cache. */
+/** Authenticate exact, allowlisted full-catalog reads used by the WEB edge cache. */
 @Component
 public class MapClusterSourceAuth {
     private static final String PATH = "/api/v1/toilets/map-cluster-points";
+    private static final String FILTER_PATH = "/api/v1/toilets/map-filter-points";
     private static final long MAX_SKEW_SECONDS = 300;
     private final String primarySecret;
     private final String previewSecret;
@@ -33,6 +34,14 @@ public class MapClusterSourceAuth {
     }
 
     public void requireValid(String timestamp, String signature) {
+        requireValidPath(PATH, timestamp, signature);
+    }
+
+    public void requireValidFilterPoints(String timestamp, String signature) {
+        requireValidPath(FILTER_PATH, timestamp, signature);
+    }
+
+    private void requireValidPath(String path, String timestamp, String signature) {
         if (!configured(primarySecret) && !configured(previewSecret))
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Cluster source authentication unavailable");
         if (timestamp == null || !timestamp.matches("[0-9]{10}") || signature == null
@@ -47,7 +56,7 @@ public class MapClusterSourceAuth {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Expired cluster source signature");
         try {
             byte[] supplied = java.util.HexFormat.of().parseHex(signature);
-            if (!matches(primarySecret, timestamp, supplied) && !matches(previewSecret, timestamp, supplied))
+            if (!matches(primarySecret, path, timestamp, supplied) && !matches(previewSecret, path, timestamp, supplied))
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid cluster source signature");
         } catch (java.security.GeneralSecurityException unavailable) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Cluster source authentication unavailable");
@@ -58,12 +67,12 @@ public class MapClusterSourceAuth {
         return secret != null && secret.getBytes(StandardCharsets.UTF_8).length >= 32;
     }
 
-    private static boolean matches(String secret, String timestamp, byte[] supplied)
+    private static boolean matches(String secret, String path, String timestamp, byte[] supplied)
             throws java.security.GeneralSecurityException {
         if (!configured(secret)) return false;
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        byte[] expected = mac.doFinal(("v1\nGET\n" + PATH + "\n" + timestamp)
+        byte[] expected = mac.doFinal(("v1\nGET\n" + path + "\n" + timestamp)
                 .getBytes(StandardCharsets.UTF_8));
         return MessageDigest.isEqual(expected, supplied);
     }

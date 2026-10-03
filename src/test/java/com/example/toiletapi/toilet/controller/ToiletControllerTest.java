@@ -119,6 +119,43 @@ class ToiletControllerTest {
     }
 
     @Test
+    void shouldAuthenticateSeparateFilterSourceBeforeServingPublicMetadata() throws Exception {
+        when(toiletService.getPublicFilterPoints()).thenReturn(List.of(new double[]{101, 37.52, 127.02, 127}));
+        mockMvc.perform(get("/api/v1/toilets/map-filter-points")
+                        .header("X-Map-Cluster-Timestamp", "1780000000")
+                        .header("X-Map-Cluster-Signature", "b".repeat(64)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0][0]").value(101))
+                .andExpect(jsonPath("$[0][1]").value(37.52))
+                .andExpect(jsonPath("$[0][2]").value(127.02))
+                .andExpect(jsonPath("$[0][3]").value(127))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("X-Map-Filter-Schema", "3"));
+        verify(mapClusterSourceAuth).requireValidFilterPoints("1780000000", "b".repeat(64));
+    }
+
+    @Test
+    void filterSourceRejectsUnsignedRequestsWithoutDatabaseRead() throws Exception {
+        org.mockito.Mockito.doThrow(new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.UNAUTHORIZED))
+                .when(mapClusterSourceAuth).requireValidFilterPoints(null, null);
+        mockMvc.perform(get("/api/v1/toilets/map-filter-points")).andExpect(status().isUnauthorized());
+        org.mockito.Mockito.verifyNoInteractions(toiletService);
+    }
+
+    @Test
+    void shouldPassAdditiveFlagsAndLegacyOpen24hWithoutDroppingEither() throws Exception {
+        when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(),
+                anyBoolean(), org.mockito.ArgumentMatchers.eq(6)))
+                .thenReturn(ToiletMapSearchResponse.markers(3, List.of()));
+        mockMvc.perform(get("/api/v1/toilets").param("southLat", "37.49").param("northLat", "37.51")
+                        .param("westLng", "127.01").param("eastLng", "127.03")
+                        .param("open24h", "true").param("filterFlags", "6"))
+                .andExpect(status().isOk());
+        verify(toiletService).getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(),
+                org.mockito.ArgumentMatchers.eq(true), org.mockito.ArgumentMatchers.eq(6));
+    }
+
+    @Test
     void shouldPassTwentyFourHourFilterToService() throws Exception {
         when(toiletService.getToiletsInBounds(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean()))
                 .thenReturn(ToiletMapSearchResponse.markers(3, List.of()));
