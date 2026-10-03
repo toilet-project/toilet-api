@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - 'src/**/analytics/**'
-      - 'src/main/resources/db/migration/*service_analytics*'
+      - 'src/main/resources/db/migration/*analytics*'
       - 'scripts/*analytics*'
       - '.github/workflows/analytics-validation.yml'
 permissions:

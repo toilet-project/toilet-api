@@ -7,14 +7,27 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
 import javax.sql.DataSource;
+import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 
 class ServiceAnalyticsMigrationTest {
+
+    @Test
+    void everyMigrationHasAUniqueFlywayVersion() throws Exception {
+        var migrations = new PathMatchingResourcePatternResolver()
+                .getResources("classpath*:db/migration/V*__*.sql");
+        var versions = Arrays.stream(migrations)
+                .map(resource -> resource.getFilename())
+                .map(name -> MigrationVersion.fromVersion(name.substring(1, name.indexOf("__"))))
+                .toList();
+        assertThat(versions).isNotEmpty().doesNotHaveDuplicates();
+    }
 
     @Test
     void addsOwnedEventAndDailyTablesWithoutBreakingTheRunningAdmin() throws Exception {
@@ -72,6 +85,7 @@ class ServiceAnalyticsMigrationTest {
         byte[] visitorHash = new byte[32];
         execute(dataSource, "db/migration/V33__classify_service_analytics_traffic.sql");
         execute(dataSource, "db/migration/V35__add_analytics_client_context.sql");
+        execute(dataSource,"db/migration/V39__add_analytics_entry_evidence.sql");
         byte[] sessionHash = new byte[32];
         Arrays.fill(visitorHash, (byte) 1);
         Arrays.fill(sessionHash, (byte) 2);
@@ -95,6 +109,7 @@ class ServiceAnalyticsMigrationTest {
         execute(dataSource, "db/migration/V21__replace_ga_snapshot_with_service_analytics.sql");
         execute(dataSource, "db/migration/V33__classify_service_analytics_traffic.sql");
         execute(dataSource, "db/migration/V35__add_analytics_client_context.sql");
+        execute(dataSource,"db/migration/V39__add_analytics_entry_evidence.sql");
         JdbcTemplate db = new JdbcTemplate(dataSource);
         AnalyticsRepository repository = new AnalyticsRepository(db);
         LocalDate date = LocalDate.of(2026, 9, 23);
@@ -113,13 +128,15 @@ class ServiceAnalyticsMigrationTest {
         assertThat(db.queryForObject("SELECT sessions FROM service_analytics_daily_summary", Long.class)).isOne();
         assertThat(db.queryForObject("SELECT sessions FROM service_analytics_daily_dimension WHERE dimension_type='SOURCE'", Long.class)).isOne();
         assertThat(db.queryForObject("SELECT sessions FROM service_analytics_daily_dimension WHERE dimension_type='CHANNEL'", Long.class)).isOne();
+        assertThat(db.queryForObject("SELECT sessions FROM service_analytics_daily_dimension WHERE dimension_type='ACQUISITION_EVIDENCE'", Long.class)).isOne();
+        assertThat(db.queryForObject("SELECT sessions FROM service_analytics_daily_dimension WHERE dimension_type='ENTRY_NAVIGATION'", Long.class)).isOne();
     }
 
     private static AnalyticsRepository.EventRow event(Instant now, LocalDate date, String name,
                                                        byte[] session, byte[] visitor) {
         return new AnalyticsRepository.EventRow(now, date, name, "/", "Direct", "none",
                 "mobile", "iOS", "Safari", "KR", "Seoul", visitor, session,
-                0, "", "", null, false, false, "UNFLAGGED", "BROWSER", "REQUEST_UA");
+                0, "", "", null, false, false, "UNFLAGGED", "BROWSER", "REQUEST_UA", "NO_REFERRER", "RELOAD");
     }
 
     @Test
@@ -129,6 +146,7 @@ class ServiceAnalyticsMigrationTest {
         execute(dataSource,"db/migration/V21__replace_ga_snapshot_with_service_analytics.sql");
         execute(dataSource,"db/migration/V33__classify_service_analytics_traffic.sql");
         execute(dataSource,"db/migration/V35__add_analytics_client_context.sql");
+        execute(dataSource,"db/migration/V39__add_analytics_entry_evidence.sql");
         JdbcTemplate db=new JdbcTemplate(dataSource);
         AnalyticsRepository repository=new AnalyticsRepository(db);
         LocalDate date=LocalDate.of(2026,9,24);
@@ -160,11 +178,14 @@ class ServiceAnalyticsMigrationTest {
                 """,new byte[32],new byte[32]);
         execute(dataSource,"db/migration/V33__classify_service_analytics_traffic.sql");
         execute(dataSource,"db/migration/V35__add_analytics_client_context.sql");
+        execute(dataSource,"db/migration/V39__add_analytics_entry_evidence.sql");
         assertThat(db.queryForObject("SELECT COUNT(*) FROM service_analytics_event",Long.class)).isOne();
         assertThat(db.queryForObject("SELECT traffic_class FROM service_analytics_event",String.class)).isEqualTo("LEGACY");
         assertThat(db.queryForObject("SELECT source_key FROM service_analytics_event",String.class)).isEqualTo("none");
         assertThat(db.queryForObject("SELECT client_context FROM service_analytics_event",String.class)).isEqualTo("UNKNOWN");
         assertThat(db.queryForObject("SELECT client_context_evidence FROM service_analytics_event",String.class)).isEqualTo("UNCLASSIFIED");
+        assertThat(db.queryForObject("SELECT acquisition_evidence FROM service_analytics_event",String.class)).isEqualTo("UNRECORDED");
+        assertThat(db.queryForObject("SELECT entry_navigation FROM service_analytics_event",String.class)).isEqualTo("UNKNOWN");
     }
 
     private static void execute(DataSource dataSource, String path) throws Exception {

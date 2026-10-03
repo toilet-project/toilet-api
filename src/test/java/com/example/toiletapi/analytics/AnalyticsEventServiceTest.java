@@ -21,6 +21,30 @@ class AnalyticsEventServiceTest {
 
     private static final String SECRET = "12345678901234567890123456789012";
 
+    @Test void entryEvidenceIsBoundedAndNeverOverrulesAnActualSource() {
+        AnalyticsRepository repository=mock(AnalyticsRepository.class);
+        AnalyticsEventService service=new AnalyticsEventService(repository,Clock.systemUTC(),true,SECRET);
+        String[][] cases={
+            {"", "", "NO_REFERRER", "RELOAD", "NO_REFERRER", "RELOAD", "none"},
+            {"", "", "INVALID_REFERRER", "HISTORY", "INVALID_REFERRER", "HISTORY", "none"},
+            {"", "", "UTM", "PRIVATE_TEXT", "UNRECORDED", "UNKNOWN", "none"},
+            {"search.naver.com", "", "NO_REFERRER", "NAVIGATE", "REFERRER", "NAVIGATE", "naver"},
+            {"", "copy_link", "NO_REFERRER", "CONTINUATION", "UTM", "CONTINUATION", "copy_link"},
+            {"geupddong.com", "", "REFERRER", "PRERENDER", "INTERNAL", "PRERENDER", "geupddong"},
+            {"https://private/path", "", "REFERRER", "", "INVALID_REFERRER", "UNKNOWN", "unknown"}
+        };
+        for(String[] c:cases)service.collect(new AnalyticsEventRequest("session_start","/",null,null,null,null,
+                "safe-session-test",null,null,false,c[0],c[1],"referral",c[2],c[3]),
+                request("https://geupddong.com","203.0.113.1","Chrome/140 Safari/537.36","","KR"));
+        var rows=ArgumentCaptor.forClass(AnalyticsRepository.EventRow.class);
+        verify(repository,times(cases.length)).insert(rows.capture());
+        for(int i=0;i<cases.length;i++) {
+            assertEquals(cases[i][4],rows.getAllValues().get(i).acquisitionEvidence());
+            assertEquals(cases[i][5],rows.getAllValues().get(i).entryNavigation());
+            assertEquals(cases[i][6],rows.getAllValues().get(i).source());
+        }
+    }
+
     @Test void appContextDoesNotInventAReferralOrChangeVisitorIdentity() {
         AnalyticsRepository repository=mock(AnalyticsRepository.class);
         AnalyticsEventService service=new AnalyticsEventService(repository,Clock.systemUTC(),true,SECRET);
