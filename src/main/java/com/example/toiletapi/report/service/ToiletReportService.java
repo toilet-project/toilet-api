@@ -89,6 +89,34 @@ public class ToiletReportService {
         return response(reportRepository.save(report), toilet.getName());
     }
     @Transactional(readOnly = true) public List<ToiletReportResponse> mine(Long userId) { return responses(reportRepository.findByReporterUserIdOrderByCreatedAtDesc(userId)); }
+    @Transactional(readOnly = true)
+    public MyToiletReportPageResponse minePage(Long userId, ReportStatus status, LocalDate from, LocalDate to, int page, int size) {
+        if (userId == null || userId <= 0) throw new IllegalArgumentException("유효하지 않은 사용자입니다.");
+        if (page < 0 || size < 1 || size > 50 || (long) page * size > Integer.MAX_VALUE)
+            throw new IllegalArgumentException("조회 페이지와 개수를 확인해 주세요.");
+        if (from != null && to != null && from.isAfter(to)) throw new IllegalArgumentException("조회 시작일은 종료일보다 늦을 수 없습니다.");
+        LocalDateTime fromAt = from == null ? null : from.atStartOfDay();
+        LocalDateTime toAt = to == null ? null : to.plusDays(1).atStartOfDay();
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (ReportStatus value : ReportStatus.values()) counts.put(value.name(), 0L);
+        for (ReportStatusCount value : reportRepository.countOwnerHistory(userId, fromAt, toAt))
+            counts.put(value.status().name(), value.count());
+        long all = counts.values().stream().mapToLong(Long::longValue).sum();
+        counts.put("ALL", all);
+        long total = status == null ? all : counts.get(status.name());
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id"));
+        List<ToiletReport> reports = reportRepository.findOwnerHistory(userId, status, fromAt, toAt, pageable);
+        return new MyToiletReportPageResponse(responses(reports), page, size, total,
+                pageable.getOffset() + reports.size() < total, Map.copyOf(counts));
+    }
+    @Transactional(readOnly = true)
+    public ToiletReportResponse mineDetail(Long userId, Long reportId) {
+        if (userId == null || userId <= 0) throw new IllegalArgumentException("유효하지 않은 사용자입니다.");
+        ToiletReport report = reportRepository.findByIdAndReporterUserId(reportId, userId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "제보를 찾을 수 없습니다."));
+        return responses(List.of(report)).getFirst();
+    }
     @Transactional(readOnly = true) public List<ToiletReportResponse> pending() { return responses(reportRepository.findByStatusOrderByCreatedAtAsc(ReportStatus.PENDING)); }
     @Transactional(readOnly = true) public ToiletReportDashboardResponse pendingDashboard() {
         List<ToiletReport> recentReports = reportRepository.findTop5ByStatusOrderByCreatedAtAsc(ReportStatus.PENDING);
