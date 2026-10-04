@@ -103,7 +103,7 @@ public class AnalyticsEventService {
                 client.device(), client.os(), client.browser(), country(http.getHeader("CF-IPCountry")),
                 city(http.getHeader("CF-IPCity")), visitorHash, sessionHash, engagement, resultBucket, detail,
                 request.success(), Boolean.TRUE.equals(request.newVisitor()), KEY_EVENTS.contains(event), bot ? "BOT" : "UNFLAGGED",
-                AnalyticsClientContext.context(userAgent), "REQUEST_UA"));
+                AnalyticsClientContext.context(userAgent), "REQUEST_UA", acquisitionEvidence(request), entryNavigation(request.entryNavigation())));
         } catch (RuntimeException ignored) {
             // 분석 큐가 가득 차도 사용자 기능과 응답은 계속 동작한다.
         }
@@ -185,6 +185,25 @@ public class AnalyticsEventService {
         if (path.equals("/account")) return path;
         if ("/".equals(path)) return path;
         return "/other";
+    }
+
+    private static String acquisitionEvidence(AnalyticsEventRequest request) {
+        if (!campaignValue(request.utmSource(),40).isBlank()) return "UTM";
+        String host=clean(request.referrerHost()).toLowerCase(Locale.ROOT).replaceFirst("\\.$", "");
+        if (!host.isBlank()) {
+            if (!host.matches("[a-z0-9](?:[a-z0-9.-]{0,118}[a-z0-9])?")) return "INVALID_REFERRER";
+            return domain(host,"geupddong.com") ? "INTERNAL" : "REFERRER";
+        }
+        return switch(clean(request.acquisitionEvidence())) {
+            case "NO_REFERRER" -> "NO_REFERRER";
+            case "INVALID_REFERRER" -> "INVALID_REFERRER";
+            default -> "UNRECORDED";
+        };
+    }
+
+    private static String entryNavigation(String value) {
+        String kind=clean(value);
+        return Set.of("NAVIGATE","RELOAD","HISTORY","PRERENDER","CONTINUATION").contains(kind) ? kind : "UNKNOWN";
     }
 
     private static Referral referral(String rawHost, String rawUtmSource, String rawUtmMedium) {
