@@ -26,6 +26,20 @@ public class ToiletReportController {
     }
     @PostMapping("/api/v1/reports") @ResponseStatus(HttpStatus.CREATED) public ToiletReportResponse submit(@RequestBody CreateToiletReportRequest request, @AuthenticationPrincipal Jwt jwt) { Long userId = userId(jwt); policyConsentService.requireEligibleUser(userId); return service.submit(userId, request); }
     @GetMapping("/api/v1/reports/me") public List<ToiletReportResponse> mine(@AuthenticationPrincipal Jwt jwt) { Long userId = userId(jwt); policyConsentService.requireEligibleUser(userId); return service.mine(userId); }
+    @GetMapping("/api/v1/reports/me/search")
+    public MyToiletReportPageResponse minePage(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) ReportStatus status,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
+        Long owner = userId(jwt); policyConsentService.requireEligibleUser(owner);
+        return service.minePage(owner, status, from, to, page, size);
+    }
+    @GetMapping("/api/v1/reports/me/{reportId}")
+    public ToiletReportResponse mineDetail(@AuthenticationPrincipal Jwt jwt, @PathVariable Long reportId) {
+        Long owner = userId(jwt); policyConsentService.requireEligibleUser(owner);
+        return service.mineDetail(owner, reportId);
+    }
     @GetMapping("/api/admin/v1/reports/summary") public ToiletReportDashboardResponse pendingSummary() { return service.pendingDashboard(); }
     @GetMapping("/api/admin/v1/reports/search") public ToiletReportPageResponse searchPage(@RequestParam(required = false) ReportStatus status,
                                                                                               @RequestParam(defaultValue = "") String keyword,
