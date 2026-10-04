@@ -9,6 +9,10 @@ account:
 reports:
   quick-enabled: ${REPORTS_QUICK_ENABLED:false}
 
+# Enable after V40, the versioned region snapshot, backfill verification and restore tools are ready.
+growth:
+  enabled: ${GROWTH_ENABLED:false}
+
 web-cache:
   enabled: ${WEB_CACHE_REVALIDATION_ENABLED:false}
   origin: ${WEB_CACHE_ORIGIN:}

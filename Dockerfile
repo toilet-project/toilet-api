@@ -6,6 +6,7 @@ WORKDIR /app
 
 ARG JAR_FILE=build/libs/*-SNAPSHOT.jar
 COPY ${JAR_FILE} app.jar
+COPY build/libs/growth-ops.jar growth-ops.jar
 COPY scripts/normalize_profile_photo.py /app/normalize_profile_photo.py
 
 ENTRYPOINT ["java", "-Duser.timezone=Asia/Seoul", "-jar", "app.jar"]

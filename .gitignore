@@ -27,3 +27,4 @@ src/main/resources/application-local.yml
 /.wrangler/
 /mobile-data-worker/.wrangler/
 /scripts/mobile-data/__pycache__/
+/.growth-test-fixture.local
