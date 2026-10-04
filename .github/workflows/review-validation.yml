@@ -25,6 +25,9 @@ jobs:
           result=build/test-results/test/TEST-com.example.toiletapi.review.ReviewContainerMySqlTest.xml
           test -s "$result"
           grep -q 'skipped="0"' "$result"
+          growth_result=build/test-results/test/TEST-com.example.toiletapi.growth.GrowthCollationContainerMySqlTest.xml
+          test -s "$growth_result"
+          grep -q 'skipped="0"' "$growth_result"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
