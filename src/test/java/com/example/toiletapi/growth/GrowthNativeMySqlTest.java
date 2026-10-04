@@ -23,7 +23,7 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
-/** Unmodified production V17/V40 SQL on a guarded, disposable native MySQL fixture. */
+/** Unmodified production V17/V40/V41 SQL on a guarded, disposable native MySQL fixture. */
 class GrowthNativeMySqlTest {
     JdbcTemplate jdbc;
     DriverManagerDataSource ds;
@@ -35,7 +35,7 @@ class GrowthNativeMySqlTest {
         ds=NativeMySqlFixture.create();jdbc=new JdbcTemplate(ds);
         jdbc.execute("CREATE TABLE app_user(user_id BIGINT PRIMARY KEY,status VARCHAR(30),auth_version BIGINT DEFAULT 0)");
         jdbc.execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY,visibility_status VARCHAR(30))");
-        jdbc.execute("CREATE TABLE toilet_review(review_id BIGINT PRIMARY KEY,review_key CHAR(36) UNIQUE,toilet_id BIGINT,author_user_id BIGINT,author_detached BOOLEAN,satisfaction INT,cleanliness INT,paper_available BOOLEAN,created_at DATETIME)");
+        jdbc.execute("CREATE TABLE toilet_review(review_id BIGINT PRIMARY KEY,review_key CHAR(36) UNIQUE,toilet_id BIGINT,author_user_id BIGINT,author_detached BOOLEAN,satisfaction INT,cleanliness INT,paper_available BOOLEAN,created_at DATETIME) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
         jdbc.execute("CREATE TABLE toilet_review_submission(user_id BIGINT,review_id BIGINT)");
         jdbc.execute("CREATE TABLE current_toilet_region(toilet_id BIGINT PRIMARY KEY,status VARCHAR(30),sigungu_code CHAR(5))");
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V17__create_sigungu_reference.sql"),
@@ -52,6 +52,32 @@ class GrowthNativeMySqlTest {
         jdbc.update("INSERT INTO toilet_review VALUES(?,?,?,?,FALSE,1,5,TRUE,'2026-10-01 12:00:00')",
                 id,String.format("00000000-0000-4000-8000-%012d",id),id,1);
         jdbc.update("INSERT INTO toilet_review_submission VALUES(1,?)",id);
+    }
+
+    @Test void v41AlignsExistingReviewKeysWithV12AndKeepsGrowthData() {
+        facilityAndReview(1,"30110");
+        facilityAndReview(2,"30110");
+        String excludedKey="00000000-0000-4000-8000-000000000002";
+        jdbc.update("INSERT INTO growth_review_exclusion(review_id,review_key,reason,excluded_at) VALUES(2,?,'fixture','2026-10-01 12:00:00')",excludedKey);
+        readCommitted.executeWithoutResult(tx->growth.initializePolicy(true));
+        assertEquals(30,readCommitted.execute(tx->growth.backfillUser(1,true)).reconcile().totalXp());
+        String join="SELECT COUNT(*) FROM growth_review_evidence e JOIN toilet_review r ON r.review_key=e.review_key";
+        var mismatch=assertThrows(org.springframework.jdbc.UncategorizedSQLException.class,
+                ()->jdbc.queryForObject(join,Integer.class));
+        assertEquals("HY000",mismatch.getSQLException().getSQLState());
+        assertEquals(1267,mismatch.getSQLException().getErrorCode());
+
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V41__align_growth_review_key_collation.sql"))
+                .execute(ds);
+        for(String table:List.of("toilet_review","growth_review_evidence","growth_review_exclusion"))
+            assertEquals("utf8mb4_unicode_ci",jdbc.queryForObject("""
+                    SELECT COLLATION_NAME FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME='review_key'
+                    """,String.class,table));
+        assertEquals(1,jdbc.queryForObject(join,Integer.class));
+        assertEquals(30,GrowthLedger.totalXp(jdbc,1));
+        assertEquals(excludedKey,jdbc.queryForObject(
+                "SELECT review_key FROM growth_review_exclusion WHERE review_id=2",String.class));
     }
 
     @Test void allSixteenCanonicalRegionsAndLegacyAliasesUseOneFrozenTargetEach() {
