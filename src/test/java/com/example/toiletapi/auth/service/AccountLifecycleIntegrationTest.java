@@ -40,16 +40,19 @@ class AccountLifecycleIntegrationTest {
                     mock(com.example.toiletapi.photo.PhotoMetrics.class),new com.example.toiletapi.photo.PhotoCdnPurgeRepository(jdbc));
         }
         @Bean AccountLifecycleGate accountLifecycleGate() { return new AccountLifecycleGate(false, true, true); }
-        @Bean DataSource dataSource() {
+        @Bean DataSource dataSource() throws java.io.IOException {
             var ds = com.example.toiletapi.auth.support.NativeMySqlFixture.enabled()
                     ? com.example.toiletapi.auth.support.NativeMySqlFixture.create()
                     : new DriverManagerDataSource("jdbc:h2:mem:withdrawal;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE", "sa", "");
             new JdbcTemplate(ds).execute("CREATE TABLE toilet(toilet_id BIGINT PRIMARY KEY)");
             for (String file : new String[]{"V1__create_auth_data_model.sql", "V2__create_toilet_report_and_coordinate_revision.sql",
                     "V4__create_user_notification.sql", "V5__create_coordinate_quality_review.sql",
-                    "V7__create_policy_consent_model.sql", "V11__account_withdrawal_retention.sql", "V13__social_profile_photos.sql",
-                    "V14__profile_photo_cdn_purge.sql", "V34__prepare_email_encryption.sql"}) {
-                new ResourceDatabasePopulator(new ClassPathResource("db/migration/" + file)).execute(ds);
+                    "V7__create_policy_consent_model.sql", "V11__account_withdrawal_retention.sql", "V12__create_location_reviews.sql", "V13__social_profile_photos.sql",
+                    "V14__profile_photo_cdn_purge.sql", "V34__prepare_email_encryption.sql", "V40__member_growth.sql"}) {
+                String ddl=new ClassPathResource("db/migration/"+file).getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+                if(!com.example.toiletapi.auth.support.NativeMySqlFixture.enabled())
+                    ddl=ddl.replace("CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci","").replace("BOOLEAN","TINYINT");
+                new ResourceDatabasePopulator(new org.springframework.core.io.ByteArrayResource(ddl.getBytes(java.nio.charset.StandardCharsets.UTF_8))).execute(ds);
             }
             return ds;
         }
@@ -94,7 +97,25 @@ class AccountLifecycleIntegrationTest {
         jdbc.update("INSERT INTO toilet_report(toilet_id,reporter_user_id,report_type,reason,proposed_road_address) VALUES(?,?,'COORDINATE_CORRECTION','전화 private@example.test','대전광역시 유성구 공공시설')", id, id);
         jdbc.update("INSERT INTO user_notification(user_id,notification_type,reference_type,reference_id,title,message) VALUES(?,'REPORT_APPROVED','TOILET_REPORT',?,'결과','알림')", id, id);
         jdbc.update("INSERT INTO user_policy_consent(user_id,policy_document_id,consent_source) VALUES(?,1,'WEB_OAUTH_ONBOARDING')", id);
+        seedGrowth(id);
         return id;
+    }
+    void seedGrowth(Long id) {
+        var now=KoreanTime.now();String reviewKey=java.util.UUID.randomUUID().toString();
+        jdbc.update("INSERT INTO toilet_review(review_key,toilet_id,author_user_id,satisfaction,cleanliness,paper_available,wait_minutes,comment,created_at,updated_at) VALUES(?,?,?,4,5,TRUE,0,'보관 또는 익명 보존할 리뷰',?,?)",reviewKey,id,id,now,now);
+        jdbc.update("INSERT INTO growth_account(user_id,total_xp,updated_at) VALUES(?,30,?)",id,now);
+        for(var award:java.util.List.of(new Object[]{"REVIEW_FIRST","T:"+id,10},new Object[]{"DISTRICT","D:30110",20})) {
+            jdbc.update("INSERT INTO growth_award(user_id,award_kind,award_key,policy_version,xp_amount,active,awarded_at) VALUES(?,?,?,'v1',?,TRUE,?)",id,award[0],award[1],award[2],now);
+            Long awardId=jdbc.queryForObject("SELECT award_id FROM growth_award WHERE user_id=? AND award_kind=?",Long.class,id,award[0]);
+            jdbc.update("INSERT INTO growth_xp_event(user_id,award_id,delta_xp,event_kind,reason,happened_at) VALUES(?,?,?,'EARN','REVIEW_CREATED',?)",id,awardId,award[2],now);
+        }
+        jdbc.update("INSERT INTO growth_review_evidence(review_key,user_id,toilet_id,created_at) VALUES(?,?,?,?)",reviewKey,id,id,now);
+    }
+    void assertGrowthRetained(Long id) {
+        assertThat(jdbc.queryForObject("SELECT total_xp FROM growth_account WHERE user_id=?",Long.class,id)).isEqualTo(30);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM growth_award WHERE user_id=?",Integer.class,id)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT SUM(delta_xp) FROM growth_xp_event WHERE user_id=?",Long.class,id)).isEqualTo(30);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM growth_review_evidence WHERE user_id=?",Integer.class,id)).isEqualTo(1);
     }
     @Test void calendarMonthsNotNinetyDaysAndBoundaryIsExclusive() {
         var user = AppUser.create("회원", null, false);
@@ -144,6 +165,7 @@ class AccountLifecycleIntegrationTest {
         assertThat(roles.findAllByUserId(id)).isEmpty();
         accounts.withdraw(id, true, AccountWithdrawal.CONSENT_VERSION);
         assertThat(withdrawals.findById(id).orElseThrow().getPurgeAfter()).isEqualTo(w.getPurgeAfter());
+        assertGrowthRetained(id);
         verify(refresh).deleteAllForUser(id);
     }
     @Test void restoresSameIdReportsNicknameButOnlyUserRoleAndFreshConsent() {
@@ -158,6 +180,7 @@ class AccountLifecycleIntegrationTest {
         assertThat(roles.findAllByUserId(id)).extracting(UserRoleAssignment::getRole).containsExactly(Role.USER);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM toilet_report WHERE reporter_user_id=?", Integer.class, id)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_policy_consent WHERE user_id=? AND withdrawn_at IS NULL", Integer.class, id)).isZero();
+        assertGrowthRetained(id);
         assertThatThrownBy(() -> recovery.confirm(proof)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
     @Test void noConsentErasesAccountButPreservesStructuredReport() {
@@ -192,6 +215,7 @@ class AccountLifecycleIntegrationTest {
             assertThatThrownBy(() -> erasure.eraseIfDue(id, KoreanTime.now())).isInstanceOf(RuntimeException.class);
             assertThat(users.existsById(id)).isTrue();
             assertThat(jdbc.queryForObject("SELECT reason FROM toilet_report WHERE reporter_user_id=?", String.class, id)).contains("private@example.test");
+            assertGrowthRetained(id);
             erasure.recordFailure(id);
             assertThat(withdrawals.findById(id).orElseThrow().getAttempts()).isEqualTo(1);
             assertThat(withdrawals.findById(id).orElseThrow().getNextAttemptAt()).isAfter(KoreanTime.now());
@@ -248,7 +272,8 @@ class AccountLifecycleIntegrationTest {
     }
     void assertErased(Long id) {
         assertThat(users.existsById(id)).isFalse(); assertThat(withdrawals.existsById(id)).isFalse();
-        for (String table : new String[]{"user_social_account", "user_role", "user_notification", "user_policy_consent"}) {
+        for (String table : new String[]{"user_social_account", "user_role", "user_notification", "user_policy_consent",
+                "growth_account", "growth_award", "growth_xp_event", "growth_review_evidence"}) {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM " + table + " WHERE user_id=?", Integer.class, id)).isZero();
         }
         assertThat(jdbc.queryForObject("SELECT reason FROM toilet_report WHERE toilet_id=?", String.class, id)).isEqualTo("탈퇴한 사용자 — 사유 파기");

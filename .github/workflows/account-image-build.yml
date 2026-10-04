@@ -42,6 +42,7 @@ jobs:
           set -euo pipefail
           docker info > /dev/null
           python3 -B -m unittest discover -s scripts -p test_account_resume_transition.py
+          python3 -B -m unittest discover -s scripts -p test_growth_release_transition.py
           chmod +x gradlew
           ./gradlew clean test bootJar --no-daemon --console=plain
       - uses: docker/login-action@v3

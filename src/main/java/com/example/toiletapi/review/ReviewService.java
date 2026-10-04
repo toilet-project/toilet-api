@@ -1,5 +1,6 @@
 package com.example.toiletapi.review;
 
+import com.example.toiletapi.growth.GrowthService;
 import com.example.toiletapi.policy.service.PolicyConsentService;
 import com.example.toiletapi.review.ReviewConfiguration.ReviewSettings;
 import com.example.toiletapi.review.ReviewModels.*;
@@ -11,6 +12,8 @@ import java.util.HexFormat;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +26,23 @@ public class ReviewService {
     private final ReviewSettings settings;
     private final Clock clock;
     private final ReviewUnlinkProtection unlinkProtection;
+    private final GrowthService growth;
     private static final ZoneOffset KST=ZoneOffset.ofHours(9);
     private static final ReviewRules.LocationPolicy LOCATION = new ReviewRules.LocationPolicy(150,50);
     public ReviewService(ReviewRepository repository, PolicyConsentService policies, ReviewSettings settings,
                          @Qualifier("reviewClock") Clock clock,ReviewUnlinkProtection unlinkProtection) {
+        this(repository,policies,settings,clock,unlinkProtection,(GrowthService)null);
+    }
+    @Autowired
+    public ReviewService(ReviewRepository repository, PolicyConsentService policies, ReviewSettings settings,
+                         @Qualifier("reviewClock") Clock clock,ReviewUnlinkProtection unlinkProtection,
+                         ObjectProvider<GrowthService> growth) {
+        this(repository,policies,settings,clock,unlinkProtection,growth.getIfAvailable());
+    }
+    ReviewService(ReviewRepository repository, PolicyConsentService policies, ReviewSettings settings,
+                  Clock clock,ReviewUnlinkProtection unlinkProtection,GrowthService growth) {
         this.repository=repository;this.policies=policies;this.settings=settings;this.clock=clock;this.unlinkProtection=unlinkProtection;
+        this.growth=growth;
     }
     private void authorize(Actor actor) {
         settings.requireEnabled();
@@ -65,6 +80,7 @@ public class ReviewService {
         repository.remember(actor.id(),key,hash,id);
         repository.recordCreation(actor.id(),now,count+1,guard.isPresent());
         repository.recordToiletCreation(actor.id(),request.toiletId(),now);
+        if(growth!=null)growth.reconcileUser(actor.id(),"REVIEW_CREATED");
         return item(repository.find(id).orElseThrow(),actor.id());
     }
     public CreationStatus creationStatus(Actor actor,long toilet) {
@@ -89,6 +105,7 @@ public class ReviewService {
         var row=manageable(actor,id,request.version());
         var content=ReviewRules.validate(request.content());
         if(repository.edit(id,actor.id(),row.version(),content,local(clock.instant()))!=1)throw conflict();
+        if(growth!=null)growth.reconcileUser(actor.id(),"REVIEW_EDITED");
         return item(repository.find(id).orElseThrow(),actor.id());
     }
     public Detached detach(Actor actor,long id,Detach request) {
@@ -99,6 +116,8 @@ public class ReviewService {
         // Authenticate ownership/version/deadline before any durable intent; never repurpose account-erasure records.
         unlinkProtection.record(row.reviewKey());
         if(repository.detach(id,actor.id(),row.version())!=1)throw conflict();
+        // Same transaction as author removal: a failed correction cannot leave reward links behind.
+        if(growth!=null)growth.reconcileAfterDetach(actor.id(),row.reviewKey());
         return new Detached(Long.toString(id),"익명",true);
     }
     public Item mineDetail(Actor actor,long id) {

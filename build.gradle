@@ -66,3 +66,19 @@ tasks.register('emailPrivacyMigrate', JavaExec) {
     mainClass = 'com.example.toiletapi.auth.privacy.EmailPrivacyMigration'
     args '--apply'
 }
+
+// Host-only bounded backfill tool. It has its own entry point and is never run at API startup.
+tasks.register('growthOpsJar', org.springframework.boot.gradle.tasks.bundling.BootJar) {
+    archiveFileName = 'growth-ops.jar'
+    mainClass = 'com.example.toiletapi.growth.GrowthMaintenanceCli'
+    classpath = sourceSets.main.runtimeClasspath
+    targetJavaVersion = JavaVersion.VERSION_21
+}
+
+tasks.named('assemble') {
+    dependsOn tasks.named('growthOpsJar')
+}
+
+tasks.named('bootJar') {
+    dependsOn tasks.named('growthOpsJar')
+}

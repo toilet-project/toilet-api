@@ -3,6 +3,7 @@ package com.example.toiletapi.review;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import com.example.toiletapi.policy.service.PolicyConsentService;
+import com.example.toiletapi.growth.GrowthService;
 import com.example.toiletapi.review.ReviewModels.*;
 import java.nio.charset.StandardCharsets;
 import java.time.*;
@@ -53,6 +54,72 @@ class ReviewDatabaseTest {
     Item createAt(long toilet,String comment){return call(()->service.create(author,new Create(toilet,4,5,true,20,comment,input(comment).position()),UUID.randomUUID().toString()));}
     long id(Item item){return Long.parseLong(item.id());}
     void failure(String code,Supplier<?> action){assertEquals(code,assertThrows(ReviewFailure.class,()->call(action)).code());}
+
+    @Test void growthRunsAfterSuccessfulWritesAndAcceptedRetriesNeverDuplicateTheHook() {
+        var growth=mock(GrowthService.class);
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,key->{},growth);
+        doAnswer(invocation->{
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review WHERE author_user_id=1",Integer.class));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review_submission WHERE user_id=1",Integer.class));
+            return null;
+        }).when(growth).reconcileUser(1,"REVIEW_CREATED");
+        String key=UUID.randomUUID().toString();var request=input("성장 기록");
+        var first=call(()->service.create(author,request,key));
+        assertEquals(first.id(),call(()->service.create(author,request,key)).id());
+        verify(growth,times(1)).reconcileUser(1,"REVIEW_CREATED");
+        doAnswer(invocation->{
+            assertEquals("수정된 성장 기록",jdbc.queryForObject("SELECT comment FROM toilet_review WHERE review_id=?",String.class,id(first)));
+            return null;
+        }).when(growth).reconcileUser(1,"REVIEW_EDITED");
+        call(()->service.edit(author,id(first),new Edit(0L,5,4,true,10,"수정된 성장 기록")));
+        verify(growth).reconcileUser(1,"REVIEW_EDITED");
+        String reviewKey=jdbc.queryForObject("SELECT review_key FROM toilet_review WHERE review_id=?",String.class,id(first));
+        doAnswer(invocation->{
+            assertNull(jdbc.queryForObject("SELECT author_user_id FROM toilet_review WHERE review_id=?",Long.class,id(first)));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review_submission WHERE review_id=?",Integer.class,id(first)));
+            return null;
+        }).when(growth).reconcileAfterDetach(1,reviewKey);
+        call(()->service.detach(author,id(first),new Detach(1L,true)));
+        verify(growth).reconcileAfterDetach(1,reviewKey);
+        verifyNoMoreInteractions(growth);
+    }
+
+    @Test void growthFailureRollsBackReviewQuotaAndEditInTheSameTransaction() {
+        var growth=mock(GrowthService.class);
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,key->{},growth);
+        doThrow(new IllegalStateException("synthetic growth failure")).when(growth).reconcileUser(1,"REVIEW_CREATED");
+        assertThrows(IllegalStateException.class,()->create("롤백할 리뷰"));
+        for(String table:List.of("toilet_review","toilet_review_submission","toilet_review_write_guard","toilet_review_toilet_guard"))
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class));
+        reset(growth);
+        var first=create("유지할 리뷰");
+        doThrow(new IllegalStateException("synthetic growth failure")).when(growth).reconcileUser(1,"REVIEW_EDITED");
+        assertThrows(IllegalStateException.class,()->call(()->service.edit(author,id(first),new Edit(0L,5,5,false,0,"롤백할 수정"))));
+        assertEquals("유지할 리뷰",jdbc.queryForObject("SELECT comment FROM toilet_review WHERE review_id=?",String.class,id(first)));
+        assertEquals(0,jdbc.queryForObject("SELECT version FROM toilet_review WHERE review_id=?",Integer.class,id(first)));
+    }
+
+    @Test void growthUnlinkFailureRollsBackSqlAndKeepsOnlyOpaqueDurableIntent() {
+        var first=create("연결 해제 재처리 대상");
+        String reviewKey=jdbc.queryForObject("SELECT review_key FROM toilet_review WHERE review_id=?",String.class,id(first));
+        var intents=new ArrayList<String>();var growth=mock(GrowthService.class);
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,intents::add,growth);
+        doThrow(new IllegalStateException("synthetic correction failure")).when(growth).reconcileAfterDetach(1,reviewKey);
+        assertThrows(IllegalStateException.class,()->call(()->service.detach(author,id(first),new Detach(0L,true))));
+        assertEquals(List.of(reviewKey),intents);
+        assertEquals(1L,jdbc.queryForObject("SELECT author_user_id FROM toilet_review WHERE review_id=?",Long.class,id(first)));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review_submission WHERE review_id=?",Integer.class,id(first)));
+        assertEquals(0,jdbc.queryForObject("SELECT version FROM toilet_review WHERE review_id=?",Integer.class,id(first)));
+    }
+
+    @Test void rejectedReviewMutationNeverStartsGrowthCorrection() {
+        var first=create("권한 확인 대상");var growth=mock(GrowthService.class);
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,key->{},growth);
+        failure("REVIEW_NOT_FOUND",()->service.edit(other,id(first),new Edit(0L,5,5,true,0,"다른 회원")));
+        failure("REVIEW_NOT_FOUND",()->service.detach(other,id(first),new Detach(0L,true)));
+        failure("REVIEW_CHANGED",()->service.detach(author,id(first),new Detach(1L,true)));
+        verifyNoInteractions(growth);
+    }
 
     @Test void hiddenFacilityCannotReceiveNewReviewsButExistingReviewIsRetained() {
         var first=create("보존 대상 리뷰");
