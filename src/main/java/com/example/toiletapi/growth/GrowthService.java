@@ -51,7 +51,9 @@ public class GrowthService {
                           int progressPercent, boolean checkInAvailable, List<Badge> badges,
                           List<Region> regions) { }
     public record HistoryItem(long id, int deltaXp, String type, String reason, LocalDateTime happenedAt) { }
-    public record History(List<HistoryItem> items) { }
+    public sealed interface HistoryResponse permits History, HistoryPage { }
+    public record History(List<HistoryItem> items) implements HistoryResponse { }
+    public record HistoryPage(List<HistoryItem> items, long total, int page, int size) implements HistoryResponse { }
     public record PolicyPreview(String version, boolean initialized, int targetDistricts, int regions) { }
     public record Preview(long userId, String policyVersion, int eligibleReviews, int distinctFacilities,
                           int pendingRegionFacilities, long expectedXp, long currentXp, long deltaXp,
@@ -336,6 +338,29 @@ public class GrowthService {
                 FROM growth_xp_event WHERE user_id=? ORDER BY event_id DESC LIMIT 50
                 """,(rs,i)->new HistoryItem(rs.getLong(1),rs.getInt(2),rs.getString(3),rs.getString(4),
                 rs.getObject(5,LocalDateTime.class)),actor.userId()));
+    }
+
+    /** The ledger is read as recorded; browsing history never creates or reconciles awards. */
+    @Transactional(readOnly=true, isolation=Isolation.REPEATABLE_READ)
+    public HistoryPage historyPage(Actor actor,String direction,int page,int size) {
+        requireActor(actor,false);
+        if(page<0 || size<1 || size>50)
+            throw new GrowthFailure(400,"INVALID_GROWTH_HISTORY_PAGE","페이지와 조회 개수(1~50)를 확인해 주세요.");
+        String sign;
+        if(direction==null) sign="";
+        else if("earned".equals(direction)) sign=" AND delta_xp>0";
+        else if("deducted".equals(direction)) sign=" AND delta_xp<0";
+        else throw new GrowthFailure(400,"INVALID_GROWTH_HISTORY_DIRECTION","획득 또는 차감 내역을 선택해 주세요.");
+        if(!enabled || ledgerPolicy(false)==null) return new HistoryPage(List.of(),0,page,size);
+        String where=" FROM growth_xp_event WHERE user_id=?"+sign;
+        long total=jdbc.queryForObject("SELECT COUNT(*)"+where,Long.class,actor.userId());
+        long offset=(long)page*size;
+        if(offset>=total) return new HistoryPage(List.of(),total,page,size);
+        List<HistoryItem> items=jdbc.query("SELECT event_id,delta_xp,event_kind,reason,happened_at"+where+
+                " ORDER BY event_id DESC LIMIT ? OFFSET ?",
+                (rs,i)->new HistoryItem(rs.getLong(1),rs.getInt(2),rs.getString(3),rs.getString(4),
+                        rs.getObject(5,LocalDateTime.class)),actor.userId(),size,offset);
+        return new HistoryPage(items,total,page,size);
     }
 
     /** Public review cards expose only the rank, never XP or a member identifier. One query serves a whole page. */

@@ -2,6 +2,7 @@ package com.example.toiletapi.growth;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 
 import com.example.toiletapi.policy.service.PolicyConsentService;
 import com.geupddong.growth.GrowthLedger;
@@ -11,6 +12,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
@@ -204,6 +206,80 @@ class GrowthServiceTest {
         assertEquals(20,cleanup.totalXp()); // District remains valid through review 2; review 2 earns no new 10 XP.
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM growth_review_evidence",Integer.class));
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM growth_award WHERE award_key='T:2'",Integer.class));
+    }
+
+    @Test void historyPagesReadBeyondFiftyByDeltaSignAndOnlyForTheSignedInMember() {
+        facility(1,"30110");call(()->growth.initializePolicy(true));
+        jdbc.update("INSERT INTO app_user VALUES(2,'ACTIVE',0)");
+        List<Long> earnedIds=new ArrayList<>(),deductedIds=new ArrayList<>();
+        for(long id=1;id<=72;id++) {
+            int delta=id%6==0?-10:2;
+            // Sign, not an event label, defines the requested accounting direction.
+            historyEvent(id,1,delta,id%6==0?"EARN":"REVOKE");
+            (delta>0?earnedIds:deductedIds).add(id);
+        }
+        historyEvent(73,2,2,"EARN");historyEvent(74,2,-10,"REVOKE");
+        List<Long> seen=new ArrayList<>();
+        for(int page=0;page<6;page++) {
+            int requestedPage=page;
+            var result=call(()->growth.historyPage(actor,"earned",requestedPage,10));
+            assertEquals(60,result.total());assertEquals(page,result.page());assertEquals(10,result.size());
+            assertEquals(10,result.items().size());assertTrue(result.items().stream().allMatch(item->item.deltaXp()>0));
+            seen.addAll(result.items().stream().map(GrowthService.HistoryItem::id).toList());
+        }
+        assertEquals(earnedIds.reversed(),seen);assertEquals(60,seen.stream().distinct().count());
+        var deducted=call(()->growth.historyPage(actor,"deducted",1,10));
+        assertEquals(12,deducted.total());assertEquals(deductedIds.reversed().subList(10,12),deducted.items().stream().map(GrowthService.HistoryItem::id).toList());
+        assertTrue(deducted.items().stream().allMatch(item->item.deltaXp()<0));
+        var all=call(()->growth.historyPage(actor,null,0,50));
+        assertEquals(72,all.total());assertEquals(50,all.items().size());assertEquals(72,all.items().getFirst().id());
+        var pastEnd=call(()->growth.historyPage(actor,"earned",Integer.MAX_VALUE,50));
+        assertEquals(60,pastEnd.total());assertTrue(pastEnd.items().isEmpty());
+        var legacy=call(()->growth.history(actor));
+        assertEquals(50,legacy.items().size());assertEquals(all.items(),legacy.items());
+        assertEquals(74,jdbc.queryForObject("SELECT COUNT(*) FROM growth_xp_event",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM growth_award",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM growth_account",Integer.class));
+    }
+
+    @Test void historyPageBoundsAndDirectionsAreValidatedWithoutWriting() {
+        for(int[] bounds:new int[][]{{-1,10},{0,0},{0,-1},{0,51},{0,Integer.MAX_VALUE}}) {
+            GrowthFailure error=assertThrows(GrowthFailure.class,()->call(()->growth.historyPage(actor,"earned",bounds[0],bounds[1])));
+            assertEquals(400,error.status());assertEquals("INVALID_GROWTH_HISTORY_PAGE",error.code());
+        }
+        for(String direction:List.of("", "all", "EARN", "earned' OR 1=1")) {
+            GrowthFailure error=assertThrows(GrowthFailure.class,()->call(()->growth.historyPage(actor,direction,0,10)));
+            assertEquals(400,error.status());assertEquals("INVALID_GROWTH_HISTORY_DIRECTION",error.code());
+        }
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM growth_xp_event",Integer.class));
+    }
+
+    @Test void historyPagesKeepFeaturePolicyAndAccountGuardsAndNeverExposeUnappliedPreview() {
+        facility(1,"30110");review(1,1,4);
+        assertEquals(30,call(()->growth.previewUser(1)).expectedXp());
+        assertEquals(new GrowthService.HistoryPage(List.of(),0,2,10),call(()->growth.historyPage(actor,"earned",2,10)));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM growth_policy_snapshot",Integer.class));
+        call(()->growth.initializePolicy(true));
+        assertEquals(0,call(()->growth.historyPage(actor,"earned",0,10)).total());
+        historyEvent(1,1,2,"EARN");
+        GrowthService disabled=new GrowthService(jdbc,mock(PolicyConsentService.class),false,clock);
+        assertEquals(new GrowthService.HistoryPage(List.of(),0,0,10),call(()->disabled.historyPage(actor,"earned",0,10)));
+        assertEquals(401,assertThrows(GrowthFailure.class,()->call(()->growth.historyPage(new GrowthService.Actor(1,99),"earned",0,10))).status());
+        jdbc.update("UPDATE app_user SET status='WITHDRAWN' WHERE user_id=1");
+        assertEquals(403,assertThrows(GrowthFailure.class,()->call(()->disabled.historyPage(actor,"earned",0,10))).status());
+        jdbc.update("UPDATE app_user SET status='ACTIVE' WHERE user_id=1");
+        PolicyConsentService policies=mock(PolicyConsentService.class);
+        doThrow(new com.example.toiletapi.policy.service.PolicyConsentRequiredException()).when(policies).requireEligibleUser(1L);
+        GrowthService consentRequired=new GrowthService(jdbc,policies,true,clock);
+        assertThrows(com.example.toiletapi.policy.service.PolicyConsentRequiredException.class,
+                ()->call(()->consentRequired.historyPage(actor,"earned",0,10)));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM growth_xp_event",Integer.class));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM growth_award",Integer.class));
+    }
+
+    private void historyEvent(long id,long userId,int delta,String type) {
+        jdbc.update("INSERT INTO growth_xp_event(event_id,user_id,delta_xp,event_kind,reason,happened_at) VALUES(?,?,?,?,?,'2026-10-05 12:00:00')",
+                id,userId,delta,type,"HISTORY_TEST");
     }
 
     private static final class MutableClock extends Clock {

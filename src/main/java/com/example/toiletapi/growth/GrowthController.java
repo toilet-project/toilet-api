@@ -7,6 +7,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Private member growth data. Authorization and current account state are checked by GrowthService. */
@@ -23,8 +24,13 @@ public class GrowthController {
     }
 
     @GetMapping("/history")
-    public GrowthService.History history(@AuthenticationPrincipal Jwt jwt) {
-        return growth.history(actor(jwt));
+    public GrowthService.HistoryResponse history(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required=false) String direction,
+            @RequestParam(required=false) Integer page,
+            @RequestParam(required=false) Integer size) {
+        GrowthService.Actor actor=actor(jwt);
+        if(direction==null && page==null && size==null) return growth.history(actor);
+        return growth.historyPage(actor,direction,page==null?0:page,size==null?10:size);
     }
 
     @PostMapping("/check-in")
