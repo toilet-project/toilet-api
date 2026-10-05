@@ -9,6 +9,8 @@ import java.security.MessageDigest;
 import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -62,7 +64,7 @@ public class ReviewService {
             if(!prior.get().hash().equals(hash))throw new ReviewFailure(409,"REVIEW_REQUEST_REUSED","다른 내용에 같은 등록 요청이 사용됐어요.");
             var row=repository.find(prior.get().reviewId()).orElseThrow(ReviewService::notFound);
             if(!Objects.equals(row.authorId(),actor.id()) || row.detached())throw notFound();
-            return item(row,actor.id()); // Safe retry of an already accepted write; no new position is recorded.
+            return item(row,actor.id(),authorRanks(List.of(row)).get(row.authorId())); // Safe retry of an already accepted write; no new position is recorded.
         }
         var toilet=repository.facility(request.toiletId(),true).orElseThrow(ReviewService::notFound);
         Instant instant=clock.instant();
@@ -81,7 +83,8 @@ public class ReviewService {
         repository.recordCreation(actor.id(),now,count+1,guard.isPresent());
         repository.recordToiletCreation(actor.id(),request.toiletId(),now);
         if(growth!=null)growth.reconcileUser(actor.id(),"REVIEW_CREATED");
-        return item(repository.find(id).orElseThrow(),actor.id());
+        var row=repository.find(id).orElseThrow();
+        return item(row,actor.id(),authorRanks(List.of(row)).get(row.authorId()));
     }
     public CreationStatus creationStatus(Actor actor,long toilet) {
         authorize(actor);
@@ -106,7 +109,8 @@ public class ReviewService {
         var content=ReviewRules.validate(request.content());
         if(repository.edit(id,actor.id(),row.version(),content,local(clock.instant()))!=1)throw conflict();
         if(growth!=null)growth.reconcileUser(actor.id(),"REVIEW_EDITED");
-        return item(repository.find(id).orElseThrow(),actor.id());
+        var updated=repository.find(id).orElseThrow();
+        return item(updated,actor.id(),authorRanks(List.of(updated)).get(updated.authorId()));
     }
     public Detached detach(Actor actor,long id,Detach request) {
         authorize(actor);
@@ -123,7 +127,7 @@ public class ReviewService {
     public Item mineDetail(Actor actor,long id) {
         authorize(actor);var row=repository.find(id).orElseThrow(ReviewService::notFound);
         if(!Objects.equals(row.authorId(),actor.id()) || row.detached())throw notFound();
-        return item(row,actor.id());
+        return item(row,actor.id(),authorRanks(List.of(row)).get(row.authorId()));
     }
     public Page mine(Actor actor,LocalDate from,LocalDate to,String cursor,int size) {
         authorize(actor);validateRange(from,to,size);
@@ -149,14 +153,15 @@ public class ReviewService {
         if(version!=row.version())throw conflict();
         return row;
     }
-    private Item item(ReviewRepository.Row row,Long owner) {
+    private Item item(ReviewRepository.Row row,Long owner,String authorRank) {
         String name=row.detached()?"익명":row.authorId()==null || "WITHDRAWN".equals(row.authorStatus())?"탈퇴한 사용자"
                 :row.displayName()==null || row.displayName().isBlank()?"급똥 사용자":row.displayName();
         String photoVersion=!row.detached() && row.authorId()!=null && "ACTIVE".equals(row.authorStatus())?photoVersion(row.photoKey()):null;
         return new Item(Long.toString(row.id()),row.toiletId(),row.toiletName(),row.satisfaction(),row.cleanliness(),row.paper(),
                 row.waitMinutes(),row.comment(),row.version(),row.createdAt().atOffset(KST),row.updatedAt().atOffset(KST),
                 row.createdAt().plusDays(7).atOffset(KST),owner!=null && ReviewRules.canManage(row.authorId(),owner,row.createdAt().toInstant(KST),clock.instant()),
-                row.authorId()==null,name,photoVersion);
+                row.authorId()==null,name,photoVersion,
+                !row.detached() && row.authorId()!=null && "ACTIVE".equals(row.authorStatus())?authorRank:null);
     }
     private static String photoVersion(String key) {
         if(key==null || !key.matches("avatars/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\\.webp")) return null;
@@ -165,7 +170,16 @@ public class ReviewService {
     private Page page(java.util.List<ReviewRepository.Row> rows,int size,Long owner) {
         boolean more=rows.size()>size;var visible=rows.subList(0,Math.min(size,rows.size()));
         String next=more?new ReviewCursor(visible.getLast().createdAt(),visible.getLast().id()).encode():null;
-        return new Page(visible.stream().map(r->item(r,owner)).toList(),next,more);
+        Map<Long,String> ranks=authorRanks(visible);
+        return new Page(visible.stream().map(r->item(r,owner,r.authorId()==null?null:ranks.get(r.authorId()))).toList(),next,more);
+    }
+    private Map<Long,String> authorRanks(List<ReviewRepository.Row> rows) {
+        if(growth==null) return Map.of();
+        List<Long> authors=rows.stream().filter(r->!r.detached() && r.authorId()!=null && "ACTIVE".equals(r.authorStatus()))
+                .map(ReviewRepository.Row::authorId).distinct().toList();
+        if(authors.isEmpty()) return Map.of();
+        Map<Long,String> ranks=growth.publicAuthorRanks(authors);
+        return ranks==null?Map.of():ranks;
     }
     private static void validateRange(LocalDate from,LocalDate to,int size) {
         if(size<1 || size>50 || (from!=null && (from.getYear()<1000 || from.getYear()>9998))

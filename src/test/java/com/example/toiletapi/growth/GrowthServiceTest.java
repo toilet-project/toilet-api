@@ -65,6 +65,24 @@ class GrowthServiceTest {
         for(int id=1;id<=count;id++) {facility(id,id<=count/2?"30110":"30140");review(id,id,id%5+1);}
     }
 
+    @Test void publicAuthorRankFollowsCurrentLevelAndExcludesInactiveAccounts() {
+        assertTrue(call(()->growth.publicAuthorRanks(List.of(1L))).isEmpty()); // Enabled, but policy is not frozen yet.
+        facility(1,"30110");
+        call(()->growth.initializePolicy(true));
+        assertEquals("white",call(()->growth.publicAuthorRanks(List.of(1L))).get(1L)); // No ledger row yet.
+        jdbc.update("INSERT INTO growth_account(user_id,total_xp,updated_at) VALUES(1,0,CURRENT_TIMESTAMP)");
+        long[] xp={0,80,240,990,2240,6240,15990};
+        String[] ranks={"white","green","yellow","blue","red","pink","black"};
+        for(int i=0;i<xp.length;i++) {
+            jdbc.update("UPDATE growth_account SET total_xp=? WHERE user_id=1",xp[i]);
+            assertEquals(ranks[i],call(()->growth.publicAuthorRanks(List.of(1L))).get(1L));
+        }
+        jdbc.update("UPDATE app_user SET status='WITHDRAWN' WHERE user_id=1");
+        assertTrue(call(()->growth.publicAuthorRanks(List.of(1L))).isEmpty());
+        GrowthService disabled=new GrowthService(jdbc,mock(PolicyConsentService.class),false,clock);
+        assertTrue(call(()->disabled.publicAuthorRanks(List.of(1L))).isEmpty());
+    }
+
     @Test void policyPreviewDoesNotWriteAndOldRegionAliasAndSejongAreCounted() {
         facility(1,"29110");facility(2,"36110");review(1,1,1);review(2,2,1);
         GrowthService.PolicyPreview preview=call(growth::previewPolicy);
