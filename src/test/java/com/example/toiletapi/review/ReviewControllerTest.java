@@ -49,6 +49,16 @@ class ReviewControllerTest {
         mvc.perform(get("/api/v1/reviews/creation-status?toiletId=1")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/v1/reviews").header("Origin",ORIGIN).contentType("application/json").content(BODY)).andExpect(status().isUnauthorized());
     }
+    @Test void publicReviewIncludesOnlyTheAuthorRankCodeWithoutPrivateGrowthData() throws Exception {
+        var at=java.time.OffsetDateTime.parse("2026-10-05T09:00:00+09:00");
+        var item=new ReviewModels.Item("42",1,"가상 화장실",4,5,true,0,"가상 후기",0,at,at,at,
+                false,false,"가상 작성자",null,"green");
+        when(service.publicPage(1,null,10)).thenReturn(new ReviewModels.Page(List.of(item),null,false));
+        mvc.perform(get("/api/v1/toilets/1/reviews"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].authorRank").value("green"))
+                .andExpect(jsonPath("$.items[0].totalXp").doesNotExist())
+                .andExpect(jsonPath("$.items[0].authorUserId").doesNotExist());
+    }
     @Test void trustedMutationCarriesOnlyJwtOwnerAndAuthVersion() throws Exception {
         mvc.perform(post("/api/v1/reviews").header("Authorization","Bearer synthetic").header("Origin",ORIGIN)
                 .header("Idempotency-Key",UUID.randomUUID().toString()).contentType("application/json").content(BODY))

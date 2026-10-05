@@ -27,7 +27,8 @@ public final class ReviewModels {
     public record Item(String id, long toiletId, String toiletName, int satisfaction, int cleanliness,
                        boolean paper, int waitMinutes, String comment, long version, OffsetDateTime createdAt,
                        OffsetDateTime updatedAt, OffsetDateTime editableUntil, boolean canManage,
-                       boolean authorRemoved, String authorDisplayName, String authorPhotoVersion) { }
+                       boolean authorRemoved, String authorDisplayName, String authorPhotoVersion,
+                       String authorRank) { }
     public record Page(List<Item> items, String nextCursor, boolean hasMore) { }
     public record Detached(String id, String authorDisplayName, boolean contentRetained) { }
     /** Frequency check only; a new submission must still pass session, policy and location validation. */

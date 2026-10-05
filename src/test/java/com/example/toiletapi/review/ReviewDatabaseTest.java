@@ -81,6 +81,7 @@ class ReviewDatabaseTest {
         }).when(growth).reconcileAfterDetach(1,reviewKey);
         call(()->service.detach(author,id(first),new Detach(1L,true)));
         verify(growth).reconcileAfterDetach(1,reviewKey);
+        verify(growth,times(3)).publicAuthorRanks(List.of(1L));
         verifyNoMoreInteractions(growth);
     }
 
@@ -172,6 +173,55 @@ class ReviewDatabaseTest {
         jdbc.update("UPDATE profile_photo SET is_public=FALSE WHERE user_id=1");
         assertNull(call(()->service.publicPage(1,null,10)).items().getFirst().authorPhotoVersion());
         assertFalse(review.toString().contains(key));
+    }
+    @Test void publicRankUsesCurrentXpAndHidesUnlinkedOrInactiveAuthors() throws Exception {
+        Item first=create("첫 작성자");
+        Item second=call(()->service.create(other,input("두 번째 작성자"),UUID.randomUUID().toString()));
+        String ddl=new ClassPathResource("db/migration/V40__member_growth.sql").getContentAsString(StandardCharsets.UTF_8)
+                .replace("BOOLEAN","TINYINT");
+        new ResourceDatabasePopulator(new ByteArrayResource(ddl.getBytes(StandardCharsets.UTF_8)))
+                .execute(Objects.requireNonNull(jdbc.getDataSource()));
+        jdbc.update("INSERT INTO growth_policy_snapshot VALUES('2026-10-v1','2026-10-01 00:00:00',0,10,2,20,30,50,100,3,10,30,50,100)");
+        jdbc.update("INSERT INTO growth_account(user_id,total_xp,updated_at) VALUES(1,80,CURRENT_TIMESTAMP)");
+        var growth=new GrowthService(jdbc,policies,true,clock);
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,key->{},growth);
+        Page initial=call(()->service.publicPage(1,null,10));
+        assertEquals("green",initial.items().stream().filter(r->r.id().equals(first.id())).findFirst().orElseThrow().authorRank());
+        assertEquals("white",initial.items().stream().filter(r->r.id().equals(second.id())).findFirst().orElseThrow().authorRank());
+        jdbc.update("UPDATE growth_account SET total_xp=240 WHERE user_id=1");
+        assertEquals("yellow",call(()->service.publicPage(1,null,10)).items().stream()
+                .filter(r->r.id().equals(first.id())).findFirst().orElseThrow().authorRank());
+        assertEquals("yellow",call(()->service.mineDetail(author,id(first))).authorRank());
+        jdbc.update("UPDATE toilet_review SET author_user_id=NULL,author_detached=TRUE WHERE review_id=?",id(second));
+        Item anonymous=call(()->service.publicPage(1,null,10)).items().stream()
+                .filter(r->r.id().equals(second.id())).findFirst().orElseThrow();
+        assertTrue(anonymous.authorRemoved());assertNull(anonymous.authorRank());
+        jdbc.update("UPDATE app_user SET status='WITHDRAWN' WHERE user_id=1");
+        Item withdrawn=call(()->service.publicPage(1,null,10)).items().stream()
+                .filter(r->r.id().equals(first.id())).findFirst().orElseThrow();
+        assertEquals("탈퇴한 사용자",withdrawn.authorDisplayName());assertNull(withdrawn.authorRank());
+        jdbc.update("DELETE FROM app_user WHERE user_id=1");
+        Item deleted=call(()->service.publicPage(1,null,10)).items().stream()
+                .filter(r->r.id().equals(first.id())).findFirst().orElseThrow();
+        assertTrue(deleted.authorRemoved());assertNull(deleted.authorRank());
+    }
+    @Test void publicPageResolvesAllVisibleAuthorRanksInOneBulkCall() {
+        create("첫 작성자");
+        call(()->service.create(other,input("두 번째 작성자"),UUID.randomUUID().toString()));
+        var growth=mock(GrowthService.class);
+        when(growth.publicAuthorRanks(anyCollection())).thenReturn(Map.of(1L,"green",2L,"white"));
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,key->{},growth);
+        var page=call(()->service.publicPage(1,null,10));
+        assertEquals(Set.of("green","white"),page.items().stream().map(Item::authorRank).collect(java.util.stream.Collectors.toSet()));
+        verify(growth,times(1)).publicAuthorRanks(argThat(ids->ids.size()==2 && ids.containsAll(List.of(1L,2L))));
+        verifyNoMoreInteractions(growth);
+    }
+    @Test void disabledGrowthLeavesExistingReviewResponsesAvailableWithoutGrowthTables() {
+        var disabled=new GrowthService(jdbc,policies,false,clock);
+        service=new ReviewService(new ReviewRepository(jdbc),policies,new ReviewConfiguration.ReviewSettings(true,60,10),clock,key->{},disabled);
+        Item first=create("기능 꺼짐");
+        assertNull(first.authorRank());
+        assertNull(call(()->service.publicPage(1,null,10)).items().getFirst().authorRank());
     }
     @Test void unlinkProtectionRunsOnlyAfterOwnerVersionDeadlineAndAcknowledgementChecks() {
         var protection=mock(ReviewUnlinkProtection.class);

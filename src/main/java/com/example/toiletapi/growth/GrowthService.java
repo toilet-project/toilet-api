@@ -338,6 +338,28 @@ public class GrowthService {
                 rs.getObject(5,LocalDateTime.class)),actor.userId()));
     }
 
+    /** Public review cards expose only the rank, never XP or a member identifier. One query serves a whole page. */
+    @Transactional(readOnly = true)
+    public Map<Long,String> publicAuthorRanks(Collection<Long> authorIds) {
+        if(!enabled || authorIds==null || authorIds.isEmpty()) return Map.of();
+        List<Long> ids=authorIds.stream().filter(id->id!=null && id>0).distinct().toList();
+        if(ids.isEmpty()) return Map.of();
+        if(ids.size()>50) throw new IllegalArgumentException("한 번에 조회할 작성자가 너무 많습니다.");
+        String placeholders=String.join(",",java.util.Collections.nCopies(ids.size(),"?"));
+        String sql="""
+                SELECT u.user_id,COALESCE(g.total_xp,0) AS total_xp
+                FROM app_user u LEFT JOIN growth_account g ON g.user_id=u.user_id
+                WHERE u.status='ACTIVE' AND u.user_id IN (%s)
+                  AND EXISTS (SELECT 1 FROM growth_policy_snapshot WHERE policy_version=?)
+                """.formatted(placeholders);
+        List<Object> args=new ArrayList<>(ids);
+        args.add(POLICY_VERSION);
+        Map<Long,String> ranks=new HashMap<>();
+        jdbc.query(sql,(rs,i)->Map.entry(rs.getLong("user_id"),rankForLevel(level(rs.getLong("total_xp")))),args.toArray())
+                .forEach(entry->ranks.put(entry.getKey(),entry.getValue()));
+        return Map.copyOf(ranks);
+    }
+
     private Summary blankSummary() {
         return new Summary(false,POLICY_VERSION,0,1,"white","흰색 휴지",2,30,30,0,false,List.of(),List.of());
     }
@@ -345,7 +367,6 @@ public class GrowthService {
     private Summary summaryLoaded(long userId,GrowthLedger.Policy policy) {
         long xp=GrowthLedger.totalXp(jdbc,userId);
         int level=level(xp); long currentThreshold=threshold(level),nextThreshold=threshold(level+1);
-        String[] ranks={"white","green","yellow","blue","red","pink","black"};
         String[] names={"흰색 휴지","초록 휴지","노랑 휴지","파랑 휴지","빨강 휴지","핑크 휴지","검정 휴지"};
         int rankIndex=level<=2?0:level<=4?1:level<=9?2:level<=14?3:level<=24?4:level<=39?5:6;
         List<GrowthLedger.Award> awards=GrowthLedger.awards(jdbc,userId).stream().filter(GrowthLedger.Award::active).toList();
@@ -408,8 +429,18 @@ public class GrowthService {
         String date=today().toString();
         boolean checkInAvailable=awards.stream().noneMatch(a->"CHECKIN".equals(a.kind()) && date.equals(a.key()));
         int progress=(int)Math.min(100,Math.max(0,((xp-currentThreshold)*100)/(nextThreshold-currentThreshold)));
-        return new Summary(true,policy.rules().version(),xp,level,ranks[rankIndex],names[rankIndex],level+1,
+        return new Summary(true,policy.rules().version(),xp,level,rankForLevel(level),names[rankIndex],level+1,
                 nextThreshold,nextThreshold-xp,progress,checkInAvailable,List.copyOf(badges),List.copyOf(regions));
+    }
+
+    private static String rankForLevel(int level) {
+        if(level<=2) return "white";
+        if(level<=4) return "green";
+        if(level<=9) return "yellow";
+        if(level<=14) return "blue";
+        if(level<=24) return "red";
+        if(level<=39) return "pink";
+        return "black";
     }
 
     private static int tierOrder(String value) {
