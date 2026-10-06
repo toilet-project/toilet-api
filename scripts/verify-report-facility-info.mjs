@@ -64,9 +64,10 @@ for (const policy of ['SCHEDULED','ALWAYS','IRREGULAR','CLOSED']) {
   const rejected = await call(`/api/admin/v1/reports/${reportId}/approve`,{confirmedFacilityInfo:{...body.facilityInfo,name:body.name,openingHours:{...weekly,schedules:[]}}},admin)
   assert.equal(rejected.status,400)
   assert.equal(Number(sql('SELECT COUNT(*) FROM toilet')),countBefore)
-  const decision = await call(`/api/admin/v1/reports/${reportId}/approve`,{confirmedFacilityInfo:{...body.facilityInfo,name:body.name}},admin)
+  const confirmedHours = policy === 'SCHEDULED' ? {...hours,holidayPolicy:'OPEN'} : hours
+  const decision = await call(`/api/admin/v1/reports/${reportId}/approve`,{confirmedFacilityInfo:{...body.facilityInfo,name:body.name,openingHours:confirmedHours}},admin)
   assert.equal(decision.status,200,JSON.stringify(decision.data)); const approvedId = decision.data.toiletId
-  assert.equal(sql(`SELECT CONCAT_WS('|',opening_policy,holiday_policy,manual_override,normalization_status) FROM toilet_opening_hours WHERE toilet_id=${approvedId}`),`${policy}|${hours.holidayPolicy}|1|CONFIRMED`)
+  assert.equal(sql(`SELECT CONCAT_WS('|',opening_policy,holiday_policy,manual_override,normalization_status) FROM toilet_opening_hours WHERE toilet_id=${approvedId}`),`${policy}|${confirmedHours.holidayPolicy}|1|CONFIRMED`)
   assert.equal(Number(sql(`SELECT COUNT(*) FROM toilet_opening_schedule WHERE toilet_id=${approvedId}`)),hours.schedules.length)
   if (policy === 'SCHEDULED') {
     assert.equal(sql(`SELECT CONCAT_WS('|',start_time,end_time,crosses_midnight) FROM toilet_opening_schedule WHERE toilet_id=${approvedId} AND day_of_week=1 AND slot_index=0`),'20:00:00|02:00:00|1')
@@ -74,6 +75,7 @@ for (const policy of ['SCHEDULED','ALWAYS','IRREGULAR','CLOSED']) {
   }
   const evidence = await call(`/api/admin/v1/reports/${reportId}`,undefined,admin)
   assert.equal(evidence.data.report.facilityInfo.openingHours.openingPolicy,policy)
+  assert.equal(evidence.data.report.facilityInfo.openingHours.holidayPolicy,hours.holidayPolicy)
   const retry = await call('/api/v1/reports/guest',body,identity); assert.equal(retry.data.id,reportId)
 }
 await writeFile(outputPath,JSON.stringify({passed:true,sourceFacilityId:facility.id,reportId:id,fixtureFacilityId:toiletId,checks:['guest identity and permissions','proposal-only submission','invalid approval rollback','confirmed basic info persisted','opening hours synchronized','original proposal preserved','idempotent completion','single registration','guest hide/restore actions','four structured policies with holiday manual confirmation','multiple slots, closed day and overnight persistence'],productionWrites:false},null,2)+'\n')
