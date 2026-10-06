@@ -104,6 +104,8 @@ public class ReportPreviewServer {
 
     private static void resolutionSchema(DataSource source) {
         var jdbc = new JdbcTemplate(source);
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet_report' AND column_name='proposed_facility_info'", Integer.class) == 0)
+            new ResourceDatabasePopulator(new ClassPathResource("db/migration/V42__new_facility_report_info.sql")).execute(source);
         if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet' AND column_name='visibility_version'", Integer.class) == 0) {
             new ResourceDatabasePopulator(new ClassPathResource("report-preview-visibility.sql")).execute(source);
         }

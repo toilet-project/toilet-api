@@ -103,4 +103,53 @@ class QuickToiletReportServiceTest {
         when(reports.existsByActiveRequestKey(any())).thenReturn(true);
         assertThatThrownBy(() -> service.submitQuick(null, guest, key, observation("FACILITY_MISSING"))).isInstanceOf(IllegalArgumentException.class);
     }
+    @Test void guestBasicInfoIsRetainedWithoutFacilityWritesAndRetryIncludesDetails() {
+        var info = new NewFacilityInfo(null, "개방", "24시간", "공휴일 운영", "관리 기관", "02-1234-5678", true, false, null, 1, null);
+        var request = new QuickToiletReportRequest(null, "NEW_FACILITY", lat, lng, "입력 주소", "새 시설", "", info);
+        var result = service.submitQuick(null, guest, key, request);
+        assertThat(result.facilityInfo().name()).isEqualTo("새 시설");
+        assertThat(result.openTime()).isEqualTo("24시간");
+        assertThat(result.facilityInfo().diaperTable()).isNull();
+        assertThat(result.facilityInfo().cctv()).isFalse();
+        var captured = ArgumentCaptor.forClass(ToiletReport.class); verify(reports).save(captured.capture());
+        when(reports.findBySubmissionKey(captured.getValue().getSubmissionKey())).thenReturn(Optional.of(captured.getValue()));
+        assertThat(service.submitQuick(null, guest, key, request).facilityInfo()).isEqualTo(result.facilityInfo());
+        var changed = new QuickToiletReportRequest(null, "NEW_FACILITY", lat, lng, "입력 주소", "새 시설", "", NewFacilityInfo.legacy(null, "09:00~18:00"));
+        assertThatThrownBy(() -> service.submitQuick(null, guest, key, changed)).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(toilets, resolver, translations, hours, users);
+    }
+    @Test void guestApprovalUsesConfirmedInfoAndPreservesOriginalProposal() {
+        var report = ToiletReport.quick(null, null, "NEW_FACILITY", "제보 이름", lat, lng, "제안 주소", null, "", "a", "b", "c");
+        var proposed = NewFacilityInfo.legacy("제보 이름", "24시간"); report.captureNewFacilityInfo(proposed);
+        when(reports.findByIdForUpdate(1L)).thenReturn(Optional.of(report));
+        when(resolver.resolve(lat, lng)).thenReturn(new CoordinateAddress(lat, lng, "검증 주소", null));
+        when(toilets.saveAndFlush(any())).thenAnswer(call -> { Toilet created = call.getArgument(0); ReflectionTestUtils.setField(created, "id", 99L); return created; });
+        var confirmed = new NewFacilityInfo("확정 이름", "공중", "09:00~18:00", "주말 휴무", "기관", null, true, false, null, 2, 0);
+        service.approve(3L, 1L, new ReviewToiletReportRequest("현장 확인", null, null, null, confirmed));
+        var created = ArgumentCaptor.forClass(Toilet.class); verify(toilets).saveAndFlush(created.capture());
+        assertThat(created.getValue().getName()).isEqualTo("확정 이름");
+        assertThat(created.getValue().getOpenTime()).isEqualTo("09:00~18:00");
+        assertThat(created.getValue().getToiletType()).isEqualTo("공중");
+        assertThat(created.getValue().getHasCctv()).isEqualTo("N");
+        assertThat(created.getValue().getHasDiaperTable()).isNull();
+        assertThat(created.getValue().getMaleDisabledToiletCount()).isEqualTo(2);
+        assertThat(report.getProposedFacilityInfo()).isEqualTo(proposed);
+        assertThat(report.getProposedOpenTime()).isEqualTo("24시간");
+        verify(hours).synchronize(99L, "09:00~18:00", "주말 휴무"); verifyNoInteractions(users);
+    }
+    @Test void invalidInfoIsRejectedBeforeAnyFacilityMutation() {
+        var bad = new NewFacilityInfo(null, "공중", "24시간", null, null, null, null, null, null, -1, null);
+        assertThatThrownBy(() -> service.submitQuick(null, guest, key,
+                new QuickToiletReportRequest(null, "NEW_FACILITY", lat, lng, "", "새 시설", "", bad))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.submitQuick(null, guest, key,
+                new QuickToiletReportRequest(10L, "FACILITY_MISSING", null, null, null, null, null, NewFacilityInfo.legacy("이름", "24시간")))).isInstanceOf(IllegalArgumentException.class);
+        verify(reports, never()).save(any()); verifyNoInteractions(toilets, resolver, hours, translations);
+    }
+    @Test void legacyRetryFingerprintAndNullablePersistenceRoundtripRemainCompatible() {
+        assertThat(observation("FACILITY_MISSING").fingerprintInput()).isEqualTo("QuickToiletReportRequest[toiletId=10, reportType=FACILITY_MISSING, latitude=null, longitude=null, roadAddress=null, name=null, reason=null]");
+        var converter = new NewFacilityInfoConverter();
+        var info = new NewFacilityInfo("日本語 이름", null, "24시간", null, null, null, null, false, true, null, 0);
+        assertThat(converter.convertToEntityAttribute(converter.convertToDatabaseColumn(info))).isEqualTo(info);
+        assertThat(converter.convertToEntityAttribute(null)).isNull();
+    }
 }

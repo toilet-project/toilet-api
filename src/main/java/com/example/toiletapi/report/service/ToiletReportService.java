@@ -34,6 +34,7 @@ public class ToiletReportService {
         if (userId == null) requireUuid(guestId);
         else userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
         boolean isNew = "NEW_FACILITY".equals(request.reportType());
+        if (!isNew && request.facilityInfo() != null) throw new IllegalArgumentException("신규 제보만 기본 정보를 입력할 수 있습니다.");
         String reason = clean(request.reason(), 500), name = clean(request.name(), 100), address = clean(request.roadAddress(), 255);
         if (isNew && (request.toiletId() != null || name.isBlank())) throw new IllegalArgumentException("신규 화장실 이름을 입력해 주세요.");
         if (!isNew && (request.toiletId() == null || request.toiletId() <= 0)) throw new IllegalArgumentException("대상 화장실을 선택해 주세요.");
@@ -45,7 +46,11 @@ public class ToiletReportService {
         }
         String actor = userId == null ? "guest:" + guestId : "member:" + userId;
         String key = hash(actor + ":" + requestId);
-        String fingerprint = hash(request.toString());
+        NewFacilityInfo facilityInfo = isNew && request.facilityInfo() != null
+                ? request.facilityInfo().validated(name) : null;
+        if (facilityInfo != null && !name.equals(facilityInfo.name()))
+            throw new IllegalArgumentException("제보 이름과 기본 정보의 이름이 일치해야 합니다.");
+        String fingerprint = hash(request.fingerprintInput());
         Optional<ToiletReport> existing = reportRepository.findBySubmissionKey(key);
         if (existing.isPresent()) {
             if (!fingerprint.equals(existing.get().getSubmissionFingerprint())) throw new IllegalArgumentException("접수 요청이 변경되었습니다. 새 제보를 시작해 주세요.");
@@ -61,6 +66,7 @@ public class ToiletReportService {
                 observation ? toilet.getRoadAddress() : address, observation ? toilet.getOpenTime() : null,
                 reason, activeKey, key, fingerprint);
         if (observation) report.captureObservationDetails(toilet.getOpenTimeDetail(), toilet.getJibunAddress());
+        if (facilityInfo != null) report.captureNewFacilityInfo(facilityInfo);
         return response(reportRepository.save(report), report.getProposedName());
     }
     private static void requireUuid(String value) {
@@ -158,6 +164,13 @@ public class ToiletReportService {
     public ToiletReportResponse approve(Long adminId, Long reportId, ReviewToiletReportRequest request) {
         ToiletReport report = reportRepository.findByIdForUpdate(reportId).orElseThrow(() -> new IllegalArgumentException("제보를 찾을 수 없습니다."));
         if (report.getStatus() != ReportStatus.PENDING) throw new IllegalArgumentException("대기 중인 제보만 처리할 수 있습니다.");
+        boolean isNew = "NEW_FACILITY".equals(report.getReportType());
+        if (!isNew && request != null && request.confirmedFacilityInfo() != null)
+            throw new IllegalArgumentException("신규 제보만 기본 정보를 확정할 수 있습니다.");
+        NewFacilityInfo confirmedInfo = isNew ? (request != null && request.confirmedFacilityInfo() != null
+                ? request.confirmedFacilityInfo() : report.getProposedFacilityInfo() != null
+                ? report.getProposedFacilityInfo() : NewFacilityInfo.legacy(report.getProposedName(), report.getProposedOpenTime()))
+                .validated(report.getProposedName()) : null;
         CoordinateAddress address = null;
         if (Set.of("COORDINATE_CORRECTION", "NEW_FACILITY").contains(report.getReportType())) {
             if (request != null && (request.confirmedLatitude() == null) != (request.confirmedLongitude() == null)) {
@@ -165,8 +178,12 @@ public class ToiletReportService {
             }
             address = addressResolver.resolve(confirmedLatitude(request, report), confirmedLongitude(request, report));
         }
-        boolean isNew = "NEW_FACILITY".equals(report.getReportType());
-        Toilet toilet = isNew ? toiletRepository.saveAndFlush(Toilet.fromApprovedReport(report.getProposedName(), address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress()))
+        Toilet created = null;
+        if (isNew) {
+            created = Toilet.fromApprovedReport(confirmedInfo.name(), address.latitude(), address.longitude(), address.roadAddress(), address.jibunAddress());
+            created.applyApprovedReportInfo(confirmedInfo);
+        }
+        Toilet toilet = isNew ? toiletRepository.saveAndFlush(created)
                 : toiletRepository.findByIdForUpdate(report.getToiletId()).orElseThrow(() -> new IllegalArgumentException("대상 화장실을 찾을 수 없습니다."));
         if (isNew) report.linkApprovedFacility(toilet.getId());
         boolean translationSourceChanged = false;
@@ -182,6 +199,7 @@ public class ToiletReportService {
             toiletRepository.flush();
             openingHours.synchronize(report.getToiletId(), report.getProposedOpenTime(), toilet.getOpenTimeDetail());
         } else if (isNew) {
+            openingHours.synchronize(toilet.getId(), toilet.getOpenTime(), toilet.getOpenTimeDetail());
             translationSourceChanged = true;
         } else if (!Set.of("FACILITY_MISSING", "TEMPORARILY_CLOSED").contains(report.getReportType())) {
             throw new IllegalArgumentException("처리할 수 없는 제보 유형입니다.");
@@ -192,6 +210,7 @@ public class ToiletReportService {
         }
         report.approve(adminId, note(request));
         Map<String, Object> auditDetails = new HashMap<>(); auditDetails.put("toiletId", report.getToiletId());
+        if (isNew) auditDetails.put("confirmedFacilityInfo", confirmedInfo);
         if ("COORDINATE_CORRECTION".equals(report.getReportType())) auditDetails.put("coordinateAdjustedByAdmin", hasCoordinateOverride(request));
         auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_APPROVED, auditDetails);
         notificationService.createReportDecision(report, toilet.getName());
