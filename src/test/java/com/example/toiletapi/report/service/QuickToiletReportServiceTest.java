@@ -145,11 +145,36 @@ class QuickToiletReportServiceTest {
                 new QuickToiletReportRequest(10L, "FACILITY_MISSING", null, null, null, null, null, NewFacilityInfo.legacy("이름", "24시간")))).isInstanceOf(IllegalArgumentException.class);
         verify(reports, never()).save(any()); verifyNoInteractions(toilets, resolver, hours, translations);
     }
+    @Test void structuredHoursPersistAndApprovalUsesManualConfirmation() {
+        var schedule = new com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ConfirmRequest("SCHEDULED", false, "CLOSED", List.of(
+                new com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ScheduleInput(1,0,java.time.LocalTime.of(20,0),java.time.LocalTime.of(2,0),true,false),
+                new com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ScheduleInput(7,0,null,null,false,true)));
+        var info = new NewFacilityInfo("새 시설", null, "요일별 운영", null, null, null, null, null, null, null, null, schedule);
+        var converter = new NewFacilityInfoConverter();
+        assertThat(converter.convertToEntityAttribute(converter.convertToDatabaseColumn(info))).isEqualTo(info);
+        var request = new QuickToiletReportRequest(null,"NEW_FACILITY",lat,lng,"주소","새 시설","",info);
+        assertThat(service.submitQuick(null,guest,key,request).facilityInfo().openingHours()).isEqualTo(schedule);
+        var capture = ArgumentCaptor.forClass(ToiletReport.class); verify(reports).save(capture.capture());
+        var report = capture.getValue(); when(reports.findByIdForUpdate(1L)).thenReturn(Optional.of(report));
+        when(resolver.resolve(lat,lng)).thenReturn(new CoordinateAddress(lat,lng,"주소",null));
+        when(toilets.saveAndFlush(any())).thenAnswer(call -> { Toilet created = call.getArgument(0); ReflectionTestUtils.setField(created,"id",99L); return created; });
+        service.approve(3L,1L,null);
+        verify(hours).confirm(3L,99L,schedule); verify(hours,never()).synchronize(anyLong(),any(),any());
+        assertThat(report.getProposedFacilityInfo()).isEqualTo(info);
+    }
+    @Test void invalidStructuredHoursCannotCreateAReport() {
+        var bad = new com.example.toiletapi.toilet.openinghours.OpeningHoursModels.ConfirmRequest("SCHEDULED",false,"CLOSED",List.of());
+        var info = new NewFacilityInfo("이름",null,null,null,null,null,null,null,null,null,null,bad);
+        assertThatThrownBy(() -> service.submitQuick(null,guest,key,new QuickToiletReportRequest(null,"NEW_FACILITY",lat,lng,"","이름","",info))).isInstanceOf(IllegalArgumentException.class);
+        verify(reports,never()).save(any()); verifyNoInteractions(resolver,hours,toilets);
+    }
     @Test void legacyRetryFingerprintAndNullablePersistenceRoundtripRemainCompatible() {
         assertThat(observation("FACILITY_MISSING").fingerprintInput()).isEqualTo("QuickToiletReportRequest[toiletId=10, reportType=FACILITY_MISSING, latitude=null, longitude=null, roadAddress=null, name=null, reason=null]");
         var converter = new NewFacilityInfoConverter();
         var info = new NewFacilityInfo("日本語 이름", null, "24시간", null, null, null, null, false, true, null, 0);
         assertThat(converter.convertToEntityAttribute(converter.convertToDatabaseColumn(info))).isEqualTo(info);
         assertThat(converter.convertToEntityAttribute(null)).isNull();
+        assertThat(info.toString()).doesNotContain("openingHours=");
+        assertThat(converter.convertToEntityAttribute("{\"name\":\"이전 제보\",\"openTime\":\"24시간\"}").openingHours()).isNull();
     }
 }

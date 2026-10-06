@@ -199,7 +199,8 @@ public class ToiletReportService {
             toiletRepository.flush();
             openingHours.synchronize(report.getToiletId(), report.getProposedOpenTime(), toilet.getOpenTimeDetail());
         } else if (isNew) {
-            openingHours.synchronize(toilet.getId(), toilet.getOpenTime(), toilet.getOpenTimeDetail());
+            if (confirmedInfo.openingHours() != null) openingHours.confirm(adminId, toilet.getId(), confirmedInfo.openingHours());
+            else openingHours.synchronize(toilet.getId(), toilet.getOpenTime(), toilet.getOpenTimeDetail());
             translationSourceChanged = true;
         } else if (!Set.of("FACILITY_MISSING", "TEMPORARILY_CLOSED").contains(report.getReportType())) {
             throw new IllegalArgumentException("처리할 수 없는 제보 유형입니다.");
