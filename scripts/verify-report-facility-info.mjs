@@ -78,5 +78,21 @@ for (const policy of ['SCHEDULED','ALWAYS','IRREGULAR','CLOSED']) {
   assert.equal(evidence.data.report.facilityInfo.openingHours.holidayPolicy,hours.holidayPolicy)
   const retry = await call('/api/v1/reports/guest',body,identity); assert.equal(retry.data.id,reportId)
 }
-await writeFile(outputPath,JSON.stringify({passed:true,sourceFacilityId:facility.id,reportId:id,fixtureFacilityId:toiletId,checks:['guest identity and permissions','proposal-only submission','invalid approval rollback','confirmed basic info persisted','opening hours synchronized','original proposal preserved','idempotent completion','single registration','guest hide/restore actions','four structured policies with holiday manual confirmation','multiple slots, closed day and overnight persistence'],productionWrites:false},null,2)+'\n')
-console.log(JSON.stringify({passed:true,reportId:id,checks:9,structuredPolicies:4,productionWrites:false}))
+const rawInfo = '월요일 20:00~다음 날 02:00, 일요일·공휴일 휴무\n기저귀 교환대 있음'
+const simpleBody = {...proposal,name:facility.name+' · 간편 입력 '+runLabel,reason:'',facilityInfo:{...proposal.facilityInfo,openTime:null,openTimeDetail:rawInfo,openingHours:null}}
+const simpleIdentity = {...guest,'Idempotency-Key':randomUUID()}
+const simple = await call('/api/v1/reports/guest',simpleBody,simpleIdentity); assert.equal(simple.status,201,JSON.stringify(simple.data))
+const simpleDetail = await call(`/api/admin/v1/reports/${simple.data.id}`,undefined,admin)
+assert.equal(simpleDetail.data.report.facilityInfo.openTimeDetail,rawInfo)
+assert.equal(simpleDetail.data.report.facilityInfo.openingHours,null)
+const simpleDecision = await call(`/api/admin/v1/reports/${simple.data.id}/approve`,{confirmedFacilityInfo:{...simpleBody.facilityInfo,name:simpleBody.name,openTime:'요일별 운영',diaperTable:true,openingHours:weekly}},admin)
+assert.equal(simpleDecision.status,200,JSON.stringify(simpleDecision.data))
+const simpleToiletId = simpleDecision.data.toiletId
+assert.equal(sql(`SELECT CONCAT_WS('|',opening_policy,holiday_policy,manual_override,normalization_status) FROM toilet_opening_hours WHERE toilet_id=${simpleToiletId}`),'SCHEDULED|CLOSED|1|CONFIRMED')
+assert.equal(Number(sql(`SELECT COUNT(*) FROM toilet_opening_schedule WHERE toilet_id=${simpleToiletId}`)),3)
+const simpleEvidence = await call(`/api/admin/v1/reports/${simple.data.id}`,undefined,admin)
+assert.equal(simpleEvidence.data.report.facilityInfo.openTimeDetail,rawInfo)
+assert.equal(simpleEvidence.data.report.facilityInfo.openingHours,null)
+const checks = ['guest identity and permissions','proposal-only submission','invalid approval rollback','confirmed basic info persisted','opening hours synchronized','original proposal preserved','idempotent completion','single registration','guest hide/restore actions','four structured policies with holiday manual confirmation','multiple slots, closed day and overnight persistence','guided free text preserved and converted by admin confirmation']
+await writeFile(outputPath,JSON.stringify({passed:true,sourceFacilityId:facility.id,reportId:id,fixtureFacilityId:toiletId,simpleReportId:simple.data.id,checks,productionWrites:false},null,2)+'\n')
+console.log(JSON.stringify({passed:true,reportId:id,checks:checks.length,structuredPolicies:4,productionWrites:false}))
