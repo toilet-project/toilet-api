@@ -46,7 +46,10 @@ public class ReportPreviewServer {
             throw new IllegalArgumentException("Invalid fixture metadata path");
         var app = new SpringApplication(Config.class);
         app.setDefaultProperties(Map.of("kakao.api.key", System.getenv().getOrDefault("REPORT_PREVIEW_KAKAO_KEY", "preview-no-provider-secret")));
-        var context = app.run("--spring.config.location=optional:classpath:report-preview-only.properties", "--server.address=127.0.0.1", "--server.port=0",
+        var previous = reuseMetadata();
+        var port = previous == null ? 0 : ((Number) previous.get("port")).intValue();
+        if (port != 0 && (port < 1024 || port > 65535)) throw new IllegalArgumentException("Invalid trial port");
+        var context = app.run("--spring.config.location=optional:classpath:report-preview-only.properties", "--server.address=127.0.0.1", "--server.port=" + port,
                 "--spring.flyway.enabled=false", "--spring.data.redis.repositories.enabled=false", "--spring.jpa.open-in-view=false",
                 "--reports.quick-enabled=true", "--logging.level.root=WARN");
         var expires = reuseMetadata() == null || renewApproved() ? Instant.now().plus(Duration.ofHours(2)) : Instant.parse((String) reuseMetadata().get("expiresAt"));
@@ -104,6 +107,8 @@ public class ReportPreviewServer {
 
     private static void resolutionSchema(DataSource source) {
         var jdbc = new JdbcTemplate(source);
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet_report' AND column_name='proposed_facility_info'", Integer.class) == 0)
+            new ResourceDatabasePopulator(new ClassPathResource("db/migration/V42__new_facility_report_info.sql")).execute(source);
         if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet' AND column_name='visibility_version'", Integer.class) == 0) {
             new ResourceDatabasePopulator(new ClassPathResource("report-preview-visibility.sql")).execute(source);
         }

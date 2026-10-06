@@ -151,6 +151,19 @@ public class Toilet {
         this.openTime = openTime;
     }
 
+    /** New-facility approval only; public submission never calls this method. */
+    public void applyApprovedReportInfo(com.example.toiletapi.report.model.NewFacilityInfo info) {
+        if (!"USER_REPORT".equals(dataSource)) throw new IllegalStateException("신규 제보 시설만 입력할 수 있습니다.");
+        this.name = info.name(); this.toiletType = info.toiletType();
+        this.openTime = info.openTime(); this.openTimeDetail = info.openTimeDetail();
+        this.agencyName = info.agencyName(); this.phoneNumber = info.phoneNumber();
+        this.hasEmergencyBell = flag(info.emergencyBell()); this.hasCctv = flag(info.cctv());
+        this.hasDiaperTable = flag(info.diaperTable());
+        this.maleDisabledToiletCount = info.maleDisabledToiletCount();
+        this.femaleDisabledToiletCount = info.femaleDisabledToiletCount();
+    }
+    private static String flag(Boolean value) { return value == null ? null : value ? "Y" : "N"; }
+
     /** 관리자 편집 화면에서 검증을 마친 값을 한 번에 반영합니다. */
     public void applyAdminUpdate(ToiletEditableData data) {
         if (!sameCoordinate(this.latitude, data.latitude())

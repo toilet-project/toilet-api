@@ -24,6 +24,8 @@ public class ToiletReport {
     @Column(name = "proposed_road_address", length = 255) private String proposedRoadAddress;
     @Column(name = "proposed_jibun_address", length = 255) private String proposedJibunAddress;
     @Column(name = "proposed_open_time", length = 50) private String proposedOpenTime;
+    @Convert(converter = NewFacilityInfoConverter.class)
+    @Column(name = "proposed_facility_info", columnDefinition = "TEXT") private NewFacilityInfo proposedFacilityInfo;
     @Column(nullable = false, length = 500) private String reason;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private ReportStatus status = ReportStatus.PENDING;
     @Column(name = "active_request_key", length = 64) private String activeRequestKey;
@@ -64,6 +66,12 @@ public class ToiletReport {
         if (!"NEW_FACILITY".equals(reportType) || this.toiletId != null || status != ReportStatus.PENDING)
             throw new IllegalArgumentException("신규 시설 제보만 등록할 수 있습니다.");
         this.toiletId = toiletId;
+    }
+    public void captureNewFacilityInfo(NewFacilityInfo info) {
+        if (!"NEW_FACILITY".equals(reportType) || status != ReportStatus.PENDING || proposedFacilityInfo != null)
+            throw new IllegalArgumentException("신규 제보 접수 시에만 기본 정보를 보관할 수 있습니다.");
+        this.proposedFacilityInfo = info;
+        this.proposedOpenTime = info.openTime();
     }
     public void captureObservationDetails(String openTimeDetail, String jibunAddress) {
         if (!"FACILITY_MISSING".equals(reportType) && !"TEMPORARILY_CLOSED".equals(reportType))

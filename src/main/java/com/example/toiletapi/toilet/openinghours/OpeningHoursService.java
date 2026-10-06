@@ -175,7 +175,7 @@ public class OpeningHoursService {
         return repository.find(toiletId).orElseThrow(() -> new IllegalStateException("확정한 개방시간을 조회할 수 없습니다."));
     }
 
-    private static Normalized validateConfirmation(ConfirmRequest request) {
+    public static Normalized validateConfirmation(ConfirmRequest request) {
         if (request == null || request.openingPolicy() == null || !POLICIES.contains(request.openingPolicy())) {
             throw new IllegalArgumentException("확정할 개방 정책이 올바르지 않습니다.");
         }

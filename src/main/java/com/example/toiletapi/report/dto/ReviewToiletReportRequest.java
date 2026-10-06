@@ -1,6 +1,7 @@
 package com.example.toiletapi.report.dto;
 
 import java.math.BigDecimal;
+import com.example.toiletapi.report.model.NewFacilityInfo;
 
 /**
  * 관리자 검토 결과입니다. 위치 제보는 지도에서 보정한 좌표를 전달할 수 있습니다.
@@ -12,5 +13,10 @@ public record ReviewToiletReportRequest(
         String note,
         BigDecimal confirmedLatitude,
         BigDecimal confirmedLongitude,
-        String confirmedRoadAddress
-) { }
+        String confirmedRoadAddress,
+        NewFacilityInfo confirmedFacilityInfo
+) {
+    public ReviewToiletReportRequest(String note, BigDecimal latitude, BigDecimal longitude, String roadAddress) {
+        this(note, latitude, longitude, roadAddress, null);
+    }
+}
