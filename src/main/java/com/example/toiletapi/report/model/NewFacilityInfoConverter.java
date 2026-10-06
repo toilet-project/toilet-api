@@ -10,6 +10,8 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import java.io.IOException;
 import java.time.LocalTime;
+import java.util.Map;
+import com.fasterxml.jackson.core.type.TypeReference;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 
@@ -34,6 +36,9 @@ public class NewFacilityInfoConverter implements AttributeConverter<NewFacilityI
         if (value == null) return null;
         try { return MAPPER.writeValueAsString(value); }
         catch (JsonProcessingException e) { throw new IllegalStateException("신규 제보 정보를 저장하지 못했습니다.", e); }
+    }
+    public static Map<String, Object> auditSnapshot(NewFacilityInfo value) {
+        return MAPPER.convertValue(value, new TypeReference<Map<String, Object>>() {});
     }
     @Override public NewFacilityInfo convertToEntityAttribute(String value) {
         if (value == null) return null;

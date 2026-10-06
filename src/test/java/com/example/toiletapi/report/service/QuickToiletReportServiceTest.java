@@ -152,6 +152,7 @@ class QuickToiletReportServiceTest {
         var info = new NewFacilityInfo("새 시설", null, "요일별 운영", null, null, null, null, null, null, null, null, schedule);
         var converter = new NewFacilityInfoConverter();
         assertThat(converter.convertToEntityAttribute(converter.convertToDatabaseColumn(info))).isEqualTo(info);
+        assertThatCode(() -> new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(NewFacilityInfoConverter.auditSnapshot(info))).doesNotThrowAnyException();
         var request = new QuickToiletReportRequest(null,"NEW_FACILITY",lat,lng,"주소","새 시설","",info);
         assertThat(service.submitQuick(null,guest,key,request).facilityInfo().openingHours()).isEqualTo(schedule);
         var capture = ArgumentCaptor.forClass(ToiletReport.class); verify(reports).save(capture.capture());

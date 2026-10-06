@@ -211,7 +211,7 @@ public class ToiletReportService {
         }
         report.approve(adminId, note(request));
         Map<String, Object> auditDetails = new HashMap<>(); auditDetails.put("toiletId", report.getToiletId());
-        if (isNew) auditDetails.put("confirmedFacilityInfo", confirmedInfo);
+        if (isNew) auditDetails.put("confirmedFacilityInfo", com.example.toiletapi.report.model.NewFacilityInfoConverter.auditSnapshot(confirmedInfo));
         if ("COORDINATE_CORRECTION".equals(report.getReportType())) auditDetails.put("coordinateAdjustedByAdmin", hasCoordinateOverride(request));
         auditLogService.recordReportDecision(adminId, reportId, AuditAction.REPORT_APPROVED, auditDetails);
         notificationService.createReportDecision(report, toilet.getName());

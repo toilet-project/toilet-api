@@ -9,7 +9,10 @@ const metadata = JSON.parse(await readFile(metadataPath, 'utf8'))
 if (basename(dirname(resolve(metadataPath))) !== `account-retention-mysql-${metadata.marker}` || !/^[a-f0-9]{10}$/.test(metadata.marker)) throw new Error('Invalid fixture directory')
 const expires = Date.parse(metadata.expiresAt)
 if (!(expires > Date.now() && expires - Date.now() <= 2 * 3600000) || !(metadata.port > 1024 && metadata.port <= 65535) || !metadata.tokens?.['3']) throw new Error('Invalid isolated metadata')
-const token = randomBytes(32).toString('hex'), seeded = new Set()
+const previousPath = process.env.REPORT_PREVIEW_REUSE_CONNECTION
+const previous = previousPath ? JSON.parse(await readFile(previousPath,'utf8')) : null
+if (previous && (dirname(resolve(previousPath)) !== dirname(resolve(metadataPath)) || previous.expiresAt !== metadata.expiresAt || !(previous.port>1024&&previous.port<65536) || !/^[a-f0-9]{64}$/.test(previous.token))) throw new Error('Existing trial connection invalid')
+const token = previous?.token || randomBytes(32).toString('hex'), seeded = new Set()
 let minute = 0, count = 0
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i
 const server = http.createServer(async (req, res) => {
@@ -47,7 +50,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(result.status); res.end(Buffer.from(await result.arrayBuffer()))
   } catch { if (!res.headersSent) fail(503, 'PREVIEW_UNAVAILABLE'); else res.end() }
 })
-server.listen(0, '127.0.0.1', async () => {
+server.listen(previous?.port || 0, '127.0.0.1', async () => {
   await writeFile(outputPath, JSON.stringify({ port: server.address().port, token, expiresAt: metadata.expiresAt }), { flag: 'wx', mode: 0o600 })
   console.log('REPORT_GATEWAY_READY isolated=true source=public-api')
 })
