@@ -10,6 +10,13 @@ assert.equal(basename(dirname(resolve(input))),`account-retention-mysql-${meta.m
 assert.match(meta.jdbcUrl,/^jdbc:mysql:\/\/127\.0\.0\.1:\d+\/account_retention_test_[a-f0-9]{32}\?/)
 assert.ok(Date.parse(meta.expiresAt)>Date.now()&&Date.parse(meta.expiresAt)-Date.now()<=7200000)
 const origin=`http://127.0.0.1:${meta.port}`
+const publicSource=await fetch('https://api.geupddong.com/api/v1/toilets/53586',{redirect:'error',signal:AbortSignal.timeout(20000)})
+assert.equal(publicSource.status,200)
+const sourceFacility=await publicSource.json()
+assert.equal(sourceFacility.id,53586)
+const imported=await fetch(origin+'/api/admin/preview/source',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${meta.tokens['3']}`},body:JSON.stringify(sourceFacility),redirect:'error'})
+assert.equal(imported.status,200)
+await imported.body?.cancel()
 async function call(path,{method='GET',body,token=meta.tokens['3'],headers={}}={}){
   const response=await fetch(origin+path,{method,headers:{...(token?{Authorization:`Bearer ${token}`} :{}),...(body?{'Content-Type':'application/json'}:{}),...headers},body:body?JSON.stringify(body):undefined})
   return {status:response.status,data:await response.json().catch(()=>null)}

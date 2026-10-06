@@ -14,7 +14,7 @@ assert.ok(Date.parse(meta.expiresAt) > Date.now() && Date.parse(meta.expiresAt)-
 const match = meta.jdbcUrl.match(/^jdbc:mysql:\/\/127\.0\.0\.1:(\d+)\/(account_retention_test_[a-f0-9]{32})\?/)
 assert.ok(match); assert.notEqual(Number(match[1]),3306)
 const mysql = 'C:/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe'
-const sql = statement => execFileSync(mysql,['--no-defaults','--protocol=tcp','--host=127.0.0.1',`--port=${match[1]}`,'--user=root','--batch','--raw','--skip-column-names',match[2],'-e',statement],{encoding:'utf8',windowsHide:true}).trim()
+const sql = statement => execFileSync(mysql,['--no-defaults','--default-character-set=utf8mb4','--protocol=tcp','--host=127.0.0.1',`--port=${match[1]}`,'--user=root','--batch','--raw','--skip-column-names',match[2],'-e',statement],{encoding:'utf8',windowsHide:true}).trim()
 assert.ok(sql('SELECT @@datadir').replaceAll('\\','/').includes(`/account-retention-mysql-${meta.marker}/data/`))
 assert.equal(sql('SELECT marker FROM account_retention_fixture_guard.fixture_guard'),meta.marker)
 const origin = `http://127.0.0.1:${meta.port}`
