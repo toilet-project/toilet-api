@@ -107,6 +107,8 @@ public class ReportPreviewServer {
 
     private static void resolutionSchema(DataSource source) {
         var jdbc = new JdbcTemplate(source);
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet' AND column_name IN ('male_toilet_count','male_urinal_count','male_disabled_toilet_count','male_disabled_urinal_count','male_child_toilet_count','male_child_urinal_count','female_toilet_count','female_disabled_toilet_count','female_child_toilet_count') AND is_nullable='NO'", Integer.class) > 0)
+            new ResourceDatabasePopulator(new ClassPathResource("db/migration/V43__allow_unknown_toilet_counts.sql")).execute(source);
         if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet_report' AND column_name='proposed_facility_info'", Integer.class) == 0)
             new ResourceDatabasePopulator(new ClassPathResource("db/migration/V42__new_facility_report_info.sql")).execute(source);
         if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='toilet' AND column_name='visibility_version'", Integer.class) == 0) {
@@ -115,6 +117,22 @@ public class ReportPreviewServer {
         if (jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='toilet_report_resolution'", Integer.class) == 0) {
             new ResourceDatabasePopulator(new ClassPathResource("db/migration/V38__create_report_resolution.sql")).execute(source);
         }
+    }
+
+    static DataSource initializeSchema(DataSource source) {
+        new ResourceDatabasePopulator(new ClassPathResource("report-preview-toilet.sql")).execute(source);
+        for (String file : List.of("V1__create_auth_data_model.sql", "V2__create_toilet_report_and_coordinate_revision.sql", "V4__create_user_notification.sql",
+                "V5__create_coordinate_quality_review.sql", "V7__create_policy_consent_model.sql", "V9__separate_coordinate_report_addresses.sql",
+                "V11__account_withdrawal_retention.sql", "V34__prepare_email_encryption.sql", "V26__create_toilet_translation.sql",
+                "V27__normalize_toilet_opening_hours.sql", "V29__track_translation_address_status.sql", "V37__add_quick_toilet_reports.sql"))
+            new ResourceDatabasePopulator(new ClassPathResource("db/migration/" + file)).execute(source);
+        var jdbc = new JdbcTemplate(source);
+        for (int id = 1; id <= 3; id++) {
+            jdbc.update("INSERT INTO app_user(user_id,status,display_name) VALUES(?,'ACTIVE',?)", id, "격리 시험 계정 " + id);
+            jdbc.update("INSERT INTO user_policy_consent(user_id,policy_document_id,consent_source) SELECT ?,policy_document_id,'WEB_OAUTH_ONBOARDING' FROM policy_document WHERE required=true", id);
+        }
+        resolutionSchema(source);
+        return source;
     }
 
     @org.springframework.boot.test.context.TestConfiguration @EnableAutoConfiguration @EnableTransactionManagement
@@ -127,21 +145,7 @@ public class ReportPreviewServer {
     static class Config {
         @Bean DataSource dataSource() {
             var existing = reuseMetadata();
-            if (existing != null) return existingSource(existing);
-            var source = NativeMySqlFixture.create();
-            new ResourceDatabasePopulator(new ClassPathResource("report-preview-toilet.sql")).execute(source);
-            for (String file : List.of("V1__create_auth_data_model.sql", "V2__create_toilet_report_and_coordinate_revision.sql", "V4__create_user_notification.sql",
-                    "V5__create_coordinate_quality_review.sql", "V7__create_policy_consent_model.sql", "V9__separate_coordinate_report_addresses.sql",
-                    "V11__account_withdrawal_retention.sql", "V34__prepare_email_encryption.sql", "V26__create_toilet_translation.sql",
-                    "V27__normalize_toilet_opening_hours.sql", "V29__track_translation_address_status.sql", "V37__add_quick_toilet_reports.sql"))
-                new ResourceDatabasePopulator(new ClassPathResource("db/migration/" + file)).execute(source);
-            var jdbc = new JdbcTemplate(source);
-            for (int id = 1; id <= 3; id++) {
-                jdbc.update("INSERT INTO app_user(user_id,status,display_name) VALUES(?,'ACTIVE',?)", id, "격리 시험 계정 " + id);
-                jdbc.update("INSERT INTO user_policy_consent(user_id,policy_document_id,consent_source) SELECT ?,policy_document_id,'WEB_OAUTH_ONBOARDING' FROM policy_document WHERE required=true", id);
-            }
-            resolutionSchema(source);
-            return source;
+            return existing != null ? existingSource(existing) : initializeSchema(NativeMySqlFixture.create());
         }
         @Bean ObjectMapper mapper() { return new ObjectMapper(); }
         @Bean LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource ds) {

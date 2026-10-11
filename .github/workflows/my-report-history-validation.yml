@@ -7,6 +7,8 @@ on:
       - 'src/main/java/com/example/toiletapi/auth/**'
       - 'src/main/java/com/example/toiletapi/policy/**'
       - 'src/test/java/com/example/toiletapi/report/**'
+      - 'src/main/resources/db/migration/V43__allow_unknown_toilet_counts.sql'
+      - 'src/test/resources/report-preview-*.sql'
       - '.github/workflows/my-report-history-validation.yml'
 
 permissions:
@@ -26,3 +28,14 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew test --tests '*MyReportHistory*Test' --tests '*ToiletReportServiceTest' --tests '*ReportAuthorDisplayTest' --tests '*WithdrawalSecurityTest' --no-daemon
+      - name: Verify new facility approval against legacy MySQL constraints
+        run: ./gradlew test --tests '*NewFacilityCountMigrationMySqlTest' --tests '*QuickToiletReportServiceTest' --no-daemon
+      - name: Require MySQL regressions to execute without skips
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          suite = ET.parse('build/test-results/test/TEST-com.example.toiletapi.report.NewFacilityCountMigrationMySqlTest.xml').getroot()
+          assert int(suite.attrib['tests']) >= 3
+          assert all(int(suite.attrib[key]) == 0 for key in ('failures', 'errors', 'skipped'))
+          print('Legacy MySQL approval regressions passed without skips')
+          PY
