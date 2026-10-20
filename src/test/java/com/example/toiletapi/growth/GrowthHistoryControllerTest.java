@@ -33,7 +33,7 @@ class GrowthHistoryControllerTest {
     @MockitoBean JwtDecoder decoder;
     @MockitoBean OAuthLoginSuccessHandler loginSuccess;
     private final GrowthService.Actor actor=new GrowthService.Actor(1,7);
-    private final GrowthService.HistoryItem item=new GrowthService.HistoryItem(91,2,"EARN","DAILY_CHECKIN",LocalDateTime.of(2026,10,5,12,0));
+    private final GrowthService.HistoryItem item=new GrowthService.HistoryItem(91,2,"EARN","DAILY_CHECKIN",LocalDateTime.of(2026,10,5,12,0),"CHECKIN");
 
     @BeforeEach void token() {
         when(decoder.decode("MEMBER")).thenReturn(Jwt.withTokenValue("MEMBER").header("alg","HS256")
@@ -46,7 +46,9 @@ class GrowthHistoryControllerTest {
         mvc.perform(get("/api/v1/growth/history").header("Authorization","Bearer MEMBER"))
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control","private, no-store"))
                 .andExpect(jsonPath("$.items[0].id").value(91)).andExpect(jsonPath("$.total").doesNotExist())
-                .andExpect(jsonPath("$.page").doesNotExist()).andExpect(jsonPath("$.size").doesNotExist());
+                .andExpect(jsonPath("$.page").doesNotExist()).andExpect(jsonPath("$.size").doesNotExist())
+                .andExpect(jsonPath("$.items[0].awardKind").value("CHECKIN"))
+                .andExpect(jsonPath("$.items[0].awardKey").doesNotExist());
         verify(growth).history(actor);verifyNoMoreInteractions(growth);
     }
 
@@ -56,7 +58,8 @@ class GrowthHistoryControllerTest {
                 .param("direction","earned").param("page","2").param("size","10").param("userId","999"))
                 .andExpect(status().isOk()).andExpect(header().string("Cache-Control","private, no-store"))
                 .andExpect(jsonPath("$.total").value(31)).andExpect(jsonPath("$.page").value(2))
-                .andExpect(jsonPath("$.size").value(10)).andExpect(jsonPath("$.items[0].reason").value("DAILY_CHECKIN"));
+                .andExpect(jsonPath("$.size").value(10)).andExpect(jsonPath("$.items[0].reason").value("DAILY_CHECKIN"))
+                .andExpect(jsonPath("$.items[0].awardKind").value("CHECKIN"));
         verify(growth).historyPage(actor,"earned",2,10);verifyNoMoreInteractions(growth);
     }
 

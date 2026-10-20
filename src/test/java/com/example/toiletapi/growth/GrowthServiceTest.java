@@ -14,6 +14,8 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -240,6 +242,52 @@ class GrowthServiceTest {
         assertEquals(74,jdbc.queryForObject("SELECT COUNT(*) FROM growth_xp_event",Integer.class));
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM growth_award",Integer.class));
         assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM growth_account",Integer.class));
+    }
+
+    @Test void historyReadsOriginalRewardKindsAndBackfillWithoutChangingRecordedAmountsOrDates() {
+        facilities(30);call(()->growth.initializePolicy(true));call(()->growth.backfillUser(1,true));
+        jdbc.update("UPDATE growth_xp_event SET happened_at='2026-10-01 12:00:00' WHERE user_id=1");
+        var original=jdbc.queryForList("SELECT * FROM growth_xp_event ORDER BY event_id");
+        long balance=GrowthLedger.totalXp(jdbc,1);
+        var legacy=call(()->growth.history(actor)).items();
+        assertEquals(35,legacy.size());
+        assertEquals(Set.of("REVIEW_FIRST","DISTRICT","MEDAL_BRONZE","MEDAL_SILVER","MEDAL_GOLD"),
+                legacy.stream().map(GrowthService.HistoryItem::awardKind).collect(Collectors.toSet()));
+        assertTrue(legacy.stream().allMatch(item->"BACKFILL".equals(item.reason())
+                && item.happenedAt().equals(java.time.LocalDateTime.of(2026,10,1,12,0))));
+        List<GrowthService.HistoryItem> paged=new ArrayList<>();
+        for(int page=0;page<4;page++) {
+            int requestedPage=page;
+            var result=call(()->growth.historyPage(actor,"earned",requestedPage,10));
+            assertEquals(35,result.total());paged.addAll(result.items());
+        }
+        assertEquals(legacy,paged);
+        assertEquals(balance,legacy.stream().mapToLong(GrowthService.HistoryItem::deltaXp).sum());
+        assertEquals(original,jdbc.queryForList("SELECT * FROM growth_xp_event ORDER BY event_id"));
+        assertEquals(balance,GrowthLedger.totalXp(jdbc,1));
+
+        jdbc.update("DELETE FROM toilet_review_submission WHERE review_id=30");
+        call(()->growth.reconcileUser(1,"REVIEW_EDITED"));
+        var deductions=call(()->growth.historyPage(actor,"deducted",0,10)).items();
+        assertEquals(Set.of("REVIEW_FIRST","MEDAL_GOLD"),deductions.stream()
+                .map(GrowthService.HistoryItem::awardKind).collect(Collectors.toSet()));
+        assertTrue(deductions.stream().allMatch(item->item.deltaXp()<0 && "REVIEW_EDITED".equals(item.reason())));
+        assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM growth_award WHERE award_key IS NULL",Integer.class));
+    }
+
+    @Test void historyKeepsUnlinkedEventsAndDoesNotReadAnotherMembersRewardMetadata() {
+        facility(1,"30110");call(()->growth.initializePolicy(true));
+        jdbc.update("INSERT INTO app_user VALUES(2,'ACTIVE',0)");
+        jdbc.update("""
+                INSERT INTO growth_award(award_id,user_id,award_kind,award_key,policy_version,xp_amount,active,awarded_at)
+                VALUES(100,2,'MEDAL_GOLD','P:30',?,100,TRUE,'2026-10-01 12:00:00')
+                """,GrowthService.POLICY_VERSION);
+        historyEvent(1,1,2,"EARN");historyEvent(2,1,100,"EARN");
+        jdbc.update("UPDATE growth_xp_event SET award_id=100 WHERE event_id=2");
+        var history=call(()->growth.historyPage(actor,"earned",0,10));
+        assertEquals(2,history.total());assertEquals(2,history.items().size());
+        assertTrue(history.items().stream().allMatch(item->item.awardKind()==null));
+        assertEquals(history.items(),call(()->growth.history(actor)).items());
     }
 
     @Test void historyPageBoundsAndDirectionsAreValidatedWithoutWriting() {
