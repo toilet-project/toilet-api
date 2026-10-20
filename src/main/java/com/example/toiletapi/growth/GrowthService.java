@@ -50,7 +50,8 @@ public class GrowthService {
                           String rankName, int nextLevel, long nextLevelXp, long remainingXp,
                           int progressPercent, boolean checkInAvailable, List<Badge> badges,
                           List<Region> regions) { }
-    public record HistoryItem(long id, int deltaXp, String type, String reason, LocalDateTime happenedAt) { }
+    public record HistoryItem(long id, int deltaXp, String type, String reason, LocalDateTime happenedAt,
+                              String awardKind) { }
     public sealed interface HistoryResponse permits History, HistoryPage { }
     public record History(List<HistoryItem> items) implements HistoryResponse { }
     public record HistoryPage(List<HistoryItem> items, long total, int page, int size) implements HistoryResponse { }
@@ -334,10 +335,12 @@ public class GrowthService {
         if(!enabled) return new History(List.of());
         if(ledgerPolicy(false)==null) return new History(List.of());
         return new History(jdbc.query("""
-                SELECT event_id,delta_xp,event_kind,reason,happened_at
-                FROM growth_xp_event WHERE user_id=? ORDER BY event_id DESC LIMIT 50
+                SELECT e.event_id,e.delta_xp,e.event_kind,e.reason,e.happened_at,a.award_kind
+                FROM growth_xp_event e
+                LEFT JOIN growth_award a ON a.award_id=e.award_id AND a.user_id=e.user_id
+                WHERE e.user_id=? ORDER BY e.event_id DESC LIMIT 50
                 """,(rs,i)->new HistoryItem(rs.getLong(1),rs.getInt(2),rs.getString(3),rs.getString(4),
-                rs.getObject(5,LocalDateTime.class)),actor.userId()));
+                rs.getObject(5,LocalDateTime.class),rs.getString(6)),actor.userId()));
     }
 
     /** The ledger is read as recorded; browsing history never creates or reconciles awards. */
@@ -348,18 +351,22 @@ public class GrowthService {
             throw new GrowthFailure(400,"INVALID_GROWTH_HISTORY_PAGE","페이지와 조회 개수(1~50)를 확인해 주세요.");
         String sign;
         if(direction==null) sign="";
-        else if("earned".equals(direction)) sign=" AND delta_xp>0";
-        else if("deducted".equals(direction)) sign=" AND delta_xp<0";
+        else if("earned".equals(direction)) sign=" AND e.delta_xp>0";
+        else if("deducted".equals(direction)) sign=" AND e.delta_xp<0";
         else throw new GrowthFailure(400,"INVALID_GROWTH_HISTORY_DIRECTION","획득 또는 차감 내역을 선택해 주세요.");
         if(!enabled || ledgerPolicy(false)==null) return new HistoryPage(List.of(),0,page,size);
-        String where=" FROM growth_xp_event WHERE user_id=?"+sign;
+        String where=" FROM growth_xp_event e WHERE e.user_id=?"+sign;
         long total=jdbc.queryForObject("SELECT COUNT(*)"+where,Long.class,actor.userId());
         long offset=(long)page*size;
         if(offset>=total) return new HistoryPage(List.of(),total,page,size);
-        List<HistoryItem> items=jdbc.query("SELECT event_id,delta_xp,event_kind,reason,happened_at"+where+
-                " ORDER BY event_id DESC LIMIT ? OFFSET ?",
+        List<HistoryItem> items=jdbc.query("""
+                SELECT e.event_id,e.delta_xp,e.event_kind,e.reason,e.happened_at,a.award_kind
+                FROM growth_xp_event e
+                LEFT JOIN growth_award a ON a.award_id=e.award_id AND a.user_id=e.user_id
+                WHERE e.user_id=?
+                """+sign+" ORDER BY e.event_id DESC LIMIT ? OFFSET ?",
                 (rs,i)->new HistoryItem(rs.getLong(1),rs.getInt(2),rs.getString(3),rs.getString(4),
-                        rs.getObject(5,LocalDateTime.class)),actor.userId(),size,offset);
+                        rs.getObject(5,LocalDateTime.class),rs.getString(6)),actor.userId(),size,offset);
         return new HistoryPage(items,total,page,size);
     }
 

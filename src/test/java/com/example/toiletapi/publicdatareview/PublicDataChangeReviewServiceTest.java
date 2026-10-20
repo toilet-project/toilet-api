@@ -2,6 +2,7 @@ package com.example.toiletapi.publicdatareview;
 
 import com.example.toiletapi.auth.model.AuditAction;
 import com.example.toiletapi.auth.service.AuditLogService;
+import com.example.toiletapi.global.time.KoreanTime;
 import com.example.toiletapi.toilet.translation.ToiletTranslationService;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,6 +69,9 @@ class PublicDataChangeReviewServiceTest {
 
     @Test
     void listsAndReturnsLiveComparisonContract() {
+        // Keep this period-filter fixture inside the requested window as calendar time advances.
+        db.update("UPDATE public_data_change_review SET last_received_at=? WHERE review_id=11",
+                KoreanTime.now().minusDays(1));
         Page page = service.search(Status.PENDING, "테스트", 30, 0, 15, "lastReceivedAt,desc");
         assertEquals(1, page.totalElements());
         assertEquals(1, page.summary().pending());
@@ -80,6 +84,10 @@ class PublicDataChangeReviewServiceTest {
         assertEquals(2, detail.review().receiptCount());
         assertTrue(detail.distanceMeters() > 0);
         assertTrue(detail.validation().issues().isEmpty());
+
+        db.update("UPDATE public_data_change_review SET last_received_at=? WHERE review_id=11",
+                KoreanTime.now().minusDays(31));
+        assertEquals(0, service.search(Status.PENDING, "테스트", 30, 0, 15, "lastReceivedAt,desc").totalElements());
     }
 
     @Test
