@@ -49,6 +49,7 @@ class GrowthServiceTest {
         String ddl=new ClassPathResource("db/migration/V40__member_growth.sql").getContentAsString(StandardCharsets.UTF_8)
                 .replace("BOOLEAN","TINYINT");
         new ResourceDatabasePopulator(new ByteArrayResource(ddl.getBytes(StandardCharsets.UTF_8))).execute(ds);
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V44__growth_award_notice.sql")).execute(ds);
         jdbc.update("INSERT INTO app_user VALUES(1,'ACTIVE',0)");
         jdbc.update("INSERT INTO region_sigungu_reference VALUES('30110','30','대전','동구','대전 동구',TRUE),('30140','30','대전','중구','대전 중구',TRUE),('36110','36','세종',NULL,'세종',TRUE),('29110','29','광주','동구','광주 동구',TRUE),('12210','12','전남광주','동구','전남광주 동구',TRUE)");
         clock=new MutableClock(Instant.parse("2026-10-04T14:59:00Z"));
@@ -56,6 +57,34 @@ class GrowthServiceTest {
     }
 
     private <T> T call(java.util.function.Supplier<T> operation) {return tx.execute(status->operation.get());}
+
+    @Test void awardNoticesUseCommittedOwnershipAndAcknowledgementNeverChangesXp() {
+        facilities(3);call(()->growth.initializePolicy(true));call(()->growth.backfillUser(1,true));
+        var notices=call(()->growth.awardNotices(actor));
+        assertEquals(3,notices.items().size()); // Two districts and a bronze medal.
+        long xp=call(()->growth.summary(actor)).totalXp();
+        List<String> ids=notices.items().stream().map(GrowthService.AwardNotice::id).toList();
+        call(()->{growth.acknowledgeAwardNotices(actor,ids);return null;});
+        assertTrue(call(()->growth.awardNotices(actor)).items().isEmpty());
+        call(()->{growth.acknowledgeAwardNotices(actor,ids);return null;});
+        assertEquals(xp,call(()->growth.summary(actor)).totalXp());
+        jdbc.update("INSERT INTO app_user VALUES(2,'ACTIVE',0)");
+        assertThrows(GrowthFailure.class,()->call(()->{growth.acknowledgeAwardNotices(new GrowthService.Actor(2,0),ids);return null;}));
+        assertThrows(GrowthFailure.class,()->call(()->{growth.acknowledgeAwardNotices(actor,List.of("0"));return null;}));
+        jdbc.update("UPDATE growth_award SET active=FALSE WHERE user_id=1");
+        assertTrue(call(()->growth.awardNotices(actor)).items().isEmpty());
+    }
+
+    @Test void rolloutDoesNotAnnounceHistoricalAwardsAndNewAwardsAreStillUnseen() {
+        facilities(1);facility(2,"30110");call(()->growth.initializePolicy(true));call(()->growth.backfillUser(1,true));
+        jdbc.update("UPDATE growth_award SET notice_seen_at=CURRENT_TIMESTAMP");
+        assertTrue(call(()->growth.awardNotices(actor)).items().isEmpty());
+        review(2,2,4);call(()->growth.reconcileUser(1,"REVIEW_CREATED"));
+        var notices=call(()->growth.awardNotices(actor));
+        assertEquals(1,notices.items().size());assertEquals("30110",notices.items().getFirst().badge().code());
+        jdbc.update("UPDATE app_user SET auth_version=1 WHERE user_id=1");
+        assertThrows(GrowthFailure.class,()->call(()->growth.awardNotices(actor)));
+    }
     private void facility(int id,String region) {
         jdbc.update("INSERT INTO toilet VALUES(?,'VISIBLE')",id);
         jdbc.update("INSERT INTO current_toilet_region VALUES(?,'VERIFIED',?)",id,region);

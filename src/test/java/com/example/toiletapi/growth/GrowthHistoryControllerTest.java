@@ -2,6 +2,7 @@ package com.example.toiletapi.growth;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.example.toiletapi.auth.config.SecurityConfig;
@@ -50,6 +51,26 @@ class GrowthHistoryControllerTest {
                 .andExpect(jsonPath("$.items[0].awardKind").value("CHECKIN"))
                 .andExpect(jsonPath("$.items[0].awardKey").doesNotExist());
         verify(growth).history(actor);verifyNoMoreInteractions(growth);
+    }
+
+    @Test void awardNoticeReadsUseAuthenticatedOwnerAndStayPrivate() throws Exception {
+        when(growth.awardNotices(actor)).thenReturn(new GrowthService.AwardNotices(List.of()));
+        mvc.perform(get("/api/v1/growth/award-notices").header("Authorization","Bearer MEMBER").param("userId","999"))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control","private, no-store"))
+                .andExpect(jsonPath("$.items").isEmpty());
+        verify(growth).awardNotices(actor);
+        mvc.perform(get("/api/v1/growth/award-notices")).andExpect(status().isUnauthorized());
+    }
+
+    @Test void acknowledgementRetainsOriginAndAccountBoundaries() throws Exception {
+        mvc.perform(post("/api/v1/growth/award-notices/acknowledge").header("Authorization","Bearer MEMBER")
+                .header("Origin","https://preview.geupddong.com").contentType("application/json").content("{\"ids\":[\"91\"],\"userId\":999}"))
+                .andExpect(status().isNoContent()).andExpect(header().string("Cache-Control","private, no-store"));
+        verify(growth).acknowledgeAwardNotices(actor,List.of("91"));
+        mvc.perform(post("/api/v1/growth/award-notices/acknowledge").header("Authorization","Bearer MEMBER")
+                .header("Origin","https://untrusted.invalid").contentType("application/json").content("{\"ids\":[\"91\"]}"))
+                .andExpect(status().isForbidden());
+        verifyNoMoreInteractions(growth);
     }
 
     @Test void pagedRequestPassesOnlyAuthenticatedActorAndReturnsCounts() throws Exception {

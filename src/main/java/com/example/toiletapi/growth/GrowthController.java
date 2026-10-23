@@ -8,6 +8,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.http.HttpStatus;
+import java.util.List;
 import org.springframework.web.bind.annotation.RestController;
 
 /** Private member growth data. Authorization and current account state are checked by GrowthService. */
@@ -21,6 +25,21 @@ public class GrowthController {
     @GetMapping("/me")
     public GrowthService.Summary me(@AuthenticationPrincipal Jwt jwt) {
         return growth.summary(actor(jwt));
+    }
+
+    @GetMapping("/award-notices")
+    public GrowthService.AwardNotices notices(@AuthenticationPrincipal Jwt jwt) {
+        return growth.awardNotices(actor(jwt));
+    }
+
+    public record NoticeAcknowledgement(List<String> ids) { }
+
+    @PostMapping("/award-notices/acknowledge")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void acknowledge(@AuthenticationPrincipal Jwt jwt,HttpServletRequest request,
+            @RequestBody NoticeAcknowledgement body) {
+        AuthenticatedMutationBoundary.requireTrustedOriginOrBearer(request,jwt);
+        growth.acknowledgeAwardNotices(actor(jwt),body.ids());
     }
 
     @GetMapping("/history")
