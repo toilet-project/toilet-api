@@ -43,6 +43,8 @@ public class GrowthService {
 
     public record Actor(long userId, long authVersion) { }
     public record Badge(String type, String code, String name, String tier, int xp, LocalDateTime earnedAt) { }
+    public record AwardNotice(String id, Badge badge) { }
+    public record AwardNotices(List<AwardNotice> items) { }
     public record Region(String code, String name, int targetDistricts, int earnedDistricts,
                          int distinctFacilities, String tier, int bronzeFacilities, int silverFacilities,
                          int goldFacilities, int silverDistricts, int goldDistricts) { }
@@ -309,6 +311,51 @@ public class GrowthService {
         GrowthLedger.Policy policy=ledgerPolicy(false);
         if(policy==null) return blankSummary();
         return summaryLoaded(actor.userId(),policy);
+    }
+
+    /** Read-only; only committed, currently owned awards can be announced. */
+    @Transactional(readOnly=true)
+    public AwardNotices awardNotices(Actor actor) {
+        requireActor(actor,false);
+        if(!enabled) return new AwardNotices(List.of());
+        GrowthLedger.Policy policy=ledgerPolicy(false);
+        if(policy==null) return new AwardNotices(List.of());
+        Map<String,Badge> badges=summaryLoaded(actor.userId(),policy).badges().stream()
+                .collect(Collectors.toMap(b->b.type()+":"+b.code()+":"+b.tier(),Function.identity()));
+        List<AwardNotice> notices=jdbc.query("""
+                SELECT award_id,award_kind,award_key FROM growth_award
+                WHERE user_id=? AND active=TRUE AND notice_seen_at IS NULL
+                  AND award_kind IN ('DISTRICT','MEDAL_BRONZE','MEDAL_SILVER','MEDAL_GOLD')
+                  AND award_key IS NOT NULL
+                ORDER BY awarded_at,award_id LIMIT 50
+                """,(rs,i)->{
+                    String kind=rs.getString(2),key=rs.getString(3);
+                    String identity="DISTRICT".equals(kind)
+                            ?"district:"+key.substring(2)+":null"
+                            :"regional_medal:"+key.substring(2)+":"+kind.substring(6).toLowerCase(java.util.Locale.ROOT);
+                    Badge badge=badges.get(identity);
+                    return badge==null?null:new AwardNotice(Long.toString(rs.getLong(1)),badge);
+                },actor.userId()).stream().filter(Objects::nonNull).toList();
+        return new AwardNotices(notices);
+    }
+
+    /** User-row lock also serializes concurrent review reconciliation and duplicate acknowledgements. */
+    @Transactional
+    public void acknowledgeAwardNotices(Actor actor,List<String> ids) {
+        requireActor(actor,true);
+        if(ids==null || ids.isEmpty() || ids.size()>50
+                || ids.stream().anyMatch(id->id==null || !id.matches("[1-9][0-9]{0,17}")))
+            throw new GrowthFailure(400,"INVALID_AWARD_NOTICE","확인할 업적을 다시 선택해 주세요.");
+        List<Long> unique=ids.stream().map(Long::valueOf).distinct().toList();
+        String placeholders=String.join(",",java.util.Collections.nCopies(unique.size(),"?"));
+        List<Object> parameters=new ArrayList<>();parameters.add(actor.userId());parameters.addAll(unique);
+        Integer owned=jdbc.queryForObject("SELECT COUNT(*) FROM growth_award WHERE user_id=? AND award_id IN ("
+                +placeholders+") AND award_kind IN ('DISTRICT','MEDAL_BRONZE','MEDAL_SILVER','MEDAL_GOLD')",Integer.class,parameters.toArray());
+        if(owned==null || owned!=unique.size())
+            throw new GrowthFailure(400,"INVALID_AWARD_NOTICE","확인할 업적을 다시 선택해 주세요.");
+        parameters.add(0,now());
+        jdbc.update("UPDATE growth_award SET notice_seen_at=? WHERE user_id=? AND award_id IN ("
+                +placeholders+") AND notice_seen_at IS NULL",parameters.toArray());
     }
 
     @Transactional
