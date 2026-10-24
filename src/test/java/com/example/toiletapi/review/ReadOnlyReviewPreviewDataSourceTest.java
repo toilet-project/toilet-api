@@ -58,8 +58,20 @@ class ReadOnlyReviewPreviewDataSourceTest {
         for(int i=0;i<6;i++) {
             SQLException failure=assertThrows(SQLException.class,source::getConnection);
             assertEquals("Read-only preview database unavailable",failure.getMessage());assertNull(failure.getCause());
+            assertEquals(ReadOnlyReviewPreviewDataSource.Stage.NATIVE_PROOF,((ReadOnlyReviewPreviewDataSource.InitializationFailure)failure).stage());
         }
         verify(raw.connection(),times(6)).close();verify(raw.connection(),never()).prepareStatement(anyString());
+    }
+    @Test void startupDiagnosticsUseFixedStagesOnlyAndNeverRepeatOnOrdinaryRequests() throws Exception {
+        var raw=raw(1);var source=new ReadOnlyReviewPreviewDataSource(()->raw.connection());
+        var stages=new ArrayList<ReadOnlyReviewPreviewDataSource.Stage>();source.verifyConnection(stages::add);
+        assertEquals(List.of(ReadOnlyReviewPreviewDataSource.Stage.values()),stages);
+        source.verifyConnection();assertEquals(8,stages.size());
+        when(raw.connection().getAutoCommit()).thenThrow(new SQLException("synthetic password and SQL must never be copied","08001"));
+        var failure=assertThrows(ReadOnlyReviewPreviewDataSource.InitializationFailure.class,source::verifyConnection);
+        assertEquals(ReadOnlyReviewPreviewDataSource.Stage.AUTOCOMMIT_CHECK,failure.stage());
+        assertEquals(ReadOnlyReviewPreviewDataSource.Reason.CONNECTIVITY,failure.reason());assertNull(failure.getCause());
+        assertFalse(failure.getMessage().contains("synthetic"));
     }
     @Test void atMostFourConnectionsExistAndClosingTwiceDoesNotExpandCapacity() throws Exception {
         var raw=raw(1);var source=new ReadOnlyReviewPreviewDataSource(()->raw.connection());

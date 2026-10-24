@@ -4,6 +4,7 @@ import java.lang.reflect.*;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.Semaphore;
+import java.util.function.Consumer;
 import org.springframework.jdbc.datasource.AbstractDataSource;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
@@ -12,6 +13,14 @@ final class ReadOnlyReviewPreviewDataSource extends AbstractDataSource {
     @FunctionalInterface interface Connections { Connection open() throws SQLException; }
     private final Connections connections;
     private final Semaphore slots=new Semaphore(4);
+    enum Stage { CONNECT_OPEN, AUTOCOMMIT_CHECK, CLIENT_READ_ONLY, SESSION_READ_ONLY, SESSION_TIMEOUT, SESSION_TIMEZONE, NATIVE_PROOF, NATIVE_CONFIRMED }
+    enum Reason { CONNECTIVITY, AUTHENTICATION, SQL_CONFIGURATION, DRIVER_OR_SESSION, UNAVAILABLE }
+    static final class InitializationFailure extends SQLException {
+        private final Stage stage;private final Reason reason;
+        InitializationFailure(Stage stage,Reason reason) {super("Read-only preview database unavailable");this.stage=stage;this.reason=reason;}
+        Stage stage(){return stage;} Reason reason(){return reason;}
+    }
+    private final ThreadLocal<Consumer<Stage>> startupDiagnostic=new ThreadLocal<>();
     private static final String FIELDS="""
             r.review_id,r.toilet_id,r.author_user_id,r.author_detached,r.satisfaction,r.cleanliness,
             r.paper_available,r.wait_minutes,r.created_at,r.updated_at,
@@ -45,25 +54,41 @@ final class ReadOnlyReviewPreviewDataSource extends AbstractDataSource {
     }
     @Override public Connection getConnection() throws SQLException {
         if(!slots.tryAcquire())throw new SQLTransientConnectionException("Preview read capacity reached");
-        Connection raw=null;
+        Connection raw=null;Stage stage=Stage.CONNECT_OPEN;
         try {
-            raw=connections.open();if(!raw.getAutoCommit())throw new SQLException("Fresh autocommit session required");
-            raw.setReadOnly(true);
+            report(stage);raw=connections.open();stage=Stage.AUTOCOMMIT_CHECK;report(stage);
+            if(!raw.getAutoCommit())throw new SQLException("Fresh autocommit session required");
+            stage=Stage.CLIENT_READ_ONLY;report(stage);raw.setReadOnly(true);
             try(var statement=raw.createStatement()) {
-                statement.setQueryTimeout(3);statement.execute("SET SESSION TRANSACTION READ ONLY");
-                statement.execute("SET SESSION MAX_EXECUTION_TIME=3000");statement.execute("SET SESSION time_zone='+09:00'");
+                statement.setQueryTimeout(3);stage=Stage.SESSION_READ_ONLY;report(stage);statement.execute("SET SESSION TRANSACTION READ ONLY");
+                stage=Stage.SESSION_TIMEOUT;report(stage);statement.execute("SET SESSION MAX_EXECUTION_TIME=3000");
+                stage=Stage.SESSION_TIMEZONE;report(stage);statement.execute("SET SESSION time_zone='+09:00'");
+                stage=Stage.NATIVE_PROOF;report(stage);
                 try(var result=statement.executeQuery("SELECT @@session.transaction_read_only")) {
                     if(!result.next() || result.getInt(1)!=1)throw new SQLException("Native read-only session required");
                 }
             }
+            stage=Stage.NATIVE_CONFIRMED;report(stage);
             return guarded(raw);
         } catch(SQLException | RuntimeException failure) {
             if(raw!=null)try{raw.close();}catch(SQLException ignored){ }
-            slots.release();throw new SQLException("Read-only preview database unavailable");
+            slots.release();throw new InitializationFailure(stage,reason(failure));
         }
     }
     @Override public Connection getConnection(String user,String password) throws SQLException {throw denied();}
     void verifyConnection() throws SQLException {try(var connection=getConnection()){ /* Native session already checked. */ }}
+    void verifyConnection(Consumer<Stage> diagnostic) throws SQLException {
+        startupDiagnostic.set(diagnostic);try{verifyConnection();}finally{startupDiagnostic.remove();}
+    }
+    private void report(Stage stage) {var diagnostic=startupDiagnostic.get();if(diagnostic!=null)diagnostic.accept(stage);}
+    private static Reason reason(Exception failure) {
+        String state=failure instanceof SQLException sql?sql.getSQLState():null;
+        if(state==null)return Reason.UNAVAILABLE;
+        if(state.startsWith("08"))return Reason.CONNECTIVITY;
+        if(state.startsWith("28"))return Reason.AUTHENTICATION;
+        if(state.startsWith("42"))return Reason.SQL_CONFIGURATION;
+        return Reason.DRIVER_OR_SESSION;
+    }
     private Connection guarded(Connection raw) {
         var closed=new java.util.concurrent.atomic.AtomicBoolean();
         InvocationHandler handle=(proxy,method,args)->{

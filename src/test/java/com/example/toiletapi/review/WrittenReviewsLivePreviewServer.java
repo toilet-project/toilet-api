@@ -18,14 +18,21 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * and only executes the actual repository's three parameterized SELECT shapes.
  */
 public final class WrittenReviewsLivePreviewServer {
+    private static String startupStage="PACKAGE";
     static final ObjectMapper JSON=new ObjectMapper().registerModule(new SimpleModule().addSerializer(OffsetDateTime.class,
             new JsonSerializer<>() { @Override public void serialize(OffsetDateTime value,JsonGenerator output,SerializerProvider provider)
                     throws java.io.IOException { output.writeString(value.toString()); } }));
     public static void main(String[] args) {
         try {start(args,System.getenv());}
-        catch(Exception unavailable) {System.err.println("Live read-only preview initialization unavailable; no connection details logged.");System.exit(1);}
+        catch(Exception unavailable) {
+            String reason=unavailable instanceof ReadOnlyReviewPreviewDataSource.InitializationFailure failure
+                    ?failure.stage().name()+"_"+failure.reason().name():startupStage;
+            System.err.println("WRITTEN_REVIEWS_LIVE_FAILURE:"+reason);System.exit(1);
+        } catch(LinkageError unavailable) {System.err.println("WRITTEN_REVIEWS_LIVE_FAILURE:CLASSPATH");System.exit(1);}
+        catch(OutOfMemoryError unavailable) {System.err.println("WRITTEN_REVIEWS_LIVE_FAILURE:MEMORY");System.exit(1);}
     }
     static void start(String[] args,Map<String,String> env) throws Exception {
+        mark("CONFIGURATION");
         String secret=env.get("PREVIEW_GATEWAY_TOKEN"),bind=env.getOrDefault("WRITTEN_REVIEWS_PREVIEW_BIND_ADDRESS","127.0.0.1");
         if(args.length!=0 || !"temporary-read-only-preview".equals(env.get("WRITTEN_REVIEWS_LIVE_ENABLED"))
                 || secret==null || !secret.matches("[a-f0-9]{64}") || !Set.of("127.0.0.1","0.0.0.0").contains(bind))
@@ -34,8 +41,10 @@ public final class WrittenReviewsLivePreviewServer {
         Instant expires=Instant.parse(env.get("WRITTEN_REVIEWS_PREVIEW_EXPIRES_AT"));
         long remaining=Duration.between(Instant.now(),expires).toMillis();
         if(port<1024 || port>65535 || remaining<1000 || remaining>7200000)throw new IllegalArgumentException("Bounded live preview required");
-        var source=ReadOnlyReviewPreviewDataSource.fromEnvironment(env);source.verifyConnection();
+        mark("DATASOURCE_CONFIGURATION");var source=ReadOnlyReviewPreviewDataSource.fromEnvironment(env);
+        source.verifyConnection(stage->mark(stage.name()));
         var service=new AdminReviewService(new AdminReviewRepository(new JdbcTemplate(source)));
+        mark("HTTP_BIND");
         var server=HttpServer.create(new InetSocketAddress(InetAddress.getByName(bind),port),8);
         var threads=new ThreadPoolExecutor(4,4,0,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<>(8),new ThreadPoolExecutor.AbortPolicy());
         server.setExecutor(threads);
@@ -72,6 +81,7 @@ public final class WrittenReviewsLivePreviewServer {
         });
         System.out.println("WRITTEN_REVIEWS_LIVE_PREVIEW_READY live=true readonly=true noSnapshot=true");
     }
+    private static void mark(String stage) {startupStage=stage;System.out.println("WRITTEN_REVIEWS_LIVE_STAGE:"+stage);}
     static Map<String,String> query(String raw) {
         var values=new HashMap<String,String>();if(raw==null || raw.isEmpty())return values;
         if(raw.length()>500)throw new IllegalArgumentException();
