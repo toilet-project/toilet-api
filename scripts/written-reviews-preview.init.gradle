@@ -1,0 +1,17 @@
+// Explicit test-classpath launcher; no operational application configuration or DB connection is loaded.
+allprojects {
+    afterEvaluate {
+        tasks.register('writtenReviewsPreviewClasspath') {
+            dependsOn testClasses
+            doLast {
+                layout.buildDirectory.file('written-reviews-preview-classpath.txt').get().asFile.text = sourceSets.test.runtimeClasspath.asPath
+            }
+        }
+        tasks.register('writtenReviewsPreview', JavaExec) {
+            dependsOn testClasses
+            classpath = sourceSets.test.runtimeClasspath
+            mainClass = 'com.example.toiletapi.review.WrittenReviewsPreviewServer'
+            jvmArgs '-Duser.timezone=Asia/Seoul'
+        }
+    }
+}
