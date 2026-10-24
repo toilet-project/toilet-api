@@ -19,6 +19,7 @@ public class ReviewBoundaryFilter extends OncePerRequestFilter {
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         String path=request.getRequestURI();
         return !path.equals("/api/v1/reviews") && !path.startsWith("/api/v1/reviews/")
+                && !path.equals("/api/admin/v1/reviews") && !path.startsWith("/api/admin/v1/reviews/")
                 && !path.matches("/api/v1/toilets/[0-9]+/reviews(?:/summary)?");
     }
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain) throws ServletException,IOException {
