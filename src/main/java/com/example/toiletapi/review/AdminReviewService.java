@@ -25,7 +25,8 @@ public class AdminReviewService {
         var item=item(row);
         return new AdminReviewModels.Detail(item.id(),item.toiletId(),item.toiletName(),item.toiletVisibility(),
                 item.satisfaction(),item.cleanliness(),item.paper(),item.waitMinutes(),item.authorDisplayName(),
-                item.authorRemoved(),item.createdAt(),item.updatedAt(),item.hasComment(),row.comment());
+                item.authorRemoved(),item.createdAt(),item.updatedAt(),item.hasComment(),row.comment(),
+                row.reviewKey(),row.version(),AdminReviewModerationService.POLICY_VERSION);
     }
     private static AdminReviewModels.Item item(AdminReviewRepository.Row row) {
         boolean removed=row.detached() || row.missingAuthor() || !"ACTIVE".equals(row.authorStatus());

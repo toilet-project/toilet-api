@@ -39,7 +39,7 @@ final class ReadOnlyReviewPreviewDataSource extends AbstractDataSource {
     private static final Set<String> ALLOWED=Set.of(
             normalized(PAGE+SORT+" LIMIT ?) r"+JOINS+SORT),
             normalized(PAGE+" WHERE (r.created_at<? OR (r.created_at=? AND r.review_id<?))"+SORT+" LIMIT ?) r"+JOINS+SORT),
-            normalized("SELECT "+FIELDS+"(r.comment<>'') AS has_comment,r.comment"+RELATED+" FROM toilet_review r"+JOINS+" WHERE r.review_id=?"));
+            normalized("SELECT "+FIELDS+"(r.comment<>'') AS has_comment,r.comment,r.review_key,r.version"+RELATED+" FROM toilet_review r"+JOINS+" WHERE r.review_id=?"));
     ReadOnlyReviewPreviewDataSource(Connections connections) { this.connections=connections; }
     static ReadOnlyReviewPreviewDataSource fromEnvironment(Map<String,String> env) {
         String url=env.get("SPRING_DB_URL"),user=env.get("SPRING_DB_USERNAME"),password=env.get("SPRING_DB_PASSWORD");

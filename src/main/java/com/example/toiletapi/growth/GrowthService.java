@@ -272,6 +272,21 @@ public class GrowthService {
         return new ReconcileResult(result.userId(),true,result.earnedCount(),result.revokedCount(),result.totalXp());
     }
 
+    /** Removal must revoke invalid rewards/evidence even while new growth awards are disabled. */
+    @Transactional
+    public void reconcileAfterReviewRemoval(Long authorId,String reviewKey) {
+        if(reviewKey==null || !reviewKey.matches("[0-9a-fA-F-]{36}"))throw new IllegalArgumentException("리뷰 식별자가 올바르지 않습니다.");
+        if(jdbc.queryForObject("SELECT COUNT(*) FROM toilet_review WHERE review_key=?",Integer.class,reviewKey)!=0)
+            throw new IllegalStateException("리뷰 삭제 후 성장 기록을 정리해야 합니다.");
+        var owners=new java.util.TreeSet<Long>();
+        if(authorId!=null)owners.add(authorId);
+        owners.addAll(jdbc.query("SELECT user_id FROM growth_review_evidence WHERE review_key=?",(rs,n)->rs.getLong(1),reviewKey));
+        for(long owner:owners)user(owner,true);
+        if(ledgerPolicy(false)!=null)for(long owner:owners)revokeUser(owner,"REVIEW_REMOVED");
+        // Also clear stale evidence if the growth policy was never initialized.
+        jdbc.update("DELETE FROM growth_review_evidence WHERE review_key=?",reviewKey);
+    }
+
     private ReconcileResult revokeUser(long userId,String reason) {
         user(userId,true);
         GrowthLedger.Policy policy=ledgerPolicy(false);

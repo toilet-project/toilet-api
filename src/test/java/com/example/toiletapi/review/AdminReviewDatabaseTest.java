@@ -28,7 +28,7 @@ class AdminReviewDatabaseTest {
         jdbc.execute("""
                 CREATE TABLE toilet_review(review_id BIGINT PRIMARY KEY,toilet_id BIGINT,author_user_id BIGINT,
                 author_detached BOOLEAN,satisfaction INT,cleanliness INT,paper_available BOOLEAN,wait_minutes INT,
-                comment VARCHAR(200),created_at TIMESTAMP(6),updated_at TIMESTAMP(6))
+                comment VARCHAR(200),created_at TIMESTAMP(6),updated_at TIMESTAMP(6),review_key CHAR(36),version BIGINT NOT NULL DEFAULT 0)
                 """);
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V45__index_admin_review_created.sql")).execute(ds);
         jdbc.update("INSERT INTO app_user VALUES(1,'ACTIVE','관리자',3),(2,'ACTIVE','작성자',0),(3,'WITHDRAWN','사라져야 할 이름',1),(4,'SUSPENDED','비활성 이름',0)");
@@ -37,7 +37,8 @@ class AdminReviewDatabaseTest {
         service=new AdminReviewService(new AdminReviewRepository(jdbc));access=new AdminReviewAccess(jdbc);
     }
     void insert(long id,long toilet,Long author,boolean detached,LocalDateTime time,String comment) {
-        jdbc.update("INSERT INTO toilet_review VALUES(?,?,?,?,4,2,TRUE,20,?,?,?)",id,toilet,author,detached,comment,time,time.plusHours(1));
+        jdbc.update("INSERT INTO toilet_review(review_id,toilet_id,author_user_id,author_detached,satisfaction,cleanliness,paper_available,wait_minutes,comment,created_at,updated_at,review_key) VALUES(?,?,?,?,4,2,TRUE,20,?,?,?,?)",
+                id,toilet,author,detached,comment,time,time.plusHours(1),new UUID(0,id).toString());
     }
     Jwt admin() { return Jwt.withTokenValue("synthetic").header("alg","HS256").subject("1").claim("auth_version",3).build(); }
 

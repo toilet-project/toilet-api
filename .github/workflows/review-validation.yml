@@ -28,6 +28,10 @@ jobs:
           admin_result=build/test-results/test/TEST-com.example.toiletapi.review.AdminReviewContainerMySqlTest.xml
           test -s "$admin_result"
           grep -q 'skipped="0"' "$admin_result"
+          moderation_result=build/test-results/test/TEST-com.example.toiletapi.review.AdminReviewModerationContainerMySqlTest.xml
+          test -s "$moderation_result"
+          grep -q 'tests="7"' "$moderation_result"
+          grep -q 'skipped="0"' "$moderation_result"
           growth_result=build/test-results/test/TEST-com.example.toiletapi.growth.GrowthCollationContainerMySqlTest.xml
           test -s "$growth_result"
           grep -q 'skipped="0"' "$growth_result"

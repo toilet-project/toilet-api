@@ -14,7 +14,8 @@ public class AdminReviewRepository {
     public AdminReviewRepository(JdbcTemplate jdbc) { this.jdbc=jdbc; }
     record Row(long id,long toiletId,String toiletName,String toiletVisibility,int satisfaction,int cleanliness,
                boolean paper,int waitMinutes,String authorStatus,String displayName,boolean detached,boolean missingAuthor,
-               LocalDateTime createdAt,LocalDateTime updatedAt,boolean hasComment,String comment) { }
+               LocalDateTime createdAt,LocalDateTime updatedAt,boolean hasComment,String comment,String reviewKey,long version) { }
+    record RemovalTarget(String reviewKey,Long authorId,long version) { }
     private static final String FIELDS="""
             r.review_id,r.toilet_id,r.author_user_id,r.author_detached,r.satisfaction,r.cleanliness,
             r.paper_available,r.wait_minutes,r.created_at,r.updated_at,
@@ -45,8 +46,18 @@ public class AdminReviewRepository {
         return jdbc.query(sql.toString(),SUMMARY,args.toArray());
     }
     Optional<Row> find(long id) {
-        return jdbc.query("SELECT "+FIELDS+"(r.comment<>'') AS has_comment,r.comment"+RELATED
+        return jdbc.query("SELECT "+FIELDS+"(r.comment<>'') AS has_comment,r.comment,r.review_key,r.version"+RELATED
                 +" FROM toilet_review r"+JOIN+" WHERE r.review_id=?",DETAIL,id).stream().findFirst();
+    }
+    Optional<RemovalTarget> removalTarget(long id,boolean lock) {
+        return jdbc.query("SELECT review_key,author_user_id,version FROM toilet_review WHERE review_id=?"+(lock?" FOR UPDATE":""),
+                (rs,n)->new RemovalTarget(rs.getString(1),rs.getObject(2,Long.class),rs.getLong(3)),id).stream().findFirst();
+    }
+    void lockRemovalAuthor(Long id) {
+        if(id!=null)jdbc.query("SELECT user_id FROM app_user WHERE user_id=? FOR UPDATE",(rs,n)->rs.getLong(1),id);
+    }
+    int remove(long id,String reviewKey,long version) {
+        return jdbc.update("DELETE FROM toilet_review WHERE review_id=? AND review_key=? AND version=?",id,reviewKey,version);
     }
     private static Row row(java.sql.ResultSet rs,boolean detail) throws java.sql.SQLException {
         return new Row(rs.getLong("review_id"),rs.getLong("toilet_id"),rs.getString("toilet_name"),rs.getString("toilet_visibility"),
@@ -54,6 +65,7 @@ public class AdminReviewRepository {
                 rs.getString("author_status"),rs.getString("display_name"),rs.getBoolean("author_detached"),
                 rs.getObject("author_user_id")==null || rs.getString("author_status")==null,
                 rs.getObject("created_at",LocalDateTime.class),rs.getObject("updated_at",LocalDateTime.class),
-                rs.getBoolean("has_comment"),detail?rs.getString("comment"):null);
+                rs.getBoolean("has_comment"),detail?rs.getString("comment"):null,
+                detail?rs.getString("review_key"):null,detail?rs.getLong("version"):0);
     }
 }

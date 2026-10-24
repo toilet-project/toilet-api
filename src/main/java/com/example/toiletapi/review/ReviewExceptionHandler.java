@@ -13,6 +13,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(assignableTypes={ReviewController.class,AdminReviewController.class})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ReviewExceptionHandler {
+    @ExceptionHandler(org.springframework.dao.PessimisticLockingFailureException.class)
+    ResponseEntity<ApiErrorResponse> busy(Exception ignored) {
+        return ResponseEntity.status(409).body(ApiErrorResponse.of("REVIEW_BUSY","다른 작업이 진행 중입니다. 최신 내용을 확인한 뒤 다시 시도해 주세요."));
+    }
     @ExceptionHandler(ReviewFailure.class)
     ResponseEntity<?> failure(ReviewFailure error) {
         var status=error.creationStatus();
