@@ -19,6 +19,7 @@ public class ReviewBoundaryFilter extends OncePerRequestFilter {
     @Override protected boolean shouldNotFilter(HttpServletRequest request) {
         String path=request.getRequestURI();
         return !path.equals("/api/v1/reviews") && !path.startsWith("/api/v1/reviews/")
+                && !path.equals("/api/admin/v1/reviews") && !path.startsWith("/api/admin/v1/reviews/")
                 && !path.matches("/api/v1/toilets/[0-9]+/reviews(?:/summary)?");
     }
     @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain) throws ServletException,IOException {
@@ -30,8 +31,10 @@ public class ReviewBoundaryFilter extends OncePerRequestFilter {
         String authorization=request.getHeader("Authorization");
         boolean nativeCandidate=request.getHeader("Origin")==null && authorization!=null
                 && authorization.startsWith("Bearer ") && authorization.length()>7;
-        if(!Set.of("GET","HEAD","OPTIONS").contains(request.getMethod()) && !nativeCandidate
-                && !ORIGINS.contains(String.valueOf(request.getHeader("Origin")))) {
+        boolean adminReview=request.getRequestURI().equals("/api/admin/v1/reviews") || request.getRequestURI().startsWith("/api/admin/v1/reviews/");
+        boolean trustedOrigin=adminReview?"https://admin.geupddong.com".equals(request.getHeader("Origin"))
+                :ORIGINS.contains(String.valueOf(request.getHeader("Origin")));
+        if(!Set.of("GET","HEAD","OPTIONS").contains(request.getMethod()) && !nativeCandidate && !trustedOrigin) {
             error(response,403,"REVIEW_ORIGIN_DENIED","허용되지 않은 요청 출처입니다.");return;
         }
         if(request.getContentLengthLong()>8192) {error(response,413,"REVIEW_REQUEST_TOO_LARGE","리뷰 요청이 너무 큽니다.");return;}
