@@ -1,0 +1,25 @@
+// Explicit standalone artifact; operational Spring/Flyway startup is never invoked.
+allprojects {
+    afterEvaluate {
+        def selectedClasses = layout.buildDirectory.dir('written-reviews-live-preview-classes')
+        tasks.register('writtenReviewsLivePreviewClasses', Sync) {
+            dependsOn testClasses
+            from(sourceSets.test.output.classesDirs) {
+                include 'com/example/toiletapi/review/WrittenReviewsLivePreviewServer.class'
+                include 'com/example/toiletapi/review/WrittenReviewsLivePreviewServer$*.class'
+                include 'com/example/toiletapi/review/ReadOnlyReviewPreviewDataSource.class'
+                include 'com/example/toiletapi/review/ReadOnlyReviewPreviewDataSource$*.class'
+            }
+            into selectedClasses
+        }
+        def bootJarType = project.plugins.getPlugin('org.springframework.boot').class.classLoader.loadClass('org.springframework.boot.gradle.tasks.bundling.BootJar')
+        tasks.register('writtenReviewsLivePreviewJar', bootJarType) {
+            dependsOn tasks.named('writtenReviewsLivePreviewClasses')
+            archiveFileName = 'written-reviews-live-preview.jar'
+            mainClass = 'com.example.toiletapi.review.WrittenReviewsLivePreviewServer'
+            classpath = files(selectedClasses) + sourceSets.main.runtimeClasspath
+            exclude 'application.yml'
+            targetJavaVersion = JavaVersion.VERSION_21
+        }
+    }
+}
