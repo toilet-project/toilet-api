@@ -2,6 +2,7 @@ package com.example.toiletapi.growth;
 
 import com.example.toiletapi.auth.privacy.EmailMask;
 import com.geupddong.growth.GrowthLevelPolicy;
+import java.sql.Types;
 import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -42,16 +43,18 @@ public class AdminGrowthRankingRepository {
     public List<AdminGrowthRankingModels.Item> page(String keyword,String lookupHash,boolean ascending,int size,long offset) {
         Object[] search=searchParameters(keyword,lookupHash);
         List<Object> args=new ArrayList<>(Arrays.asList(search));args.add(size);args.add(offset);
-        return jdbc.query(ascending?PAGE_ASC:PAGE_DESC,(rs,n)->{
+        return jdbc.query(ascending?PAGE_ASC:PAGE_DESC,args.toArray(),
+                new int[]{Types.VARCHAR,Types.VARCHAR,Types.VARCHAR,Types.VARCHAR,Types.INTEGER,Types.BIGINT},(rs,n)->{
             long xp=rs.getLong("total_xp");var tier=GrowthLevelPolicy.tier(xp);
             String legacy=rs.getString("email");
             return new AdminGrowthRankingModels.Item(Long.toString(rs.getLong("user_id")),rs.getString("display_name"),
                     EmailMask.mask(legacy==null?rs.getString("email_masked"):legacy),rs.getString("status"),xp,
                     GrowthLevelPolicy.level(xp),tier.rank(),tier.rankName(),rs.getLong("position"));
-        },args.toArray());
+        });
     }
     public long count(String keyword,String lookupHash) {
-        Long count=jdbc.queryForObject(COUNT,Long.class,searchParameters(keyword,lookupHash));
+        Long count=jdbc.queryForObject(COUNT,searchParameters(keyword,lookupHash),
+                new int[]{Types.VARCHAR,Types.VARCHAR,Types.VARCHAR,Types.VARCHAR},Long.class);
         return count==null?0:count;
     }
     public long[] distribution() {

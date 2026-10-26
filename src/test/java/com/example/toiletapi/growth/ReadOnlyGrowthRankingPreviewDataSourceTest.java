@@ -14,8 +14,8 @@ class ReadOnlyGrowthRankingPreviewDataSourceTest {
     List<String> actualQueries() {
         var queries=new ArrayList<String>();
         var jdbc=new JdbcTemplate() {
-            @Override public <T>List<T> query(String sql,RowMapper<T> mapper,Object... args) {queries.add(sql);return List.of();}
-            @Override public <T>T queryForObject(String sql,Class<T> type,Object... args) {queries.add(sql);return type.cast(0L);}
+            @Override public <T>List<T> query(String sql,Object[] args,int[] types,RowMapper<T> mapper) {queries.add(sql);return List.of();}
+            @Override public <T>T queryForObject(String sql,Object[] args,int[] types,Class<T> type) {queries.add(sql);return type.cast(0L);}
             @Override public void query(String sql,org.springframework.jdbc.core.RowCallbackHandler handler,Object... args) {queries.add(sql);}
         };
         var repository=new AdminGrowthRankingRepository(jdbc);
@@ -93,5 +93,17 @@ class ReadOnlyGrowthRankingPreviewDataSourceTest {
     }
     @Test void liveHostRequiresExplicitOptInBeforeContactingDatabase() {
         assertThrows(IllegalArgumentException.class,()->ExperienceRankingLivePreviewServer.start(new String[0],Map.of()));
+    }
+    @Test void emptySearchUsesExplicitNullableVarcharBindingsWithoutDriverMetadata() throws Exception {
+        var raw=raw(1);var result=mock(ResultSet.class);
+        when(raw.select().executeQuery()).thenReturn(result);
+        // Empty result models a page; count's single row can be tested independently.
+        when(result.next()).thenReturn(false);
+        var repository=new AdminGrowthRankingRepository(new JdbcTemplate(new ReadOnlyGrowthRankingPreviewDataSource(()->raw.connection())));
+        assertTrue(repository.page(null,null,false,10,0).isEmpty());
+        verify(raw.select()).setNull(1,Types.VARCHAR);verify(raw.select()).setNull(2,Types.VARCHAR);
+        verify(raw.select()).setNull(3,Types.VARCHAR);verify(raw.select()).setNull(4,Types.VARCHAR);
+        verify(raw.select()).setObject(5,10,Types.INTEGER);verify(raw.select()).setObject(6,0L,Types.BIGINT);
+        verify(raw.connection(),never()).getMetaData();verify(raw.select(),never()).getParameterMetaData();
     }
 }
