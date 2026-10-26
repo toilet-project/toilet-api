@@ -2,6 +2,7 @@ package com.example.toiletapi.growth;
 
 import com.example.toiletapi.policy.service.PolicyConsentService;
 import com.geupddong.growth.GrowthLedger;
+import com.geupddong.growth.GrowthLevelPolicy;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.time.Clock;
@@ -461,8 +462,7 @@ public class GrowthService {
     private Summary summaryLoaded(long userId,GrowthLedger.Policy policy) {
         long xp=GrowthLedger.totalXp(jdbc,userId);
         int level=level(xp); long currentThreshold=threshold(level),nextThreshold=threshold(level+1);
-        String[] names={"흰색 휴지","초록 휴지","노랑 휴지","파랑 휴지","빨강 휴지","핑크 휴지","검정 휴지"};
-        int rankIndex=level<=2?0:level<=4?1:level<=9?2:level<=14?3:level<=24?4:level<=39?5:6;
+        var rankTier=GrowthLevelPolicy.tier(xp);
         List<GrowthLedger.Award> awards=GrowthLedger.awards(jdbc,userId).stream().filter(GrowthLedger.Award::active).toList();
         Map<String,GrowthLedger.Target> byDistrict=policy.targets().stream()
                 .collect(Collectors.toMap(GrowthLedger.Target::code,Function.identity()));
@@ -523,28 +523,17 @@ public class GrowthService {
         String date=today().toString();
         boolean checkInAvailable=awards.stream().noneMatch(a->"CHECKIN".equals(a.kind()) && date.equals(a.key()));
         int progress=(int)Math.min(100,Math.max(0,((xp-currentThreshold)*100)/(nextThreshold-currentThreshold)));
-        return new Summary(true,policy.rules().version(),xp,level,rankForLevel(level),names[rankIndex],level+1,
+        return new Summary(true,policy.rules().version(),xp,level,rankTier.rank(),rankTier.rankName(),level+1,
                 nextThreshold,nextThreshold-xp,progress,checkInAvailable,List.copyOf(badges),List.copyOf(regions));
     }
 
     private static String rankForLevel(int level) {
-        if(level<=2) return "white";
-        if(level<=4) return "green";
-        if(level<=9) return "yellow";
-        if(level<=14) return "blue";
-        if(level<=24) return "red";
-        if(level<=39) return "pink";
-        return "black";
+        return GrowthLevelPolicy.tier(GrowthLevelPolicy.threshold(level)).rank();
     }
 
     private static int tierOrder(String value) {
         return switch(value) {case "gold"->3;case "silver"->2;default->1;};
     }
-    public static long threshold(int level) { return 10L*(level*(long)level-1); }
-    public static int level(long xp) {
-        int level=(int)Math.sqrt(xp/10.0+1);
-        while(threshold(level+1)<=xp)level++;
-        while(level>1 && threshold(level)>xp)level--;
-        return Math.max(1,level);
-    }
+    public static long threshold(int level) { return GrowthLevelPolicy.threshold(level); }
+    public static int level(long xp) { return GrowthLevelPolicy.level(xp); }
 }

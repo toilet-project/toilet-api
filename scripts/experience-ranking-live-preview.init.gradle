@@ -1,0 +1,25 @@
+// Standalone reporting artifact. Operational startup and automatic migrations are never invoked.
+allprojects {
+    afterEvaluate {
+        def selectedClasses = layout.buildDirectory.dir('experience-ranking-live-preview-classes')
+        tasks.register('experienceRankingLivePreviewClasses', Sync) {
+            dependsOn testClasses
+            from(sourceSets.test.output.classesDirs) {
+                include 'com/example/toiletapi/growth/ExperienceRankingLivePreviewServer.class'
+                include 'com/example/toiletapi/growth/ExperienceRankingLivePreviewServer$*.class'
+                include 'com/example/toiletapi/growth/ReadOnlyGrowthRankingPreviewDataSource.class'
+                include 'com/example/toiletapi/growth/ReadOnlyGrowthRankingPreviewDataSource$*.class'
+            }
+            into selectedClasses
+        }
+        def bootJarType = project.plugins.getPlugin('org.springframework.boot').class.classLoader.loadClass('org.springframework.boot.gradle.tasks.bundling.BootJar')
+        tasks.register('experienceRankingLivePreviewJar', bootJarType) {
+            dependsOn tasks.named('experienceRankingLivePreviewClasses')
+            archiveFileName = 'experience-ranking-live-preview.jar'
+            mainClass = 'com.example.toiletapi.growth.ExperienceRankingLivePreviewServer'
+            classpath = files(selectedClasses) + sourceSets.main.runtimeClasspath
+            exclude 'application.yml'
+            targetJavaVersion = JavaVersion.VERSION_21
+        }
+    }
+}
